@@ -1,49 +1,83 @@
 # AI Mentoring
 
-## Análisis del proyecto (2026-07-18)
+Serverless, event-driven platform that turns exam-question photos into a structured question bank, built to support AWS certification mentoring sessions at Escola da Nuvem.
 
-### Qué hace hoy (pipeline funcional)
+This project is already in real use in my mentoring sessions and is being actively developed toward a fully operational platform — with the long-term goal of exploring monetization once the student-facing features are in place.
 
-Arquitectura event-driven serverless en AWS:
+---
+
+## 🏗️ Solution Architecture 
+
+![Arquitetura AWS Serverless](/01_Projects/AI_Mentoring%20/img/architecture_AI_Mentoring.png)
+
+--- 
+
+## What it does today
+
+Mentoring students send photos of exam-style questions (from mock exams they're studying). The pipeline automatically extracts the question, classifies it by topic and difficulty, and stores it in a structured database — building a growing question bank that feeds future "commented mock exam" classes.
+
+## Architecture
 
 ```
-S3 (foto examen) → S3 Event Notification → SQS (main_queue, con DLQ)
-   → Lambda (processor.py) → Rekognition (OCR) → Bedrock (Claude Haiku 4.5) → DynamoDB
+S3 (exam question photo)
+   → S3 Event Notification
+   → SQS (main queue, with DLQ)
+   → Lambda (processor.py)
+        → Amazon Rekognition (OCR)
+        → Amazon Bedrock — Claude (structures topic, explanation, difficulty)
+   → DynamoDB (MentoringQuestions)
 ```
 
-- **S3**: bucket `daniel-mentoring-exam-photos-edn-dev` recibe fotos de preguntas de examen.
-- **SQS**: desacopla la ingesta; tiene DLQ con `maxReceiveCount=4` — buen patrón de resiliencia.
-- **Lambda `processor.py`**: OCR con Rekognition → prompt a Bedrock pidiendo JSON estructurado (`topic`, `explanation`, `difficulty`) → limpieza de markdown → `PutItem` en DynamoDB.
-- **DynamoDB** `MentoringQuestions`: `QuestionID` (PK) + GSI por `Topic`, modo `PAY_PER_REQUEST`.
-- **IAM**: rol y política dedicados, permisos acotados a los recursos necesarios (aunque con dos statements duplicados para `bedrock:InvokeModel`, ver hallazgos).
+- **Amazon S3** — receives the exam question photo upload.
+- **Amazon SQS** — decouples ingestion from processing; includes a Dead Letter Queue (`maxReceiveCount=4`) so a failed message doesn't get lost or block the queue.
+- **AWS Lambda** — runs OCR via Rekognition, then prompts Amazon Bedrock (Claude) to return structured JSON (`topic`, `explanation`, `difficulty`), and writes the result to DynamoDB.
+- **Amazon DynamoDB** (`MentoringQuestions`) — `QuestionID` as partition key, with a GSI on `Topic` for querying the question bank by subject.
+- **IAM** — a dedicated role and policy scoped to only the resources this Lambda needs.
+- **Terraform** — the entire infrastructure above is defined as code.
 
-Esto ya cubre, parcialmente, el objetivo de "base de datos de simulados": convierte fotos de preguntas en registros estructurados con tema y dificultad.
+## Tech stack
 
-### Hallazgos y deuda técnica
+AWS Lambda · Amazon SQS · Amazon DynamoDB · Amazon Rekognition · Amazon Bedrock · Amazon S3 · IAM · Terraform · Python (Boto3)
 
-1. **`iam.tf`**: los statements `AllowIAAnalysis` y `AllowBedrockInvokeModel` se solapan (ambos dan `bedrock:InvokeModel` sobre `*`) — es redundante, se puede consolidar en uno.
-2. **`lambda_processor.py`** (raíz, vacío) es un artefacto muerto — el código real vive en `src/processor.py`. Debería eliminarse para evitar confusión.
-3. **`README.md`** estaba vacío — sin documentación del proyecto.
-4. **Sin control de versiones real**: no había commits — todo el trabajo estaba sin historial, alto riesgo de pérdida.
-5. **`terraform.tfstate` y `.tfstate.backup` versionados en el directorio de trabajo** (sin backend remoto en `provider.tf`) — riesgo si esto llega a un repo remoto: el state puede contener ARNs/IDs sensibles, y sin backend remoto (S3+DynamoDB lock) no hay colaboración segura ni recuperación ante fallos.
-6. **`.venv` y `.terraform` presentes** en el directorio — deberían estar en `.gitignore` si esto se versiona.
-7. **Sin manejo de duplicados**: cada foto genera un `QuestionID` nuevo aunque sea la misma pregunta reprocesada (ej. reintento desde DLQ) — puede generar duplicados en la tabla.
-8. **DynamoDB solo tiene la tabla de preguntas** — no existe todavía nada para "base de datos de alumnos" ni para relatorios/reportes de desempeño. Es el mayor gap frente al objetivo del proyecto.
-9. **No hay capa de generación de "aulas" ni de reportes** — el pipeline actual solo ingiere y clasifica preguntas; falta toda la capa de negocio (alumnos, sesiones de mentoría, resultados de simulados, relatorios).
+## Project structure
 
-### Brecha entre lo que existe y el objetivo real
+```
+.
+├── main.tf, iam.tf, dynamodb.tf, lambda.tf, provider.tf   # Infrastructure as Code
+├── requirements.txt        # Python dependencies packaged with the Lambda
+├── src/
+│   └── processor.py        # Lambda application code
+├── docs/
+│   └── status.md           # Engineering log: findings, technical debt, roadmap
+└── README.md
+```
 
-El objetivo tiene 3 piezas: (1) BD de alumnos, (2) generación de aulas desde un banco de simulados, (3) relatorios. Hoy solo existe la mitad de la pieza (2): la ingesta/clasificación de preguntas. Faltan:
+Infrastructure code lives at the project root; application code lives under `src/` — this keeps the Lambda deployment package (zipped by Terraform's `archive_file`) limited to only the code that actually runs, without pulling in Terraform files or documentation.
 
-- **Tabla de alumnos** (DynamoDB o RDS) con perfil, progreso, temas débiles.
-- **Tabla de resultados de simulados** (respuestas del alumno, correctas/incorrectas, timestamp) vinculada por `AlumnoID` + `QuestionID`.
-- **Lógica de generación de "aula"**: query a `MentoringQuestions` por `Topic`/`Difficulty` (ya existe el GSI para eso) filtrando por temas débiles del alumno.
-- **Generación de relatorios**: otra Lambda o job (podría ser Bedrock de nuevo) que agregue resultados por alumno y genere un resumen/PDF/reporte.
-- **Alguna interfaz de entrada** para que el alumno responda las preguntas generadas (hoy el flujo es unidireccional: foto → clasificación, no hay feedback loop del alumno).
+## Roadmap
 
-### Próximos pasos sugeridos (orden recomendado)
+The pipeline above covers question ingestion and classification — one piece of a larger platform. Next up:
 
-1. Limpiar deuda técnica rápida: borrar `lambda_processor.py` vacío, mantener este `README.md` actualizado, decidir backend de Terraform (mejor: backend remoto S3+DynamoDB lock) y hacer el primer commit real con `.gitignore` (excluyendo `.venv`, `.terraform`, `*.tfstate*`).
-2. Diseñar el modelo de datos de "alumnos" y "resultados de simulados".
-3. Añadir una Lambda/endpoint para registrar respuestas del alumno y actualizar progreso.
-4. Añadir una Lambda de relatorios que consuma ambas tablas.
+- [ ] Student profiles and progress tracking
+- [ ] Quiz results storage (linking students to questions answered, correct/incorrect, timestamps)
+- [ ] "Class generation" logic: pull questions by topic/difficulty, prioritizing a student's weak areas
+- [ ] Automated report generation (monthly/annual metrics per student and per class)
+- [ ] A way for students to actually answer generated questions (today the flow is one-directional: photo in, classification out)
+
+Full engineering notes and technical debt tracking live in [`docs/status.md`](docs/status.md).
+
+## Deploying
+
+```bash
+terraform init
+terraform plan
+terraform apply
+```
+
+Requires Terraform >= 1.5.0, Python 3.12, and AWS CLI configured with active credentials.
+
+## Author
+
+**Daniel Villegas**
+Cloud Engineer | AWS Certified (4x)
+[LinkedIn](https://www.linkedin.com/in/vdaniel07) · [GitHub](https://github.com/DevDan7)
