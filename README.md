@@ -1,5 +1,7 @@
 # AI Mentoring
 
+![AI MENTORING](img/AI_Mentoring_banner.png)
+
 Serverless, event-driven platform that turns exam-question photos into a structured question bank, built to support AWS certification mentoring sessions at Escola da Nuvem.
 
 This project is already in real use in my mentoring sessions and is being actively developed toward a fully operational platform — with the long-term goal of exploring monetization once the student-facing features are in place.
@@ -8,7 +10,7 @@ This project is already in real use in my mentoring sessions and is being active
 
 ## 🏗️ Solution Architecture 
 
-![Arquitetura AWS Serverless](/01_Projects/AI_Mentoring%20/img/architecture_AI_Mentoring.png)
+![Arquitetura AWS Serverless](img/architecture_AI_Mentoring.png)
 
 --- 
 

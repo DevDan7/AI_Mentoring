@@ -46,7 +46,7 @@ El objetivo tiene 3 piezas: (1) BD de alumnos, (2) generación de aulas desde un
 ### Próximos pasos sugeridos (orden recomendado)
 
 1. ~~Limpiar deuda técnica rápida (lambda vacía, README, primer commit)~~ — **Hecho.**
-2. Configurar GitHub Actions con OIDC (validación de Terraform vía `plan` en PRs) — **En curso.**
+2. ~~Configurar GitHub Actions con OIDC (validación de Terraform vía `plan` en PRs)~~ — **Hecho (2026-08-08).**
 3. Diseñar el modelo de datos de "alumnos" y "resultados de simulados".
 4. Añadir una Lambda/endpoint para registrar respuestas del alumno y actualizar progreso.
 5. Añadir una Lambda de relatorios que consuma ambas tablas.
@@ -59,3 +59,5 @@ El objetivo tiene 3 piezas: (1) BD de alumnos, (2) generación de aulas desde un
 
 - **2026-07-18**: análisis inicial del proyecto.
 - **2026-08-07**: repo creado en GitHub, primer push. Lambda vacía eliminada. README separado de esta bitácora. Trust role OIDC para GitHub Actions creado (solo lectura por ahora).
+- **2026-08-08**: GitHub Actions (`terraform-plan.yml`) funcionando con autenticación OIDC — sin credenciales de larga duración guardadas en GitHub.
+  - **Hallazgo de debugging**: la trust policy del IAM Role debe coincidir con el `sub` exacto que envía el token OIDC de GitHub. Cuando hay un cambio de nombre de usuario o de repo en el historial, GitHub agrega IDs internos inmutables al claim (`repo:usuario@ID/repo@ID:*` en vez de `repo:usuario/repo:*`). El valor real solo se pudo confirmar revisando el evento `AssumeRoleWithWebIdentity` en **CloudTrail** — el log de GitHub Actions solo muestra "Not authorized", sin detalle. Trust policy corregida para usar los IDs reales.
