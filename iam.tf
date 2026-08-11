@@ -43,16 +43,7 @@ resource "aws_iam_policy" "lambda_policy" {
         Sid    = "AllowIAAnalysis"
         Effect = "Allow"
         Action = [
-          "textract:DetectDocumentText", # Lo dejamos por si el soporte responde rápido
-          "rekognition:DetectText",      # <--- NUEVO PERMISO
-          "bedrock:InvokeModel"
-        ]
-        Resource = "*"
-      },
-      {
-        Sid    = "AllowBedrockInvokeModel"
-        Effect = "Allow"
-        Action = [
+          "rekognition:DetectText",
           "bedrock:InvokeModel"
         ]
         Resource = "*"
