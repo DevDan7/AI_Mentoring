@@ -17,13 +17,13 @@ S3 (foto examen) → S3 Event Notification → SQS (main_queue, con DLQ)
 - **SQS**: desacopla la ingesta; tiene DLQ con `maxReceiveCount=4` — buen patrón de resiliencia.
 - **Lambda `processor.py`**: OCR con Rekognition → prompt a Bedrock pidiendo JSON estructurado (`topic`, `explanation`, `difficulty`) → limpieza de markdown → `PutItem` en DynamoDB.
 - **DynamoDB** `MentoringQuestions`: `QuestionID` (PK) + GSI por `Topic`, modo `PAY_PER_REQUEST`.
-- **IAM**: rol y política dedicados, permisos acotados a los recursos necesarios (aunque con dos statements duplicados para `bedrock:InvokeModel`, ver hallazgos).
+- **IAM**: rol y política dedicados, permisos acotados a los recursos necesarios.
 
 Esto ya cubre, parcialmente, el objetivo de "base de datos de simulados": convierte fotos de preguntas en registros estructurados con tema y dificultad.
 
 ### Hallazgos y deuda técnica
 
-1. **`iam.tf`**: los statements `AllowIAAnalysis` y `AllowBedrockInvokeModel` se solapan (ambos dan `bedrock:InvokeModel` sobre `*`) — es redundante, se puede consolidar en uno. **Pendiente.**
+1. ~~`iam.tf`: statements `AllowIAAnalysis` y `AllowBedrockInvokeModel` duplicaban `bedrock:InvokeModel`~~ — **Resuelto (2026-08-10): consolidado en un solo statement.**
 2. ~~`lambda_processor.py` (raíz, vacío) es un artefacto muerto~~ — **Resuelto (2026-08-07): eliminado.**
 3. ~~`README.md` estaba vacío~~ — **Resuelto (2026-08-07): README reescrito, separado de esta bitácora.**
 4. ~~Sin control de versiones real~~ — **Resuelto (2026-08-07): repo creado en GitHub (`DevDan7/AI_Mentoring`), primer push hecho.**
@@ -32,6 +32,7 @@ Esto ya cubre, parcialmente, el objetivo de "base de datos de simulados": convie
 7. **Sin manejo de duplicados**: cada foto genera un `QuestionID` nuevo aunque sea la misma pregunta reprocesada (ej. reintento desde DLQ) — puede generar duplicados en la tabla. **Pendiente.**
 8. **DynamoDB solo tiene la tabla de preguntas** — no existe todavía nada para "base de datos de alumnos" ni para relatorios/reportes de desempeño. Es el mayor gap frente al objetivo del proyecto. **Pendiente.**
 9. **No hay capa de generación de "aulas" ni de reportes** — el pipeline actual solo ingiere y clasifica preguntas; falta toda la capa de negocio (alumnos, sesiones de mentoría, resultados de simulados, relatorios). **Pendiente.**
+10. **Datos sensibles en `.tf`**: se detectó un email personal hardcodeado en `aws_sns_topic_subscription`. **Resuelto (2026-08-11)**: movido a variable `notification_email` (sensible, sin default) con valor real en `terraform.tfvars`, excluido vía `.gitignore` (`*.tfvars`). Regla adoptada: valores que exponen datos personales o credenciales van a `.tfvars`; configuración no sensible (región, entorno, nombres) puede tener `default` en `variables.tf`.
 
 ### Brecha entre lo que existe y el objetivo real
 
@@ -61,3 +62,5 @@ El objetivo tiene 3 piezas: (1) BD de alumnos, (2) generación de aulas desde un
 - **2026-08-07**: repo creado en GitHub, primer push. Lambda vacía eliminada. README separado de esta bitácora. Trust role OIDC para GitHub Actions creado (solo lectura por ahora).
 - **2026-08-08**: GitHub Actions (`terraform-plan.yml`) funcionando con autenticación OIDC — sin credenciales de larga duración guardadas en GitHub.
   - **Hallazgo de debugging**: la trust policy del IAM Role debe coincidir con el `sub` exacto que envía el token OIDC de GitHub. Cuando hay un cambio de nombre de usuario o de repo en el historial, GitHub agrega IDs internos inmutables al claim (`repo:usuario@ID/repo@ID:*` en vez de `repo:usuario/repo:*`). El valor real solo se pudo confirmar revisando el evento `AssumeRoleWithWebIdentity` en **CloudTrail** — el log de GitHub Actions solo muestra "Not authorized", sin detalle. Trust policy corregida para usar los IDs reales.
+- **2026-08-10/11**: consolidado el statement duplicado de `bedrock:InvokeModel` en `iam.tf`. Agregado notificación por email (SNS) sobre nuevas fotos subidas a S3, con política de tópico restringida por `SourceArn` al bucket. Confirmado funcionando el flujo PR → `terraform plan` automático vía GitHub Actions (rol de solo lectura, no aplica cambios). Movido bloque OIDC de `main.tf` a `iam.tf`. Creado `variables.tf` con variables no sensibles (`aws_region`, `environment`, `project_name`, `bucket_name`) y `notification_email` como sensible, con valor real en `terraform.tfvars` (excluido del repo).
+  - **Hallazgo de debugging**: el primer intento de agregar SNS creó un segundo `aws_s3_bucket_notification` para el mismo bucket. En AWS, un bucket solo admite una configuración de notificaciones — dos recursos separados hacen que cada `apply` sobreescriba la configuración anterior en vez de sumarla, arriesgando desactivar silenciosamente el trigger de SQS que alimenta todo el pipeline. Corregido consolidando `queue` y `topic` dentro de un único `aws_s3_bucket_notification`.
