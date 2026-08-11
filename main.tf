@@ -109,3 +109,13 @@ resource "aws_iam_role_policy_attachment" "github_actions_readonly" {
   policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
 }
 
+resource "aws_sns_topic" "AI_Mentoring_notifications" {
+  name = "AI-Mentoring-notifications-dev-daniel"
+}
+
+resource "aws_sns_topic_subscription" "email_sub" {
+  topic_arn = aws_sns_topic.AI_Mentoring_notifications.arn
+  protocol  = "email"
+  endpoint  = "danielsvillegas17@gmail.com"
+}
+
