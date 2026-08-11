@@ -23,3 +23,5 @@ jobs:
 
       - run: terraform init
       - run: terraform plan
+        env:
+          TF_VAR_notification_email: ${{ secrets.NOTIFICATION_EMAIL }}

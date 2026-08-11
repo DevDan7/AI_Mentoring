@@ -59,56 +59,6 @@ resource "aws_sqs_queue_policy" "allow_s3_to_send_messages" {
   })
 }
 
-resource "aws_s3_bucket_notification" "mentoring_exam_photos_notification" {
-  bucket = aws_s3_bucket.mentoring_exam_photos_bucket.id
-
-  queue {
-    queue_arn = aws_sqs_queue.main_queue.arn
-    events    = ["s3:ObjectCreated:*"]
-
-  }
-
-  depends_on = [
-    aws_sqs_queue_policy.allow_s3_to_send_messages
-  ]
-}
-
-# github_oidc.tf
-
-data "aws_iam_openid_connect_provider" "github" {
-  url = "https://token.actions.githubusercontent.com"
-}
-
-resource "aws_iam_role" "github_actions" {
-  name = "ai-mentoring-github-actions"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Federated = data.aws_iam_openid_connect_provider.github.arn
-        }
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Condition = {
-          StringEquals = {
-            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          }
-          StringLike = {
-            "token.actions.githubusercontent.com:sub" = "repo:DevDan7@152210372/AI_Mentoring@1326486822:*"
-          }
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "github_actions_readonly" {
-  role       = aws_iam_role.github_actions.name
-  policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
-}
-
 # 1. El Tema de SNS y la Suscripción por Email
 resource "aws_sns_topic" "AI_Mentoring_notifications" {
   name = "AI-Mentoring-notifications-dev-daniel"
@@ -144,21 +94,28 @@ data "aws_iam_policy_document" "sns_topic_policy" {
     condition {
       test     = "ArnLike"
       variable = "aws:SourceArn"
-      values   = ["arn:aws:s3:::daniel-mentoring-exam-photos-edn-dev"]
+      values   = [aws_s3_bucket.mentoring_exam_photos_bucket.arn]
     }
   }
 }
 
-# 3. Configuración del evento dentro del Bucket de S3
+# 3. Configuración consolidada de eventos dentro del Bucket de S3
 resource "aws_s3_bucket_notification" "bucket_notification" {
   bucket = aws_s3_bucket.mentoring_exam_photos_bucket.id
 
-  topic {
-    topic_arn     = aws_sns_topic.AI_Mentoring_notifications.arn
-    events        = ["s3:ObjectCreated:*"] # Se dispara con cualquier archivo nuevo (PUT, POST, Copy)
+  queue {
+    queue_arn = aws_sqs_queue.main_queue.arn
+    events    = ["s3:ObjectCreated:*"]
   }
 
-  # Garantiza que la política del SNS existe antes de asociar el evento en S3
-  depends_on = [aws_sns_topic_policy.allow_s3_publish]
+  topic {
+    topic_arn = aws_sns_topic.AI_Mentoring_notifications.arn
+    events    = ["s3:ObjectCreated:*"]
+  }
+
+  depends_on = [
+    aws_sqs_queue_policy.allow_s3_to_send_messages,
+    aws_sns_topic_policy.allow_s3_publish
+  ]
 }
 
