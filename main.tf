@@ -33,26 +33,26 @@ resource "aws_s3_bucket" "mentoring_exam_photos_bucket" {
   }
 }
 
-resource "aws_sqs_queue_policy" "allow_s3_to_send_messages" {
+resource "aws_sqs_queue_policy" "allow_sns_to_send_messages" {
   queue_url = aws_sqs_queue.main_queue.id
 
   policy = jsonencode({
     Version = "2012-10-17"
 
     Statement = [{
-      Sid    = "AllowS3ToSendMessages"
+      Sid    = "AllowSNSToSendMessages"
       Effect = "Allow"
 
       Principal = {
-        Service = "s3.amazonaws.com"
+        Service = "sns.amazonaws.com"
       }
 
       Action   = "sqs:SendMessage"
       Resource = aws_sqs_queue.main_queue.arn
 
       Condition = {
-        ArnLike = {
-          "aws:SourceArn" = aws_s3_bucket.mentoring_exam_photos_bucket.arn
+        ArnEquals = {
+          "aws:SourceArn" = aws_sns_topic.s3_notifications.arn
         }
       }
     }]
