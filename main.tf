@@ -33,26 +33,28 @@ resource "aws_s3_bucket" "mentoring_exam_photos_bucket" {
   }
 }
 
-resource "aws_sqs_queue_policy" "allow_s3_to_send_messages" {
+# Create an SNS topic and subscription for email notifications
+
+resource "aws_sqs_queue_policy" "allow_sns_to_send_messages" {
   queue_url = aws_sqs_queue.main_queue.id
 
   policy = jsonencode({
     Version = "2012-10-17"
 
     Statement = [{
-      Sid    = "AllowS3ToSendMessages"
+      Sid    = "AllowSNSToSendMessages"
       Effect = "Allow"
 
       Principal = {
-        Service = "s3.amazonaws.com"
+        Service = "sns.amazonaws.com"
       }
 
       Action   = "sqs:SendMessage"
       Resource = aws_sqs_queue.main_queue.arn
 
       Condition = {
-        ArnLike = {
-          "aws:SourceArn" = aws_s3_bucket.mentoring_exam_photos_bucket.arn
+        ArnEquals = {
+          "aws:SourceArn" = aws_sns_topic.AI_Mentoring_notifications.arn
         }
       }
     }]
@@ -67,7 +69,14 @@ resource "aws_sns_topic" "AI_Mentoring_notifications" {
 resource "aws_sns_topic_subscription" "email_sub" {
   topic_arn = aws_sns_topic.AI_Mentoring_notifications.arn
   protocol  = "email"
-  endpoint  = "danielsvillegas17@gmail.com"
+  endpoint  = var.notification_email
+}
+
+resource "aws_sns_topic_subscription" "sqs_sub" {
+  topic_arn            = aws_sns_topic.AI_Mentoring_notifications.arn
+  protocol             = "sqs"
+  endpoint             = aws_sqs_queue.main_queue.arn
+  raw_message_delivery = true
 }
 
 # 2. Política del Tema SNS para permitir que S3 publique eventos
@@ -103,18 +112,12 @@ data "aws_iam_policy_document" "sns_topic_policy" {
 resource "aws_s3_bucket_notification" "bucket_notification" {
   bucket = aws_s3_bucket.mentoring_exam_photos_bucket.id
 
-  queue {
-    queue_arn = aws_sqs_queue.main_queue.arn
-    events    = ["s3:ObjectCreated:*"]
-  }
-
   topic {
     topic_arn = aws_sns_topic.AI_Mentoring_notifications.arn
     events    = ["s3:ObjectCreated:*"]
   }
 
   depends_on = [
-    aws_sqs_queue_policy.allow_s3_to_send_messages,
     aws_sns_topic_policy.allow_s3_publish
   ]
 }
