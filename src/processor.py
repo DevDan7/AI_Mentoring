@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 
 import boto3
+from botocore.exceptions import ClientError
 
 TABLE_NAME = os.environ.get("TABLE_NAME", "MentoringQuestions")
 
@@ -28,6 +29,9 @@ def lambda_handler(event, context):
             s3_event = body["Records"][0]
             bucket_name = s3_event["s3"]["bucket"]["name"]
             file_key = urllib.parse.unquote_plus(s3_event["s3"]["object"]["key"])
+
+            etag = s3_event["s3"]["object"].get("eTag", "").strip('"')
+            question_id = etag if etag else str(uuid.uuid4())
 
             print(f"Procesando con Rekognition: {file_key}")
 
@@ -122,20 +126,27 @@ Do not include any text outside the JSON. Do not use markdown or code blocks.
 
             # 4. Guardar en DynamoDB
             table = dynamodb.Table(TABLE_NAME)
-            table.put_item(
-                Item={
-                    "QuestionID": str(uuid.uuid4()),
-                    "FileName": file_key,
-                    "Topic": ai_data["topic"],
-                    "Difficulty": ai_data["difficulty"],
-                    "QuestionText": ai_data["question_text"],
-                    "QuestionType": ai_data["question_type"],
-                    "CorrectCount": int(ai_data["correct_count"]),
-                    "Options": ai_data["options"],
-                    "CreatedAt": datetime.now().isoformat(),
-                }
-            )
-            print(f"Éxito total para: {file_key}")
+            try:
+                table.put_item(
+                    Item={
+                        "QuestionID": question_id,
+                        "FileName": file_key,
+                        "Topic": ai_data["topic"],
+                        "Difficulty": ai_data["difficulty"],
+                        "QuestionText": ai_data["question_text"],
+                        "QuestionType": ai_data["question_type"],
+                        "CorrectCount": int(ai_data["correct_count"]),
+                        "Options": ai_data["options"],
+                        "CreatedAt": datetime.now().isoformat(),
+                    },
+                    ConditionExpression="attribute_not_exists(QuestionID)",
+                )
+                print(f"Éxito total para: {file_key}")
+            except ClientError as e:
+                if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                    print(f"Duplicado detectado, omitiendo: {file_key}")
+                    continue
+                raise
 
         except Exception as e:
             print(f"Error: {str(e)}")
