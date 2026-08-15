@@ -109,6 +109,91 @@ El objetivo tiene 3 piezas: (1) BD de alumnos, (2) generación de aulas desde un
 
 ---
 
+## Subida masiva de fotos — Lote 2026-08-15
+
+### Contexto
+
+Tras vaciar la tabla `MentoringQuestions` para eliminar formatos heredados (items sin `Options`/`QuestionType` de antes del rediseño del 2026-08-12), se subió un lote real de **109 fotos** de preguntas de examen AWS (`question_001.png` a `question_109.png`) al bucket S3 `daniel-mentoring-exam-photos-edn-dev`. El objetivo era alimentar el banco de preguntas con datos 100% consistentes y validar el pipeline completo a escala.
+
+### Métricas de procesamiento
+
+| Métrica | Valor |
+|---|---|
+| Archivos question en S3 | 109 |
+| Items en DynamoDB | 80 |
+| Mensajes en DLQ | 30 |
+| Tasa de éxito | 73.4% |
+| Invocaciones Lambda | 223 |
+| Menciones ThrottlingException | 290 |
+| Duración promedio | 7,772 ms |
+| Duración mínima | 116 ms |
+| Duración máxima | 12,707 ms |
+| Memoria pico usada | ~105 MB (de 256 MB asignados) |
+
+### Distribución de archivos
+
+| Destino | Cantidad | Porcentaje |
+|---|---|---|
+| DynamoDB (procesados exitosamente) | 80 | 73.4% |
+| DLQ (fallidos tras 4 reintentos) | 29 | 26.6% |
+| **Total** | **109** | **100%** |
+
+### Archivos fallidos (29)
+
+Todos fallaron por `ThrottlingException` de Bedrock tras agotar los 4 reintentos de SQS:
+
+```
+question_002, 006, 011, 014, 016, 025, 028, 032, 035, 036,
+question_039, 041, 048, 053, 059, 060, 062, 067, 069, 070,
+question_074, 077, 084, 087, 088, 090, 094, 098, 104
+```
+
+### Análisis de errores
+
+**Causa raíz**: Las 109 fotos se subieron en ráfaga al S3, lo que generó una ola de mensajes en SQS que la Lambda procesó con alta concurrencia (hasta 10 instancias paralelas, límite de la cuenta). Esto excedió el rate limit de Bedrock para Claude Haiku 4.5, provocando 290 `ThrottlingException`. El código actual (`processor.py` línea 153) relanza cualquier error sin manejo específico de throttling, por lo que los mensajes fallidos agotaron sus 4 reintentos y cayeron a la DLQ.
+
+**Archivos no question procesados innecesariamente**:
+- `INVENTORY.md` — procesado 4 veces con Rekognition (desperdicio de invocaciones)
+- `general.pdf` — procesado vía Rekognition (extracción subóptima)
+
+### Estado de infraestructura al cierre
+
+| Servicio | Estado | Detalle |
+|---|---|---|
+| S3 | ✅ Saludable | 144 objetos, 6.22 MB total |
+| SQS (main) | ✅ Vacía | 0 mensajes pendientes |
+| SQS (DLQ) | ⚠️ 30 mensajes | Requiere reproceso o descarte |
+| Lambda | ✅ Activa | 256 MB, timeout 30s, Python 3.12 |
+| DynamoDB | ✅ Activa | 80 items, PAY_PER_REQUEST |
+| Bedrock | ⚠️ Throttling | Rate limit excedido con concurrencia alta |
+| CloudWatch | ✅ Logs disponibles | 223 invocaciones, 183 KB almacenados |
+
+### Lecciones aprendidas
+
+1. **La memoria no es el cuello de botella**: con 256 MB se usan ~105 MB; el cuello es el rate limit de Bedrock, no la capacidad de cómputo de la Lambda.
+2. **La concurrencia sin control satura servicios downstream**: subir muchas fotos simultáneamente genera una bomba de concurrencia que Bedrock no puede absorber.
+3. **El manejo de errores actual es insuficiente**: el `raise` incondicional convierte un throttle temporal en error de Lambda → reintentos SQS → pérdida en DLQ.
+4. **El redrive de SQS no es suficiente para throttling**: con `maxReceiveCount=4` y un rate limit persistente, los mensajes fallidos no se recuperan automáticamente.
+5. **Filtros de archivos faltantes**: el Lambda procesa cualquier objeto S3, incluyendo `.md` y `.pdf` que no son fotos de preguntas.
+
+### Acciones correctivas (pendientes)
+
+| Prioridad | Acción | Estado |
+|---|---|---|
+| Alta | Implementar exponential backoff + jitter en `processor.py` para `ThrottlingException` | Pendiente |
+| Alta | Configurar `reserved_concurrent_executions` (3–4) en Lambda | Pendiente |
+| Alta | Crear CloudWatch Alarm para DLQ (`ApproximateNumberOfMessagesVisible > 0`) | Pendiente |
+| Media | Reprocesar 29 archivos de DLQ con concurrencia limitada | Pendiente |
+| Media | Agregar filtro en `processor.py` para procesar solo `.png` y `.jpg` | Pendiente |
+| Baja | Habilitar `deletion_protection_enabled = true` en DynamoDB | Pendiente |
+| Baja | Escalar recursos IAM a ARNs específicos (evitar `Resource: "*"`) | Pendiente |
+
+### Dashboard de análisis
+
+Se generó un dashboard HTML interactivo con estos resultados en `doc/dashboard.html`. Incluye KPIs, gráficos de distribución y rendimiento, tabla de archivos fallidos, estado de infraestructura y recomendaciones priorizadas.
+
+---
+
 ## Log de cambios
 
 - **2026-08-13**: **Prueba de desempeño** — `memory_size` de la Lambda `mentoring-exam-processor` subido de 256 a 512 MB. Hipótesis: más CPU provisionada → menor `Duration` → coste neto igual o menor. **Línea base (256 MB) registrada** en la sección `Pruebas de desempeño`. Aplicado vía `terraform apply`.
