@@ -104,7 +104,7 @@ El objetivo tiene 3 piezas: (1) BD de alumnos, (2) generación de aulas desde un
 - **Capturar `ThrottlingException` de Bedrock**: reintento con backoff + jitter dentro del timeout de 30 s (los picos de 13 s caben holgadamente), evitando que el throttle llegue al manejo genérico de errores.
 - **Limitar la concurrencia**: `reserved_concurrency` bajo en la Lambda (p.ej. 3–4) y/o espaciado en el fan-out SNS→SQS para no saturar el rate limit de Bedrock.
 - **Revisar la DLQ**: reprocesar `07.png` manualmente o descartarlo conscientemente.
-- **Revertir a 256 MB** (recomendado): la memoria no es el cuello de botella; 512 MB duplica costo. Decisión pendiente.
+- **Revertir a 256 MB** (recomendado): la memoria no es el cuello de botella; 512 MB duplica costo. **Resuelto (2026-08-15).**
 - **Prueba controlada futura**: subir fotos escalonadamente (no en ráfaga) para comparar duración limpia antes de cualquier decisión de configuración.
 
 ---
@@ -112,7 +112,8 @@ El objetivo tiene 3 piezas: (1) BD de alumnos, (2) generación de aulas desde un
 ## Log de cambios
 
 - **2026-08-13**: **Prueba de desempeño** — `memory_size` de la Lambda `mentoring-exam-processor` subido de 256 a 512 MB. Hipótesis: más CPU provisionada → menor `Duration` → coste neto igual o menor. **Línea base (256 MB) registrada** en la sección `Pruebas de desempeño`. Aplicado vía `terraform apply`.
-- **2026-08-14**: **Resultado de la prueba 512 MB verificado en CloudWatch** — **no se confirma la hipótesis**: duración promedio no mejoró (contaminada por 17 `ThrottlingException` de Bedrock), memoria usada siguió en ~105 MB y el costo de Lambda se duplica. La causa raíz fue la ráfaga de 34 fotos con alta concurrencia (límite cuenta: 10) saturado el rate limit de Claude Haiku 4.5; `raise` incondicional en `processor.py` convirtió el throttle en errores Lambda y **1 mensaje (`07.png`) cayó a la DLQ** sin procesarse. Documentados problemas y soluciones propuestas en la sección `Pruebas de desempeño`. **Decisión pendiente**: revertir a 256 MB (recomendado) o quedarse en 512 MB.
+- **2026-08-14**: **Resultado de la prueba 512 MB verificado en CloudWatch** — **no se confirma la hipótesis**: duración promedio no mejoró (contaminada por 17 `ThrottlingException` de Bedrock), memoria usada siguió en ~105 MB y el costo de Lambda se duplica. La causa raíz fue la ráfaga de 34 fotos con alta concurrencia (límite cuenta: 10) saturado el rate limit de Claude Haiku 4.5; `raise` incondicional en `processor.py` convirtió el throttle en errores Lambda y **1 mensaje (`07.png`) cayó a la DLQ** sin procesarse. Documentados problemas y soluciones propuestas en la sección `Pruebas de desempeño`.
+- **2026-08-15**: vaciada la tabla `MentoringQuestions` (operación de datos vía AWS CLI, sin cambios en Terraform) para eliminar formatos heredados de versiones anteriores del prompt (items sin `Options`/`QuestionType` de antes del rediseño del 2026-08-12) y arrancar el lote real (~100 fotos) con datos 100% consistentes. `memory_size` de la Lambda revertido a 256 MB (PR #8) tras confirmar que 512 MB no mejoraba el desempeño.
 - **2026-08-13**: implementada idempotencia en `src/processor.py` (hallazgo #7). `QuestionID` = `eTag` del objeto S3 (sin comillas) con fallback a `uuid.uuid4()`; `ConditionExpression='attribute_not_exists(QuestionID)'` en `put_item`; `ConditionalCheckFailedException` capturada y omitida silenciosamente. Limitación documentada: multipart upload genera eTag compuesto (`hex-N`), pierde deduplicación entre subidas distintas.
 - **2026-07-18**: análisis inicial del proyecto.
 - **2026-08-07**: repo creado en GitHub, primer push. Lambda vacía eliminada. README separado de esta bitácora. Trust role OIDC para GitHub Actions creado (solo lectura por ahora).
