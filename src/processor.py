@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 TABLE_NAME = os.environ.get("TABLE_NAME", "MentoringQuestions")
@@ -12,7 +13,13 @@ TABLE_NAME = os.environ.get("TABLE_NAME", "MentoringQuestions")
 # 1. Inicializar clientes de AWS
 s3_client = boto3.client("s3")
 rekognition_client = boto3.client("rekognition")  # <--- CAMBIO AQUÍ
-bedrock_runtime = boto3.client("bedrock-runtime")
+bedrock_config = Config(
+    retries={
+        'max_attempts': 6,
+        'mode': 'adaptive'
+    }
+)
+bedrock_runtime = boto3.client('bedrock-runtime', config=bedrock_config)
 dynamodb = boto3.resource("dynamodb")
 
 
