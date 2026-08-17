@@ -15,6 +15,7 @@ resource "aws_lambda_function" "processor" {
   runtime       = "python3.12"
   timeout       = 30 # La IA puede tardar, le damos tiempo
   memory_size   = 256
+  reserved_concurrent_executions = 3
 
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
 
