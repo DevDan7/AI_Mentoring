@@ -194,11 +194,81 @@ Se generó un dashboard HTML interactivo con estos resultados en `doc/dashboard.
 
 ---
 
+## Prueba de backoff con jitter — Lote 2026-08-16
+
+### Contexto
+
+Se implementó **botocore adaptive retry** en el cliente Bedrock de `processor.py` (PR #11):
+- `max_attempts=6` (1 intento original + 5 reintentos)
+- `mode='adaptive'` (backoff dinámico basado en throttling)
+
+Objetivo: mitigar las 290 `ThrottlingException` del lote anterior (2026-08-15) que causaron 29 mensajes en DLQ y solo 73.4% de éxito.
+
+### Cambio en `processor.py`
+
+```python
+bedrock_config = Config(
+    retries={
+        'max_attempts': 6,
+        'mode': 'adaptive'
+    }
+)
+bedrock_runtime = boto3.client('bedrock-runtime', config=bedrock_config)
+```
+
+### Métricas comparativas
+
+| Métrica | Lote anterior (2026-08-15) | Lote actual (2026-08-16) | Cambio |
+|---------|---------------------------|--------------------------|--------|
+| Fotos enviadas | 109 | 109 | - |
+| Items en DynamoDB | 80 (73.4%) | **109 (100%)** | +36.3% |
+| Mensajes en DLQ | 30 | **5** | -83% |
+| Invocaciones Lambda | 223 | 179 | -20% |
+| ThrottlingException | 290 menciones | 92 eventos | -68% |
+| Duración promedio | 7,772 ms | **18,928 ms** | +143% |
+| Duración máxima | 12,707 ms | **30,000 ms** (timeout) | +136% |
+| Memoria pico | ~105 MB | 104 MB | ~0% |
+| Duplicados detectados | N/A | 86 | - |
+
+### Análisis
+
+**Mejoras:**
+- Tasa de éxito: 73.4% → 100% (las 109 fotos están en DynamoDB)
+- DLQ: 30 → 5 mensajes (83% reducción)
+- ThrottlingException: 290 → 92 (68% reducción)
+- Idempotencia funcionando: 86 duplicados detectados y omitidos correctamente
+
+**Problemas:**
+- Duración promedio duplicada: 7.7s → 18.9s (los 6 reintentos de botocore consumen tiempo)
+- Timeouts: algunas invocaciones alcanzaron 30,000 ms (límite del timeout)
+- Procesa archivos innecesarios: `INVENTORY.md` procesado 3 veces
+- 5 mensajes en DLQ: probablemente `InvalidImageFormatException` (question_004.png)
+
+### Hallazgos clave
+
+1. **El backoff a nivel SDK (botocore) NO es suficiente**: con 6 reintentos y adaptive backoff, algunas invocaciones agotan el timeout de 30s antes de completar.
+2. **Falta manejo a nivel de aplicación**: el `except Exception` en línea 158 sigue haciendo `raise` incondicional después de que botocore agota sus reintentos.
+3. **La concurrencia sigue sin control**: `reserved_concurrent_executions` no está configurado, permitiendo hasta 10 Lambdas paralelas que saturan Bedrock.
+4. **El filtro de archivos es necesario**: procesa `.md` y otros formatos no válidos.
+
+### Acciones correctivas recomendadas
+
+| Prioridad | Acción | Impacto esperado |
+|-----------|--------|------------------|
+| Alta | Implementar retry con jitter a nivel de aplicación para `ThrottlingException` | Reducir duración promedio |
+| Alta | Reducir `max_attempts` de 6 a 3-4 en botocore | Evitar timeouts de 30s |
+| Alta | Configurar `reserved_concurrent_executions` = 3-4 | Throttling más controlado |
+| Media | Agregar filtro de archivos (solo `.png`, `.jpg`) | Evitar procesar INVENTORY.md |
+| Media | Reprocesar 5 mensajes de DLQ manualmente | Recuperar datos perdidos |
+
+---
+
 ## Log de cambios
 
 - **2026-08-13**: **Prueba de desempeño** — `memory_size` de la Lambda `mentoring-exam-processor` subido de 256 a 512 MB. Hipótesis: más CPU provisionada → menor `Duration` → coste neto igual o menor. **Línea base (256 MB) registrada** en la sección `Pruebas de desempeño`. Aplicado vía `terraform apply`.
 - **2026-08-14**: **Resultado de la prueba 512 MB verificado en CloudWatch** — **no se confirma la hipótesis**: duración promedio no mejoró (contaminada por 17 `ThrottlingException` de Bedrock), memoria usada siguió en ~105 MB y el costo de Lambda se duplica. La causa raíz fue la ráfaga de 34 fotos con alta concurrencia (límite cuenta: 10) saturado el rate limit de Claude Haiku 4.5; `raise` incondicional en `processor.py` convirtió el throttle en errores Lambda y **1 mensaje (`07.png`) cayó a la DLQ** sin procesarse. Documentados problemas y soluciones propuestas en la sección `Pruebas de desempeño`.
 - **2026-08-15**: vaciada la tabla `MentoringQuestions` (operación de datos vía AWS CLI, sin cambios en Terraform) para eliminar formatos heredados de versiones anteriores del prompt (items sin `Options`/`QuestionType` de antes del rediseño del 2026-08-12) y arrancar el lote real (~100 fotos) con datos 100% consistentes. `memory_size` de la Lambda revertido a 256 MB (PR #8) tras confirmar que 512 MB no mejoraba el desempeño.
+- **2026-08-16**: implementado **botocore adaptive retry** en `processor.py` (PR #11) con `max_attempts=6` y `mode='adaptive'`. Resultado: tasa de éxito mejoró de 73.4% a 100% (109/109 fotos en DynamoDB), DLQ reducida de 30 a 5 mensajes, ThrottlingException reducidos de 290 a 92. **Problema**: duración promedio se duplicó de 7.7s a 18.9s debido a los 6 reintentos; algunas invocaciones alcanzaron timeout de 30s. Documentado en sección "Prueba de backoff con jitter — Lote 2026-08-16".
 - **2026-08-13**: implementada idempotencia en `src/processor.py` (hallazgo #7). `QuestionID` = `eTag` del objeto S3 (sin comillas) con fallback a `uuid.uuid4()`; `ConditionExpression='attribute_not_exists(QuestionID)'` en `put_item`; `ConditionalCheckFailedException` capturada y omitida silenciosamente. Limitación documentada: multipart upload genera eTag compuesto (`hex-N`), pierde deduplicación entre subidas distintas.
 - **2026-07-18**: análisis inicial del proyecto.
 - **2026-08-07**: repo creado en GitHub, primer push. Lambda vacía eliminada. README separado de esta bitácora. Trust role OIDC para GitHub Actions creado (solo lectura por ahora).
