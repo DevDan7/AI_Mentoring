@@ -257,9 +257,124 @@ bedrock_runtime = boto3.client('bedrock-runtime', config=bedrock_config)
 |-----------|--------|------------------|
 | Alta | Implementar retry con jitter a nivel de aplicación para `ThrottlingException` | Reducir duración promedio |
 | Alta | Reducir `max_attempts` de 6 a 3-4 en botocore | Evitar timeouts de 30s |
-| Alta | Configurar `reserved_concurrent_executions` = 3-4 | Throttling más controlado |
+| ~~Alta~~ | ~~Configurar `reserved_concurrent_executions` = 3-4~~ | **Resuelto con `scaling_config.maximum_concurrency` en SQS ESM** |
 | Media | Agregar filtro de archivos (solo `.png`, `.jpg`) | Evitar procesar INVENTORY.md |
-| Media | Reprocesar 5 mensajes de DLQ manualmente | Recuperar datos perdidos |
+| ~~Media~~ | ~~Reprocesar 5 mensajes de DLQ manualmente~~ | **Resuelto: DLQ vacía (0 mensajes)** |
+
+---
+
+## Error de concurrencia y solución — 2026-08-17
+
+### Error
+
+Al intentar aplicar `reserved_concurrent_executions = 3` en la Lambda, Terraform falló con:
+
+```
+InvalidParameterValueException: Specified ReservedConcurrentExecutions for function 
+decreases account's UnreservedConcurrentExecution below its minimum value of [10].
+```
+
+### Causa raíz
+
+La cuenta AWS tiene un límite de **10 concurrent executions** (tier gratuito). AWS requiere que el pool `UnreservedConcurrentExecution` sea **>= 10**. Al reservar 3 en la Lambda, el pool no reservado baja a 7, que es menor que el mínimo de 10.
+
+```
+Cuenta limit:    10
+Reserved:        3  →  Unreserved = 7  ← ¡ERROR! (mínimo es 10)
+```
+
+### Solución: `scaling_config.maximum_concurrency` en SQS ESM
+
+En lugar de `reserved_concurrent_executions` en la Lambda, se configuró **`maximum_concurrency`** en el Event Source Mapping de SQS. Esto controla cuántas instancias Lambda puede invocar SQS simultáneamente, SIN tocar el pool de concurrencia de la cuenta.
+
+```hcl
+resource "aws_lambda_event_source_mapping" "sqs_trigger" {
+  event_source_arn = aws_sqs_queue.main_queue.arn
+  function_name    = aws_lambda_function.processor.arn
+  batch_size       = 1
+
+  scaling_config {
+    maximum_concurrency = 3
+  }
+}
+```
+
+### Por qué esta solución es mejor
+
+| Aspecto | `reserved_concurrent_executions` | `scaling_config.maximum_concurrency` |
+|---------|----------------------------------|--------------------------------------|
+| Cuenta limit necesaria | > 10 (requiere increase) | **No necesita** |
+| Controla concurrencia de | Todas las invocaciones de la Lambda | Solo invocaciones del SQS |
+| Afecta otras funciones | Sí | No |
+| Throttling | Puede causar throttling si el pool es bajo | **No causa throttling** |
+
+### Resultado verificado
+
+```json
+{
+    "UUID": "10193a3a-1718-4353-9a66-2b9b532b5acc",
+    "State": "Enabled",
+    "BatchSize": 1,
+    "ScalingConfig": {
+        "MaximumConcurrency": 3
+    }
+}
+```
+
+SQS ahora invoca máximo 3 instancias Lambda en paralelo, controlando el throttling de Bedrock sin necesitar aumento de límite de cuenta.
+
+---
+
+## Resultados del lote 3 — 2026-08-17 (con maximum_concurrency)
+
+### Contexto
+
+Tras aplicar `scaling_config.maximum_concurrency = 3` en el Event Source Mapping de SQS, se subieron nuevamente las 109 fotos para validar la mejora en el control de concurrencia.
+
+### Métricas de procesamiento
+
+| Métrica | Lote 1 (2026-08-15) | Lote 2 (2026-08-16) | **Lote 3 (2026-08-17)** |
+|---------|---------------------|---------------------|------------------------|
+| Fotos enviadas | 109 | 109 | **109** |
+| Items DynamoDB | 80 (73.4%) | 109 (100%) | **109 (100%)** |
+| ThrottlingException | 290 | 92 | **2** |
+| Duración Promedio | 7,772 ms | 18,928 ms | **10,882 ms** |
+| Duración P50 | ~5,000 ms | ~6,000 ms | **6,618 ms** |
+| Duración P90 | ~8,000 ms | ~25,000 ms | **29,604 ms** |
+| Duración Máxima | 12,707 ms | 30,000 ms | **30,000 ms** |
+| Memoria Pico | ~105 MB | 104 MB | **106 MB** |
+| DLQ Mensajes | 30 | 5 | **0** |
+| Concurrencia | Sin límite | Sin límite | **Máx 3 (SQS ESM)** |
+
+### Distribución de duración (Lote 3)
+
+| Rango | Cantidad | Porcentaje |
+|-------|----------|------------|
+| 2-4s | 1 | 0.8% |
+| 4-6s | 45 | **34.9%** |
+| 6-8s | 30 | **23.3%** |
+| 8-10s | 12 | 9.3% |
+| 10-15s | 13 | 10.1% |
+| 15-30s | 16 | 12.4% |
+| >30s (timeout) | 12 | 9.3% |
+
+### Análisis
+
+**Mejoras respecto al lote 2:**
+- **ThrottlingException: -99%** (de 92 a 2)
+- **DLQ: -100%** (de 5 a 0 mensajes)
+- **Duración promedio: -40%** (de 18.9s a 10.9s)
+
+**Problema persistente:**
+- **12 invocaciones (9.3%) alcanzan timeout de 30s** — causado por 2 ThrottlingException que agotan los 6 reintentos de botocore
+- El P90 es 29,604 ms (casi timeout), indicando que las invocaciones con throttling son las más lentas
+
+**Causa raíz de los timeouts:**
+Las 12 invocaciones con timeout son las que enfrentaron ThrottlingException. Botocore reintenta 6 veces con backoff exponencial, consumiendo los 30s del timeout de Lambda.
+
+### Dashboard
+
+Se generó un dashboard HTML interactivo en `doc/dashboard.html` con KPIs, comparación de lotes, distribución de duración, estado de infraestructura y recomendaciones.
 
 ---
 
@@ -269,6 +384,7 @@ bedrock_runtime = boto3.client('bedrock-runtime', config=bedrock_config)
 - **2026-08-14**: **Resultado de la prueba 512 MB verificado en CloudWatch** — **no se confirma la hipótesis**: duración promedio no mejoró (contaminada por 17 `ThrottlingException` de Bedrock), memoria usada siguió en ~105 MB y el costo de Lambda se duplica. La causa raíz fue la ráfaga de 34 fotos con alta concurrencia (límite cuenta: 10) saturado el rate limit de Claude Haiku 4.5; `raise` incondicional en `processor.py` convirtió el throttle en errores Lambda y **1 mensaje (`07.png`) cayó a la DLQ** sin procesarse. Documentados problemas y soluciones propuestas en la sección `Pruebas de desempeño`.
 - **2026-08-15**: vaciada la tabla `MentoringQuestions` (operación de datos vía AWS CLI, sin cambios en Terraform) para eliminar formatos heredados de versiones anteriores del prompt (items sin `Options`/`QuestionType` de antes del rediseño del 2026-08-12) y arrancar el lote real (~100 fotos) con datos 100% consistentes. `memory_size` de la Lambda revertido a 256 MB (PR #8) tras confirmar que 512 MB no mejoraba el desempeño.
 - **2026-08-16**: implementado **botocore adaptive retry** en `processor.py` (PR #11) con `max_attempts=6` y `mode='adaptive'`. Resultado: tasa de éxito mejoró de 73.4% a 100% (109/109 fotos en DynamoDB), DLQ reducida de 30 a 5 mensajes, ThrottlingException reducidos de 290 a 92. **Problema**: duración promedio se duplicó de 7.7s a 18.9s debido a los 6 reintentos; algunas invocaciones alcanzaron timeout de 30s. Documentado en sección "Prueba de backoff con jitter — Lote 2026-08-16".
+- **2026-08-17**: intento fallido de configurar `reserved_concurrent_executions = 3` en la Lambda (PR #12). Error: `InvalidParameterValueException` porque la cuenta tiene límite de 10 concurrent executions y reservar 3 reduce el pool no reservado por debajo del mínimo de 10. **Solución**: reemplazado por `scaling_config.maximum_concurrency = 3` en el Event Source Mapping de SQS, que controla la concurrencia SIN tocar el pool de la cuenta. Documentado en sección "Error de concurrencia y solución — 2026-08-17".
 - **2026-08-13**: implementada idempotencia en `src/processor.py` (hallazgo #7). `QuestionID` = `eTag` del objeto S3 (sin comillas) con fallback a `uuid.uuid4()`; `ConditionExpression='attribute_not_exists(QuestionID)'` en `put_item`; `ConditionalCheckFailedException` capturada y omitida silenciosamente. Limitación documentada: multipart upload genera eTag compuesto (`hex-N`), pierde deduplicación entre subidas distintas.
 - **2026-07-18**: análisis inicial del proyecto.
 - **2026-08-07**: repo creado en GitHub, primer push. Lambda vacía eliminada. README separado de esta bitácora. Trust role OIDC para GitHub Actions creado (solo lectura por ahora).

@@ -15,7 +15,6 @@ resource "aws_lambda_function" "processor" {
   runtime       = "python3.12"
   timeout       = 30 # La IA puede tardar, le damos tiempo
   memory_size   = 256
-  reserved_concurrent_executions = 3
 
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
 
@@ -32,4 +31,8 @@ resource "aws_lambda_event_source_mapping" "sqs_trigger" {
   event_source_arn = aws_sqs_queue.main_queue.arn
   function_name    = aws_lambda_function.processor.arn
   batch_size       = 1 # Procesamos una foto a la vez para no saturar
+
+  scaling_config {
+    maximum_concurrency = 3
+  }
 }
