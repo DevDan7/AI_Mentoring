@@ -32,8 +32,8 @@ Esto ya cubre, parcialmente, el objetivo de "base de datos de simulados": convie
 5. **`terraform.tfstate` y `.tfstate.backup` sin backend remoto** — riesgo si esto llega a un repo remoto sin `.gitignore` (el state puede contener ARNs/IDs sensibles). Confirmar que quedaron excluidos del repo; evaluar backend remoto (S3 + DynamoDB lock) más adelante para colaboración/recuperación segura. **Pendiente.**
 6. ~~`.venv` y `.terraform` sin excluir~~ — **Resuelto (2026-08-07): agregados al `.gitignore`.**
 7. ~~**Sin manejo de duplicados**: cada foto genera un `QuestionID` nuevo aunque sea la misma pregunta reprocesada (ej. reintento desde DLQ) — puede generar duplicados en la tabla.~~ — **Resuelto (2026-08-13):** `QuestionID` se deriva ahora del `eTag` del objeto S3 (MD5 del contenido en uploads simples), con fallback a `uuid.uuid4()` si no viene. `put_item` usa `ConditionExpression='attribute_not_exists(QuestionID)'`; si ya existe, se captura `ConditionalCheckFailedException` (via `ClientError`), se loguea el duplicado y se omite sin relanzar, evitando reintentos infinitos vía SQS. **Limitación conocida:** en multipart upload el `eTag` es `hex-N` (depende del nº de partes), así que una misma foto subida por PUT simple vs multipart no se deduplica entre sí; el eTag solo es estable dentro del mismo evento S3 (caso SQS-redelivery, que es el objetivo).
-8. **DynamoDB solo tiene la tabla de preguntas** — no existe todavía nada para "base de datos de alumnos" ni para relatorios/reportes de desempeño. Es el mayor gap frente al objetivo del proyecto. **Pendiente.**
-9. **No hay capa de generación de "aulas" ni de reportes** — el pipeline actual solo ingiere y clasifica preguntas; falta toda la capa de negocio (alumnos, sesiones de mentoría, resultados de simulados, relatorios). **Pendiente.**
+8. ~~**DynamoDB solo tiene la tabla de preguntas** — no exist todavía nada para "base de datos de alumnos" ni para relatorios/reportes de desempeño.~~ — **Parcialmente resuelto (2026-08-18):** creadas 3 tablas DynamoDB nuevas (`Students`, `Quizzes`, `QuizResults`) para soportar landing page, sistema de dudas y métricas de progreso. Pendiente: crear Lambdas de CRUD y lógica de negocio.
+9. ~~**No hay capa de generación de "aulas" ni de reportes** — el pipeline actual solo ingiere y clasifica preguntas; falta toda la capa de negocio (alumnos, sesiones de mentoría, resultados de simulados, relatorios).~~ — **Parcialmente resuelto (2026-08-18):** modelo de datos diseñado con tablas `Students`, `Quizzes` y `QuizResults`. Pendiente: implementación de Lambdas y lógica de generación de aulas.
 10. **Datos sensibles en `.tf`**: se detectó un email personal hardcodeado en `aws_sns_topic_subscription`. **Resuelto (2026-08-11)**: movido a variable `notification_email` (sensible, sin default) con valor real en `terraform.tfvars`, excluido vía `.gitignore` (`*.tfvars`). Regla adoptada: valores que exponen datos personales o credenciales van a `.tfvars`; configuración no sensible (región, entorno, nombres) puede tener `default` en `variables.tf`.
 11. **CI sin deploy**: GitHub Actions solo ejecuta `terraform plan` (rol de solo lectura); `terraform apply` es manual. Es intencional hoy, pero hay que documentar que commit/push no despliega infraestructura. **Evaluar** si en el futuro se quiere un apply automático en `main` con permisos controlados.
 
@@ -51,10 +51,10 @@ El objetivo tiene 3 piezas: (1) BD de alumnos, (2) generación de aulas desde un
 
 1. ~~Limpiar deuda técnica rápida (lambda vacía, README, primer commit)~~ — **Hecho.**
 2. ~~Configurar GitHub Actions con OIDC (validación de Terraform vía `plan` en PRs)~~ — **Hecho (2026-08-08).**
-3. Diseñar el modelo de datos de "alumnos" y "resultados de simulados".
+3. ~~Diseñar el modelo de datos de "alumnos" y "resultados de simulados"~~ — **Hecho (2026-08-18).**
 4. Añadir una Lambda/endpoint para registrar respuestas del alumno y actualizar progreso.
 5. Añadir una Lambda de relatorios que consuma ambas tablas.
-6. Resolver el manejo de duplicados (hallazgo #7) antes de escalar el volumen de fotos procesadas.
+6. ~~Resolver el manejo de duplicados (hallazgo #7) antes de escalar el volumen de fotos procesadas~~ — **Hecho (2026-08-13).**
 7. Evaluar backend remoto de Terraform (hallazgo #5).
 
 ---
@@ -378,14 +378,76 @@ Se generó un dashboard HTML interactivo en `doc/dashboard.html` con KPIs, compa
 
 ---
 
+## Modelo de datos — Alumnos, Simulados y Resultados (2026-08-18)
+
+### Contexto
+
+Para soportar la landing page, sistema de dudas y métricas de progreso, se crearon 3 tablas DynamoDB nuevas. El pipeline existente (`MentoringQuestions`) se mantiene intacto para la ingesta de fotos.
+
+### Tablas creadas
+
+| Tabla | PK | GSIs | Propósito |
+|-------|-----|------|-----------|
+| `Students` | `StudentID` | `EmailIndex` (Email) | Perfil del alumno, tracking de sesión |
+| `Quizzes` | `QuizID` | `StudentIndex` (StudentID) | Simulados generados |
+| `QuizResults` | `ResultID` | `QuizIndex` (QuizID), `StudentIndex` (StudentID + Timestamp) | Respuestas del alumno |
+
+### Estructura de cada tabla
+
+**Students:**
+```
+StudentID (PK) | Email | Name | CreatedAt | SessionExpiresAt | TopicsWeak[] | TotalQuizzes | AvgScore
+```
+
+**Quizzes:**
+```
+QuizID (PK) | StudentID | Topic | Difficulty | QuestionCount | Score | Status | CreatedAt
+```
+
+**QuizResults:**
+```
+ResultID (PK) | QuizID | StudentID | QuestionID | GivenAnswer | IsCorrect | Timestamp
+```
+
+### Decisiones de diseño
+
+1. **Schema mínimo en Terraform**: DynamoDB es schema-only; solo se declaran atributos que son PK, SK o están en un GSI. Los demás campos se crean dinámicamente al hacer `put_item`.
+2. **SessionExpiresAt**: Campo para tracking de última actividad del alumno.
+3. **GSIs múltiples en QuizResults**: `QuizIndex` permite ver todas las respuestas de un simulado; `StudentIndex` con sort key `Timestamp` permite ver historial cronológico de un alumno.
+4. **PAY_PER_REQUEST**: Sin compromisos de capacidad, escala con la demanda.
+
+### Error resuelto — Unused attributes
+
+**Problema**: al agregar las 3 tablas, GitHub Actions falló con:
+```
+Error: all attributes must be indexed. Unused attributes: ["GivenAnswer" "IsCorrect" "QuestionID" "QuizID"]
+```
+
+**Causa raíz**: DynamoDB/Terraform rechaza atributos definidos en el bloque `attribute` que no son Partition Key, Sort Key ni están en un GSI. Se definieron campos como `Name`, `CreatedAt`, `Topic`, `Difficulty`, etc., que no son keys ni indexados.
+
+**Solución**: eliminar del `attribute` todos los atributos que no sean PK, SK o GSI. DynamoDB crea esos campos dinámicamente cuando se insertan con `put_item` desde Python.
+
+**Archivos corregidos**: `dynamodb_students.tf` (-6 atributos), `dynamodb_quizzes.tf` (-6 atributos), `dynamodb_quiz_results.tf` (-3 atributos). Commits en PR #14.
+
+### Archivos Terraform creados
+
+| Archivo | Contenido |
+|---------|-----------|
+| `dynamodb_students.tf` | Tabla Students + EmailIndex |
+| `dynamodb_quizzes.tf` | Tabla Quizzes + StudentIndex |
+| `dynamodb_quiz_results.tf` | Tabla QuizResults + QuizIndex + StudentIndex |
+
+### Próximos pasos
+
+- Configurar Cognito para autenticación de alumnos
+- Crear Lambda `student_api.py` para CRUD de alumnos
+- Crear Lambda `quiz_engine.py` para generación de simulados y registro de respuestas
+- Desarrollar landing page (HTML/React)
+
+---
+
 ## Log de cambios
 
-- **2026-08-13**: **Prueba de desempeño** — `memory_size` de la Lambda `mentoring-exam-processor` subido de 256 a 512 MB. Hipótesis: más CPU provisionada → menor `Duration` → coste neto igual o menor. **Línea base (256 MB) registrada** en la sección `Pruebas de desempeño`. Aplicado vía `terraform apply`.
-- **2026-08-14**: **Resultado de la prueba 512 MB verificado en CloudWatch** — **no se confirma la hipótesis**: duración promedio no mejoró (contaminada por 17 `ThrottlingException` de Bedrock), memoria usada siguió en ~105 MB y el costo de Lambda se duplica. La causa raíz fue la ráfaga de 34 fotos con alta concurrencia (límite cuenta: 10) saturado el rate limit de Claude Haiku 4.5; `raise` incondicional en `processor.py` convirtió el throttle en errores Lambda y **1 mensaje (`07.png`) cayó a la DLQ** sin procesarse. Documentados problemas y soluciones propuestas en la sección `Pruebas de desempeño`.
-- **2026-08-15**: vaciada la tabla `MentoringQuestions` (operación de datos vía AWS CLI, sin cambios en Terraform) para eliminar formatos heredados de versiones anteriores del prompt (items sin `Options`/`QuestionType` de antes del rediseño del 2026-08-12) y arrancar el lote real (~100 fotos) con datos 100% consistentes. `memory_size` de la Lambda revertido a 256 MB (PR #8) tras confirmar que 512 MB no mejoraba el desempeño.
-- **2026-08-16**: implementado **botocore adaptive retry** en `processor.py` (PR #11) con `max_attempts=6` y `mode='adaptive'`. Resultado: tasa de éxito mejoró de 73.4% a 100% (109/109 fotos en DynamoDB), DLQ reducida de 30 a 5 mensajes, ThrottlingException reducidos de 290 a 92. **Problema**: duración promedio se duplicó de 7.7s a 18.9s debido a los 6 reintentos; algunas invocaciones alcanzaron timeout de 30s. Documentado en sección "Prueba de backoff con jitter — Lote 2026-08-16".
-- **2026-08-17**: intento fallido de configurar `reserved_concurrent_executions = 3` en la Lambda (PR #12). Error: `InvalidParameterValueException` porque la cuenta tiene límite de 10 concurrent executions y reservar 3 reduce el pool no reservado por debajo del mínimo de 10. **Solución**: reemplazado por `scaling_config.maximum_concurrency = 3` en el Event Source Mapping de SQS, que controla la concurrencia SIN tocar el pool de la cuenta. Documentado en sección "Error de concurrencia y solución — 2026-08-17".
-- **2026-08-13**: implementada idempotencia en `src/processor.py` (hallazgo #7). `QuestionID` = `eTag` del objeto S3 (sin comillas) con fallback a `uuid.uuid4()`; `ConditionExpression='attribute_not_exists(QuestionID)'` en `put_item`; `ConditionalCheckFailedException` capturada y omitida silenciosamente. Limitación documentada: multipart upload genera eTag compuesto (`hex-N`), pierde deduplicación entre subidas distintas.
 - **2026-07-18**: análisis inicial del proyecto.
 - **2026-08-07**: repo creado en GitHub, primer push. Lambda vacía eliminada. README separado de esta bitácora. Trust role OIDC para GitHub Actions creado (solo lectura por ahora).
 - **2026-08-08**: GitHub Actions (`terraform-plan.yml`) funcionando con autenticación OIDC — sin credenciales de larga duración guardadas en GitHub.
@@ -397,3 +459,10 @@ Se generó un dashboard HTML interactivo en `doc/dashboard.html` con KPIs, compa
   - **Problema resuelto — SNS rompe el pipeline**: al agregar SNS para notificaciones por email, el flujo dejó de procesar fotos (llegaba el email pero no entraban items a DynamoDB). Causas raíz: (1) la política de la cola referenciaba `aws_sns_topic.s3_notifications` que no existía — `terraform validate` fallaba; (2) no había suscripción SNS→SQS; (3) el bucket notificaba en paralelo a cola y tópico y, con la política cambiada, el envío directo S3→SQS quedaba denegado. Resuelto adoptando SNS como hub único de fan-out (email + SQS): corregida la referencia al tópico real, agregada suscripción `sqs_sub` con `raw_message_delivery = true` (SQS recibe el evento S3 plano → sin cambios en `processor.py`), y eliminado el bloque `queue` del `aws_s3_bucket_notification`.
   - **Hallazgo de debugging**: los cambios se commitearon y mergearon, pero no se aplicaron — GitHub Actions solo corre `terraform plan` (rol de solo lectura), nunca `apply`. El email llegaba porque esa parte ya estaba desplegada, pero la suscripción SQS nueva no existía en AWS. Lección: commit/push ≠ deploy; `terraform apply` se corre manualmente.
   - **Deuda pagada**: el email estaba hardcodeado en `aws_sns_topic_subscription`; conectado a la variable `notification_email` (sensitive, valor real en `terraform.tfvars`).
+- **2026-08-13**: implementada idempotencia en `src/processor.py` (hallazgo #7). `QuestionID` = `eTag` del objeto S3 (sin comillas) con fallback a `uuid.uuid4()`; `ConditionExpression='attribute_not_exists(QuestionID)'` en `put_item`; `ConditionalCheckFailedException` capturada y omitida silenciosamente. Limitación documentada: multipart upload genera eTag compuesto (`hex-N`), pierde deduplicación entre subidas distintas.
+- **2026-08-13**: **Prueba de desempeño** — `memory_size` de la Lambda `mentoring-exam-processor` subido de 256 a 512 MB. Hipótesis: más CPU provisionada → menor `Duration` → coste neto igual o menor. **Línea base (256 MB) registrada** en la sección `Pruebas de desempeño`. Aplicado vía `terraform apply`.
+- **2026-08-14**: **Resultado de la prueba 512 MB verificado en CloudWatch** — **no se confirma la hipótesis**: duración promedio no mejoró (contaminada por 17 `ThrottlingException` de Bedrock), memoria usada siguió en ~105 MB y el costo de Lambda se duplica. La causa raíz fue la ráfaga de 34 fotos con alta concurrencia (límite cuenta: 10) saturado el rate limit de Claude Haiku 4.5; `raise` incondicional en `processor.py` convirtió el throttle en errores Lambda y **1 mensaje (`07.png`) cayó a la DLQ** sin procesarse. Documentados problemas y soluciones propuestas en la sección `Pruebas de desempeño`.
+- **2026-08-15**: vaciada la tabla `MentoringQuestions` (operación de datos vía AWS CLI, sin cambios en Terraform) para eliminar formatos heredados de versiones anteriores del prompt (items sin `Options`/`QuestionType` de antes del rediseño del 2026-08-12) y arrancar el lote real (~100 fotos) con datos 100% consistentes. `memory_size` de la Lambda revertido a 256 MB (PR #8) tras confirmar que 512 MB no mejoraba el desempeño.
+- **2026-08-16**: implementado **botocore adaptive retry** en `processor.py` (PR #11) con `max_attempts=6` y `mode='adaptive'`. Resultado: tasa de éxito mejoró de 73.4% a 100% (109/109 fotos en DynamoDB), DLQ reducida de 30 a 5 mensajes, ThrottlingException reducidos de 290 a 92. **Problema**: duración promedio se duplicó de 7.7s a 18.9s debido a los 6 reintentos; algunas invocaciones alcanzaron timeout de 30s. Documentado en sección "Prueba de backoff con jitter — Lote 2026-08-16".
+- **2026-08-17**: intento fallido de configurar `reserved_concurrent_executions = 3` en la Lambda (PR #12). Error: `InvalidParameterValueException` porque la cuenta tiene límite de 10 concurrent executions y reservar 3 reduce el pool no reservado por debajo del mínimo de 10. **Solución**: reemplazado por `scaling_config.maximum_concurrency = 3` en el Event Source Mapping de SQS, que controla la concurrencia SIN tocar el pool de la cuenta. Documentado en sección "Error de concurrencia y solución — 2026-08-17".
+- **2026-08-18**: creadas 3 tablas DynamoDB (`Students`, `Quizzes`, `QuizResults`) con schema mínimo (solo PK + GSIs) para soportar landing page, sistema de dudas y métricas de progreso. Error de `Unused attributes` resuelto eliminando atributos no indexados del bloque `attribute` en Terraform. Auth planificada con Amazon Cognito. PR #14.
