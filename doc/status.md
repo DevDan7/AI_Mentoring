@@ -259,7 +259,7 @@ bedrock_runtime = boto3.client('bedrock-runtime', config=bedrock_config)
 | Alta | Reducir `max_attempts` de 6 a 3-4 en botocore | Evitar timeouts de 30s |
 | ~~Alta~~ | ~~Configurar `reserved_concurrent_executions` = 3-4~~ | **Resuelto con `scaling_config.maximum_concurrency` en SQS ESM** |
 | Media | Agregar filtro de archivos (solo `.png`, `.jpg`) | Evitar procesar INVENTORY.md |
-| Media | Reprocesar 5 mensajes de DLQ manualmente | Recuperar datos perdidos |
+| ~~Media~~ | ~~Reprocesar 5 mensajes de DLQ manualmente~~ | **Resuelto: DLQ vacía (0 mensajes)** |
 
 ---
 
@@ -322,6 +322,59 @@ resource "aws_lambda_event_source_mapping" "sqs_trigger" {
 ```
 
 SQS ahora invoca máximo 3 instancias Lambda en paralelo, controlando el throttling de Bedrock sin necesitar aumento de límite de cuenta.
+
+---
+
+## Resultados del lote 3 — 2026-08-17 (con maximum_concurrency)
+
+### Contexto
+
+Tras aplicar `scaling_config.maximum_concurrency = 3` en el Event Source Mapping de SQS, se subieron nuevamente las 109 fotos para validar la mejora en el control de concurrencia.
+
+### Métricas de procesamiento
+
+| Métrica | Lote 1 (2026-08-15) | Lote 2 (2026-08-16) | **Lote 3 (2026-08-17)** |
+|---------|---------------------|---------------------|------------------------|
+| Fotos enviadas | 109 | 109 | **109** |
+| Items DynamoDB | 80 (73.4%) | 109 (100%) | **109 (100%)** |
+| ThrottlingException | 290 | 92 | **2** |
+| Duración Promedio | 7,772 ms | 18,928 ms | **10,882 ms** |
+| Duración P50 | ~5,000 ms | ~6,000 ms | **6,618 ms** |
+| Duración P90 | ~8,000 ms | ~25,000 ms | **29,604 ms** |
+| Duración Máxima | 12,707 ms | 30,000 ms | **30,000 ms** |
+| Memoria Pico | ~105 MB | 104 MB | **106 MB** |
+| DLQ Mensajes | 30 | 5 | **0** |
+| Concurrencia | Sin límite | Sin límite | **Máx 3 (SQS ESM)** |
+
+### Distribución de duración (Lote 3)
+
+| Rango | Cantidad | Porcentaje |
+|-------|----------|------------|
+| 2-4s | 1 | 0.8% |
+| 4-6s | 45 | **34.9%** |
+| 6-8s | 30 | **23.3%** |
+| 8-10s | 12 | 9.3% |
+| 10-15s | 13 | 10.1% |
+| 15-30s | 16 | 12.4% |
+| >30s (timeout) | 12 | 9.3% |
+
+### Análisis
+
+**Mejoras respecto al lote 2:**
+- **ThrottlingException: -99%** (de 92 a 2)
+- **DLQ: -100%** (de 5 a 0 mensajes)
+- **Duración promedio: -40%** (de 18.9s a 10.9s)
+
+**Problema persistente:**
+- **12 invocaciones (9.3%) alcanzan timeout de 30s** — causado por 2 ThrottlingException que agotan los 6 reintentos de botocore
+- El P90 es 29,604 ms (casi timeout), indicando que las invocaciones con throttling son las más lentas
+
+**Causa raíz de los timeouts:**
+Las 12 invocaciones con timeout son las que enfrentaron ThrottlingException. Botocore reintenta 6 veces con backoff exponencial, consumiendo los 30s del timeout de Lambda.
+
+### Dashboard
+
+Se generó un dashboard HTML interactivo en `doc/dashboard.html` con KPIs, comparación de lotes, distribución de duración, estado de infraestructura y recomendaciones.
 
 ---
 
