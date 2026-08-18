@@ -25,3 +25,6 @@ jobs:
       - run: terraform plan
         env:
           TF_VAR_notification_email: ${{ secrets.NOTIFICATION_EMAIL }}
+          TF_VAR_project_name: ${{ vars.PROJECT_NAME }}
+          TF_VAR_environment: ${{ vars.ENVIRONMENT }}
+          
