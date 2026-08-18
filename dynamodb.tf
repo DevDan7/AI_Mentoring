@@ -15,8 +15,11 @@ resource "aws_dynamodb_table" "mentoring_questions_table" {
 
   global_secondary_index {
     name            = "TopicIndex"
-    hash_key        = "Topic"
     projection_type = "ALL"
+    key_schema {
+      attribute_name = "Topic"
+      key_type       = "HASH"     
+    }
   }
 
   tags = {
