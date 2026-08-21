@@ -484,3 +484,13 @@ Error: all attributes must be indexed. Unused attributes: ["GivenAnswer" "IsCorr
   - IAM: permisos mínimos — DynamoDB (Students) + Cognito GetUser.
   - Tests: 5/5 pasados (create, get, update, get_by_email, token inválido).
   - Archivos: `src/student_api.py`, `lambda_student_api.tf`, `iam_student_api.tf`.
+- **2026-08-21**: desplegado API Gateway HTTP API con JWT Authorizer:
+  - Archivos creados: `api_gateway.tf` (HTTP API + Stage + Throttling 100 rps/burst 200), `api_gateway_authorizer.tf` (JWT Authorizer con Cognito User Pool), `api_gateway_routes.tf` (7 rutas + 2 integraciones + 2 permisos Lambda).
+  - 7 rutas protegidas con JWT: `POST /students`, `GET /students/me`, `PUT /students/me`, `GET /students/{studentId}`, `POST /quizzes/generate`, `POST /quizzes/submit`, `GET /quizzes/{quizId}/results`.
+  - Lambdas adaptadas al formato API Gateway v2.0: `student_api.py` y `quiz_engine.py` ahora leen `requestContext.authorizer.jwt.claims` en lugar de `action` del body. Routing por HTTP method + path.
+  - `student_api.py`: nuevos endpoints `GET /students/me` y `PUT /students/me` que usan `sub` del JWT claims. `create_student` extrae `email` y `name` del JWT claims.
+  - `quiz_engine.py`: `generate_quiz` extrae `student_id` del JWT claims (no del body). `get_results` valida que el quiz pertenezca al alumno autenticado.
+  - Outputs: `api_gateway_url` y `api_gateway_id` agregados a `outputs.tf`.
+  - Test events creados en `events/apigw/` con formato API Gateway v2.0 (6 archivos).
+  - Test script `scripts/test_api.sh`: 7/7 endpoints probados exitosamente.
+  - **Error IAM resuelto**: `submit_answer` fallaba con `AccessDeniedException: dynamodb:GetItem on MentoringQuestions`. El policy de `quiz_engine` solo tenía `dynamodb:Query` en `MentoringQuestions`, pero `submit_answer` necesita `dynamodb:GetItem` para verificar la respuesta. Agregado `GetItem` al statement `AllowReadQuestions` en `iam.tf`.

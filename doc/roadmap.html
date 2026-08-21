@@ -445,7 +445,7 @@
             <h2 class="section-title">Estado Actual del Proyecto</h2>
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-value">14</div>
+                    <div class="stat-value">15</div>
                     <div class="stat-label">Días de desarrollo</div>
                 </div>
                 <div class="stat-card">
@@ -453,8 +453,8 @@
                     <div class="stat-label">PRs mergeados</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">109</div>
-                    <div class="stat-label">Preguntas en DynamoDB</div>
+                    <div class="stat-value">7</div>
+                    <div class="stat-label">Endpoints activos</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value">3</div>
@@ -597,14 +597,14 @@
                 <!-- Fase 5: Frontend -->
                 <div class="phase-box phase-next">
                     <div class="phase-header">
-                        <span class="phase-title">Fase 5: Frontend + API Gateway</span>
+                        <span class="phase-title">Fase 5: Frontend</span>
                         <span class="phase-badge badge-next">PRÓXIMO</span>
                     </div>
                     <div class="flow-row">
-                        <div class="flow-box pending">
+                        <div class="flow-box active">
                             <div class="icon">🌐</div>
                             <div class="label">API Gateway</div>
-                            <div class="status status-pending">HTTP API + JWT</div>
+                            <div class="status status-active">HTTP API + JWT</div>
                         </div>
                         <span class="arrow">→</span>
                         <div class="flow-box pending">
@@ -665,11 +665,11 @@
                     </tr>
                     <tr>
                         <td>4</td>
-                        <td><strong>Configurar API Gateway HTTP API</strong><br><small>HTTP API con JWT authorizer (Cognito), rutas para students y quizzes</small></td>
+                        <td><strong>Configurar API Gateway HTTP API</strong><br><small>HTTP API con JWT authorizer (Cognito), 7 rutas protegidas, throttling 100 rps</small></td>
                         <td class="priority-high">Alta</td>
                         <td>3-4 horas</td>
                         <td>Cognito, Lambdas</td>
-                        <td><span class="phase-badge badge-next">Siguiente</span></td>
+                        <td><span class="phase-badge badge-done">✅ Completada</span></td>
                     </tr>
                     <tr>
                         <td>5</td>
@@ -868,10 +868,15 @@
                     <div class="timeline-title">Autenticación + APIs</div>
                     <div class="timeline-desc">Cognito User Pool, student_api.py (CRUD), quiz_engine.py (3 acciones), todos tests pasados</div>
                 </div>
+                <div class="timeline-item done">
+                    <div class="timeline-date">21 agosto 2026</div>
+                    <div class="timeline-title">API Gateway HTTP API</div>
+                    <div class="timeline-desc">JWT Authorizer, 7 rutas, Lambdas adaptadas a v2.0, IAM fix (GetItem), 7/7 tests pasados</div>
+                </div>
                 <div class="timeline-item current">
                     <div class="timeline-date">Próximos días</div>
-                    <div class="timeline-title">API Gateway + Landing Page</div>
-                    <div class="timeline-desc">HTTP API con JWT authorizer, S3 + CloudFront, HTML + TypeScript</div>
+                    <div class="timeline-title">Landing Page</div>
+                    <div class="timeline-desc">HTML + TypeScript, S3 + CloudFront, interfaz de alumno</div>
                 </div>
                 <div class="timeline-item next">
                     <div class="timeline-date">Próximas 2 semanas</div>
@@ -887,12 +892,8 @@
             
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-value">15-20h</div>
+                    <div class="stat-value">10-15h</div>
                     <div class="stat-label">Tiempo total restante</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">3-4h</div>
-                    <div class="stat-label">API Gateway HTTP API</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value">8-12h</div>
@@ -900,13 +901,17 @@
                 </div>
                 <div class="stat-card">
                     <div class="stat-value">4-6h</div>
-                    <div class="stat-label">Reportes + Backend</div>
+                    <div class="stat-label">Reportes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">2-3h</div>
+                    <div class="stat-label">Backend Remoto</div>
                 </div>
             </div>
         </section>
 
         <footer style="text-align: center; padding: 40px 0; color: #64748b; font-size: 0.9rem;">
-            <p>AI Mentoring — Roadmap generado el 21 de agosto de 2026</p>
+            <p>AI Mentoring — Roadmap actualizado el 21 de agosto de 2026</p>
             <p>Plataforma serverless para mentorías de certificación AWS</p>
         </footer>
     </div>
