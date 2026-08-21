@@ -5,48 +5,89 @@ import boto3
 from datetime import datetime, timezone
 from boto3.dynamodb.conditions import Key
 
+# Configuración de Entorno
 dynamodb = boto3.resource('dynamodb')
-
 questions_table = dynamodb.Table(os.environ['QUESTIONS_TABLE'])
 quizzes_table = dynamodb.Table(os.environ['QUIZZES_TABLE'])
 quiz_results_table = dynamodb.Table(os.environ['QUIZ_RESULTS_TABLE'])
 
+# Encabezados CORS estándar para las respuestas HTTP
+HEADERS = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Authorization,Content-Type',
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
+}
+
 
 def lambda_handler(event, context):
-    action = event.get('action')
+    """Enrutador principal para el motor de simulados (formato API Gateway v2.0)"""
+    route_key = event.get('routeKey')
+    path_params = event.get('pathParameters', {})
+    
+    # Extraer claims validados del JWT de Cognito por API Gateway
+    claims = event.get('requestContext', {}).get('authorizer', {}).get('jwt', {}).get('claims', {})
+    student_id = claims.get('sub')
 
-    if action == 'generate_quiz':
-        return generate_quiz(event)
-    elif action == 'submit_answer':
-        return submit_answer(event)
-    elif action == 'get_results':
-        return get_results(event)
+    # Decodificar el cuerpo de la petición una sola vez
+    body = {}
+    if event.get('body'):
+        try:
+            body = json.loads(event['body'])
+        except json.JSONDecodeError:
+            return build_response(400, {'error': 'Invalid JSON in request body'})
+
+    # Enrutamiento basado en route_key (más seguro que rawPath)
+    if route_key == 'POST /quizzes/generate':
+        return generate_quiz(student_id, body)
+    elif route_key == 'POST /quizzes/submit':
+        return submit_answer(student_id, body)
+    elif route_key == 'GET /quizzes/{quizId}/results':
+        quiz_id = path_params.get('quizId')
+        return get_results(quiz_id, student_id)
     else:
-        return {
-            'statusCode': 400,
-            'body': f'Unknown action: {action}'
-        }
+        return build_response(404, {'error': f'Route not found: {route_key}'})
 
 
-def generate_quiz(event):
-    student_id = event['student_id']
-    topic = event['topic']
-    count = event.get('count', 5)
+def build_response(status_code, body):
+    """Auxiliar para formatear respuestas compatibles con API Gateway HTTP API v2.0"""
+    return {
+        'statusCode': status_code,
+        'headers': HEADERS,
+        'body': json.dumps(body)
+    }
 
-    response = questions_table.query(
+
+def generate_quiz(student_id, body):
+    topic = body.get('topic')
+    count = body.get('count', 5)
+
+    if not topic:
+        return build_response(400, {'error': 'Topic is required'})
+
+    response_query = questions_table.query(
         IndexName='TopicIndex',
         KeyConditionExpression=Key('Topic').eq(topic),
         Limit=count
     )
-    questions = response.get('Items', [])
+    questions = response_query.get('Items', [])
 
     if not questions:
-        return {
-            'statusCode': 404,
-            'body': f'No questions found for topic: {topic}'
-        }
+        return build_response(404, {'error': f'No questions found for topic: {topic}'})
 
-    question_ids = [q['QuestionID'] for q in questions]
+    # Extraer QuestionIDs limpiando la información (no enviar la CorrectAnswer al Frontend)
+    question_ids = []
+    cleaned_questions = []
+    for q in questions:
+        question_ids.append(q['QuestionID'])
+        cleaned_questions.append({
+            'question_id': q['QuestionID'],
+            'topic': q['Topic'],
+            'type': q.get('Type', 'multiple_choice'),
+            'statement': q.get('Statement', ''),
+            'options': q.get('Options', {})
+        })
+
     quiz_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
 
@@ -59,57 +100,70 @@ def generate_quiz(event):
         'CreatedAt': created_at
     })
 
-    return {
-        'statusCode': 200,
-        'body': {
-            'quiz_id': quiz_id,
-            'student_id': student_id,
-            'topic': topic,
-            'question_ids': question_ids
-        }
-    }
+    return build_response(201, {
+        'quiz_id': quiz_id,
+        'student_id': student_id,
+        'topic': topic,
+        'questions': cleaned_questions # Enviar preguntas limpias sin la respuesta correcta
+    })
 
 
-def submit_answer(event):
-    quiz_id = event['quiz_id']
-    student_id = event['student_id']
-    question_id = event['question_id']
-    given_answer = event['given_answer']
-    is_correct = event['is_correct']
+def submit_answer(student_id, body):
+    """Verifica y guarda de forma segura la respuesta enviada por el alumno"""
+    quiz_id = body.get('quiz_id')
+    question_id = body.get('question_id')
+    given_answer = body.get('given_answer')
+
+    if not all([quiz_id, question_id, given_answer]):
+        return build_response(400, {'error': 'quiz_id, question_id, and given_answer are required'})
+
+    # 1. Obtener la pregunta original por QuestionID de forma segura
+    question_response = questions_table.get_item(Key={'QuestionID': question_id})
+    question = question_response.get('Item')
+
+    if not question:
+        return build_response(404, {'error': f'Question not found: {question_id}'})
+
+    # 2. VALIDACIÓN DE SEGURIDAD EN EL BACKEND: Obtener la respuesta correcta verdadera
+    correct_answer = question.get('CorrectAnswer')
+    
+    if not correct_answer:
+        return build_response(500, {'error': f'CorrectAnswer missing in DB for question: {question_id}'})
+
+    # 3. Comparar respuestas de forma segura en el servidor
+    is_correct = (str(given_answer).strip().upper() == str(correct_answer).strip().upper())
 
     result_id = str(uuid.uuid4())
     timestamp = datetime.now(timezone.utc).isoformat()
 
+    # Guardar resultado verificado en DynamoDB
     quiz_results_table.put_item(Item={
         'ResultID': result_id,
         'QuizID': quiz_id,
         'StudentID': student_id,
         'QuestionID': question_id,
         'GivenAnswer': given_answer,
-        'IsCorrect': is_correct,
+        'IsCorrect': is_correct, # Guardamos el valor calculado en backend
         'Timestamp': timestamp
     })
 
-    return {
-        'statusCode': 200,
-        'body': {
-            'result_id': result_id,
-            'quiz_id': quiz_id
-        }
-    }
+    return build_response(201, {
+        'result_id': result_id,
+        'quiz_id': quiz_id,
+        'is_correct': is_correct # Informar al frontend si acertó
+    })
 
 
-def get_results(event):
-    quiz_id = event['quiz_id']
-
+def get_results(quiz_id, student_id):
     quiz_response = quizzes_table.get_item(Key={'QuizID': quiz_id})
     quiz = quiz_response.get('Item')
 
     if not quiz:
-        return {
-            'statusCode': 404,
-            'body': f'Quiz not found: {quiz_id}'
-        }
+        return build_response(404, {'error': f'Quiz not found: {quiz_id}'})
+
+    # Validación de seguridad: un alumno no puede ver los resultados de otro
+    if quiz['StudentID'] != student_id:
+        return build_response(403, {'error': 'Forbidden: You cannot access results for a quiz that is not yours'})
 
     results_response = quiz_results_table.query(
         IndexName='QuizIndex',
@@ -120,8 +174,7 @@ def get_results(event):
     total_questions = len(quiz.get('Questions', []))
     answered_questions = len(results)
     correct_answers = sum(1 for r in results if r.get('IsCorrect', False))
-    incorrect_answers = answered_questions - correct_answers
-    score_percentage = round((correct_answers / answered_questions) * 100, 1) if answered_questions > 0 else 0
+     score_percentage = round((correct_answers / answered_questions) * 100, 1) if answered_questions > 0 else 0
 
     questions_details = []
     for result in results:
@@ -132,23 +185,26 @@ def get_results(event):
             'timestamp': result.get('Timestamp', '')
         })
 
-    return {
-        'statusCode': 200,
-        'body': {
-            'quiz': {
-                'quiz_id': quiz['QuizID'],
-                'student_id': quiz['StudentID'],
-                'topic': quiz.get('Topic', ''),
-                'status': quiz.get('Status', ''),
-                'created_at': quiz.get('CreatedAt', '')
-            },
-            'metrics': {
-                'total_questions': total_questions,
-                'answered_questions': answered_questions,
-                'correct_answers': correct_answers,
-                'incorrect_answers': incorrect_answers,
-                'score_percentage': score_percentage
-            },
-            'results': questions_details
-        }
-    }
+    return build_response(200, {
+        'quiz': {
+            'quiz_id': quiz['QuizID'],
+            'student_id': quiz['StudentID'],
+            'topic': quiz.get('Topic', ''),
+            'status': quiz.get('Status', ''),
+            'created_at': quiz.get('CreatedAt', '')
+        },
+        'metrics': {
+            'total_questions': total_questions,
+            'answered_questions': answered_questions,
+            'correct_answers': correct_answers,
+            'score_percentage': score_percentage
+        },
+        'answers': questions_details
+    })       'total_questions': total_questions,
+            'answered_questions': answered_questions,
+            'correct_answers': correct_answers,
+            'incorrect_answers': incorrect_answers,
+            'score_percentage': score_percentage
+        },
+        'results': questions_details
+    })
