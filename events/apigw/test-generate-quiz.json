@@ -1,0 +1,27 @@
+{
+  "version": "2.0",
+  "routeKey": "POST /quizzes/generate",
+  "rawPath": "/quizzes/generate",
+  "rawQueryString": "",
+  "headers": {
+    "Authorization": "Bearer <TOKEN>",
+    "Content-Type": "application/json"
+  },
+  "requestContext": {
+    "http": {
+      "method": "POST",
+      "path": "/quizzes/generate"
+    },
+    "authorizer": {
+      "jwt": {
+        "claims": {
+          "sub": "test-user-001",
+          "email": "test@example.com",
+          "name": "Test User"
+        }
+      }
+    }
+  },
+  "body": "{\"topic\":\"AWS Well-Architected Framework\",\"count\":3}",
+  "isBase64Encoded": false
+}

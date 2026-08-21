@@ -1,130 +1,137 @@
 import json
-import uuid
 import os
 import boto3
 from datetime import datetime, timezone
-from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
-COGNITO_USER_POOL_ID = os.environ['COGNITO_USER_POOL_ID']
-COGNITO_CLIENT_ID = os.environ['COGNITO_CLIENT_ID']
-STUDENTS_TABLE = os.environ['STUDENTS_TABLE']
-
+# Inicialización del cliente de DynamoDB
 dynamodb = boto3.resource('dynamodb')
-cognito_client = boto3.client('cognito-idp')
-students_table = dynamodb.Table(STUDENTS_TABLE)
+students_table = dynamodb.Table(os.environ['STUDENTS_TABLE'])
+
+# Encabezados CORS estándar para permitir integración con el Frontend
+HEADERS = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Authorization,Content-Type',
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
+}
 
 
-def lambda_handler(event, context):
-    action = event.get('action')
-
-    if action != 'create_student':
-        token = event.get('access_token')
-        if not token:
-            return {'statusCode': 401, 'body': 'Missing access_token'}
-        user = validate_token(token)
-        if not user:
-            return {'statusCode': 401, 'body': 'Invalid or expired token'}
-
-    if action == 'create_student':
-        return create_student(event)
-    elif action == 'get_student':
-        return get_student(event)
-    elif action == 'update_student':
-        return update_student(event)
-    elif action == 'get_student_by_email':
-        return get_student_by_email(event)
-    else:
-        return {'statusCode': 400, 'body': f'Unknown action: {action}'}
-
-
-def validate_token(access_token):
-    try:
-        response = cognito_client.get_user(AccessToken=access_token)
-        attributes = {a['Name']: a['Value'] for a in response['UserAttributes']}
-        return {
-            'sub': response['Username'],
-            'email': attributes.get('email'),
-            'name': attributes.get('name')
-        }
-    except ClientError:
-        return None
-
-
-def create_student(event):
-    data = event.get('data', {})
-    email = data['email']
-    name = data['name']
-    student_id = data.get('student_id', str(uuid.uuid4()))
-    created_at = datetime.now(timezone.utc).isoformat()
-
-    students_table.put_item(Item={
-        'StudentID': student_id,
-        'Email': email,
-        'Name': name,
-        'Cohort': data.get('cohort', ''),
-        'CreatedAt': created_at,
-        'UpdatedAt': created_at
-    })
-
+def build_response(status_code, body):
+    """Auxiliar para generar respuestas formateadas para API Gateway v2.0"""
     return {
-        'statusCode': 200,
-        'body': {
-            'student_id': student_id,
-            'email': email,
-            'name': name
-        }
+        'statusCode': status_code,
+        'headers': HEADERS,
+        'body': json.dumps(body)
     }
 
 
-def get_student(event):
-    student_id = event['student_id']
+def lambda_handler(event, context):
+    route_key = event.get('routeKey')
+    path_params = event.get('pathParameters', {})
+    
+    # Extraer los claims validados directamente desde el JWT de Cognito
+    claims = event.get('requestContext', {}).get('authorizer', {}).get('jwt', {}).get('claims', {})
+
+    # Enrutamiento basado en el routeKey expuesto por API Gateway
+    if route_key == 'POST /students':
+        return create_student(event, claims)
+    elif route_key == 'GET /students/me':
+        return get_student_by_claims(claims)
+    elif route_key == 'PUT /students/me':
+        return update_student_by_claims(event, claims)
+    elif route_key == 'GET /students/{studentId}':
+        student_id = path_params.get('studentId')
+        return get_student(student_id)
+    else:
+        return build_response(404, {'message': f'Route not found: {route_key}'})
+
+
+def create_student(event, claims):
+    data = json.loads(event.get('body', '{}'))
+    
+    # Identidad verificada por el Authorizer (no se confía en el body para email o ID)
+    student_id = claims.get('sub')
+    email = claims.get('email', data.get('email'))
+    name = claims.get('name', data.get('name'))
+    created_at = datetime.now(timezone.utc).isoformat()
+
+    if not student_id or not email or not name:
+        return build_response(400, {'message': 'Missing required student claims (sub, email, name)'})
+
+    try:
+        students_table.put_item(
+            Item={
+                'StudentID': student_id,
+                'Email': email,
+                'Name': name,
+                'Cohort': data.get('cohort', ''),
+                'CreatedAt': created_at,
+                'UpdatedAt': created_at
+            },
+            ConditionExpression='attribute_not_exists(StudentID)'
+        )
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+            return build_response(409, {'message': 'Student profile already exists'})
+        raise
+
+    return build_response(201, {
+        'student_id': student_id,
+        'email': email,
+        'name': name
+    })
+
+
+def get_student_by_claims(claims):
+    student_id = claims.get('sub')
+    if not student_id:
+        return build_response(401, {'message': 'Unauthorized: Invalid JWT claims'})
+    return get_student(student_id)
+
+
+def get_student(student_id):
+    if not student_id:
+        return build_response(400, {'message': 'student_id is required'})
 
     response = students_table.get_item(Key={'StudentID': student_id})
     student = response.get('Item')
 
     if not student:
-        return {'statusCode': 404, 'body': f'Student not found: {student_id}'}
+        return build_response(404, {'message': f'Student not found: {student_id}'})
 
-    return {'statusCode': 200, 'body': student}
+    return build_response(200, student)
 
 
-def update_student(event):
-    student_id = event['student_id']
-    data = event.get('data', {})
+def update_student_by_claims(event, claims):
+    student_id = claims.get('sub')
+    if not student_id:
+        return build_response(401, {'message': 'Unauthorized: Invalid JWT claims'})
+
+    data = json.loads(event.get('body', '{}'))
 
     update_expr = "SET UpdatedAt = :updated_at"
     expr_values = {':updated_at': datetime.now(timezone.utc).isoformat()}
+    expr_names = {}
 
     if 'name' in data:
         update_expr += ", #n = :name"
         expr_values[':name'] = data['name']
+        expr_names['#n'] = 'Name'
 
     if 'cohort' in data:
         update_expr += ", Cohort = :cohort"
         expr_values[':cohort'] = data['cohort']
 
-    response = students_table.update_item(
-        Key={'StudentID': student_id},
-        UpdateExpression=update_expr,
-        ExpressionAttributeNames={'#n': 'Name'} if 'name' in data else {},
-        ExpressionAttributeValues=expr_values,
-        ReturnValues="ALL_NEW"
-    )
+    kwargs = {
+        'Key': {'StudentID': student_id},
+        'UpdateExpression': update_expr,
+        'ExpressionAttributeValues': expr_values,
+        'ReturnValues': 'ALL_NEW'
+    }
 
-    return {'statusCode': 200, 'body': response['Attributes']}
+    if expr_names:
+        kwargs['ExpressionAttributeNames'] = expr_names
 
-
-def get_student_by_email(event):
-    email = event['email']
-
-    response = students_table.query(
-        IndexName='EmailIndex',
-        KeyConditionExpression=Key('Email').eq(email)
-    )
-    items = response.get('Items', [])
-
-    if not items:
-        return {'statusCode': 404, 'body': f'Student not found: {email}'}
-
-    return {'statusCode': 200, 'body': items[0]}
+    result = students_table.update_item(**kwargs)
+    return build_response(200, result['Attributes'])
