@@ -13,3 +13,15 @@ variable "environment" {
   description = "Deployment environment used in resource naming"
   type        = string
 }
+
+variable "cognito_callback_urls" {
+  description = "URLs de callback permitidas para Cognito OAuth"
+  type        = list(string)
+  default     = ["http://localhost:3000/callback"]
+}
+
+variable "cognito_logout_urls" {
+  description = "URLs de logout permitidas para Cognito OAuth"
+  type        = list(string)
+  default     = ["http://localhost:3000/logout"]
+}
