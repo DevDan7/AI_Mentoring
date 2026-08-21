@@ -494,3 +494,10 @@ Error: all attributes must be indexed. Unused attributes: ["GivenAnswer" "IsCorr
   - Test events creados en `events/apigw/` con formato API Gateway v2.0 (6 archivos).
   - Test script `scripts/test_api.sh`: 7/7 endpoints probados exitosamente.
   - **Error IAM resuelto**: `submit_answer` fallaba con `AccessDeniedException: dynamodb:GetItem on MentoringQuestions`. El policy de `quiz_engine` solo tenía `dynamodb:Query` en `MentoringQuestions`, pero `submit_answer` necesita `dynamodb:GetItem` para verificar la respuesta. Agregado `GetItem` al statement `AllowReadQuestions` en `iam.tf`.
+- **2026-08-21**: Landing Page desplegada con S3 + CloudFront:
+  - Frontend: 4 páginas HTML (`index.html`, `dashboard.html`, `quiz.html`, `results.html`) con Pico.css vía CDN.
+  - JS modules: `config.js` (variables de entorno), `auth.js` (login, refresh token, logout, token expiry check), `api.js` (wrapper fetch con auto-refresh en 401).
+  - Hosting: S3 bucket `ai-mentoring-frontend-*` + CloudFront distribution (`d2dsobmtfi3ppb.cloudfront.net`).
+  - Terraform: `landing.tf` con S3 bucket, website configuration, bucket policy pública, CloudFront distribution con redirect a HTTPS.
+  - Outputs: `cloudfront_url`, `frontend_s3_bucket_name` agregados a `outputs.tf`.
+  - **Bug fix**: `quiz_engine.py` línea 97 buscaba campo `Statement` pero en DynamoDB el campo es `QuestionText`. Corregido `q.get('Statement', '')` → `q.get('QuestionText', '')`.
