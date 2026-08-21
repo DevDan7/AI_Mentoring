@@ -93,7 +93,7 @@ def generate_quiz(student_id, body):
         cleaned_questions.append({
             'question_id': q['QuestionID'],
             'topic': q['Topic'],
-            'type': q.get('Type', 'multiple_choice'),
+            'type': q.get('QuestionType', 'single'),
             'statement': q.get('QuestionText', ''),
             'options': cleaned_options
         })
@@ -119,13 +119,15 @@ def generate_quiz(student_id, body):
 
 
 def submit_answer(student_id, body):
-    """Verifica la respuesta analizando la clave is_correct dentro del mapa Options"""
+    """Verifica la respuesta soportando single y multiple choice.
+    given_answers es una lista de letras (ej: ["A"] o ["A", "C"]).
+    La calificación es correcta solo si el set de respuestas coincide exactamente con las opciones correctas."""
     quiz_id = body.get('quiz_id')
     question_id = body.get('question_id')
-    given_answer = body.get('given_answer')
+    given_answers = body.get('given_answers', [])
 
-    if not all([quiz_id, question_id, given_answer]):
-        return build_response(400, {'error': 'quiz_id, question_id, and given_answer are required'})
+    if not all([quiz_id, question_id]) or not given_answers:
+        return build_response(400, {'error': 'quiz_id, question_id, and given_answers (array) are required'})
 
     question_response = questions_table.get_item(Key={'QuestionID': question_id})
     question = question_response.get('Item')
@@ -133,12 +135,26 @@ def submit_answer(student_id, body):
     if not question:
         return build_response(404, {'error': f'Question not found: {question_id}'})
 
-    # Lectura correcta de la estructura anidada Options en DynamoDB
     options = question.get('Options', {})
-    given_opt = options.get(str(given_answer).strip().upper(), {})
 
-    # Evaluar si la opción elegida es la correcta
-    is_correct = bool(given_opt.get('is_correct', False))
+    # Normalizar respuestas del alumno a mayúsculas
+    normalized_given = set(a.strip().upper() for a in given_answers)
+
+    # Construir el set de opciones correctas desde DynamoDB
+    correct_options = set()
+    for key, opt in options.items():
+        if opt.get('is_correct', False):
+            correct_options.add(key.strip().upper())
+
+    # Calificación: correcto solo si ambos sets son idénticos
+    is_correct = normalized_given == correct_options
+
+    # Recoger la explicación de la primera opción correcta encontrada
+    explanation = ''
+    for key, opt in options.items():
+        if opt.get('is_correct', False):
+            explanation = opt.get('explanation', '')
+            break
 
     result_id = str(uuid.uuid4())
     timestamp = datetime.now(timezone.utc).isoformat()
@@ -148,7 +164,7 @@ def submit_answer(student_id, body):
         'QuizID': quiz_id,
         'StudentID': student_id,
         'QuestionID': question_id,
-        'GivenAnswer': given_answer,
+        'GivenAnswers': sorted(list(normalized_given)),
         'IsCorrect': is_correct,
         'Timestamp': timestamp
     })
@@ -157,7 +173,7 @@ def submit_answer(student_id, body):
         'result_id': result_id,
         'quiz_id': quiz_id,
         'is_correct': is_correct,
-        'explanation': given_opt.get('explanation', '')
+        'explanation': explanation
     })
 
 
@@ -187,7 +203,7 @@ def get_results(quiz_id, student_id):
     for result in results:
         questions_details.append({
             'question_id': result['QuestionID'],
-            'given_answer': result.get('GivenAnswer', ''),
+            'given_answers': result.get('GivenAnswers', []),
             'is_correct': result.get('IsCorrect', False),
             'timestamp': result.get('Timestamp', '')
         })

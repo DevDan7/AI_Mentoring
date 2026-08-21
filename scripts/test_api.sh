@@ -73,7 +73,7 @@ curl -s -X POST "$API_URL/quizzes/submit" \
   -d "{
     \"quiz_id\": \"$QUIZ_ID\",
     \"question_id\": \"$FIRST_QUESTION_ID\",
-    \"given_answer\": \"A\"
+    \"given_answers\": [\"A\"]
   }" | jq . # <-- CORREGIDO: Se elimina is_correct
 
 echo ""

@@ -50,11 +50,11 @@ async function generateQuiz(topic, count) {
     return apiCall("POST", "/quizzes/generate", { topic, count });
 }
 
-async function submitAnswer(quizId, questionId, givenAnswer) {
+async function submitAnswer(quizId, questionId, givenAnswers) {
     return apiCall("POST", "/quizzes/submit", {
         quiz_id: quizId,
         question_id: questionId,
-        given_answer: givenAnswer
+        given_answers: givenAnswers
     });
 }
 
