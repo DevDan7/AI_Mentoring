@@ -1,0 +1,8 @@
+{
+  "action": "create_student",
+  "data": {
+    "email": "test@ejemplo.com",
+    "name": "Test Student",
+    "cohort": "AWS-2026-Q3"
+  }
+}
