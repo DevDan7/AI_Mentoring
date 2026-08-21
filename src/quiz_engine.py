@@ -75,17 +75,27 @@ def generate_quiz(student_id, body):
     if not questions:
         return build_response(404, {'error': f'No questions found for topic: {topic}'})
 
-    # Extraer QuestionIDs limpiando la información (no enviar la CorrectAnswer al Frontend)
     question_ids = []
     cleaned_questions = []
+
     for q in questions:
         question_ids.append(q['QuestionID'])
+        
+        # Ocultar is_correct y explanation antes de enviar la pregunta al alumno
+        raw_options = q.get('Options', {})
+        cleaned_options = {}
+        for key, opt in raw_options.items():
+            cleaned_options[key] = {
+                'text': opt.get('text', ''),
+                'keywords': opt.get('keywords', '')
+            }
+
         cleaned_questions.append({
             'question_id': q['QuestionID'],
             'topic': q['Topic'],
             'type': q.get('Type', 'multiple_choice'),
             'statement': q.get('Statement', ''),
-            'options': q.get('Options', {})
+            'options': cleaned_options
         })
 
     quiz_id = str(uuid.uuid4())
@@ -109,7 +119,7 @@ def generate_quiz(student_id, body):
 
 
 def submit_answer(student_id, body):
-    """Verifica y guarda de forma segura la respuesta enviada por el alumno"""
+    """Verifica la respuesta analizando la clave is_correct dentro del mapa Options"""
     quiz_id = body.get('quiz_id')
     question_id = body.get('question_id')
     given_answer = body.get('given_answer')
@@ -117,26 +127,22 @@ def submit_answer(student_id, body):
     if not all([quiz_id, question_id, given_answer]):
         return build_response(400, {'error': 'quiz_id, question_id, and given_answer are required'})
 
-    # 1. Obtener la pregunta original por QuestionID de forma segura
     question_response = questions_table.get_item(Key={'QuestionID': question_id})
     question = question_response.get('Item')
 
     if not question:
         return build_response(404, {'error': f'Question not found: {question_id}'})
 
-    # 2. VALIDACIÓN DE SEGURIDAD EN BACKEND: Obtener la respuesta correcta verdadera
-    correct_answer = question.get('CorrectAnswer')
-    
-    if not correct_answer:
-        return build_response(500, {'error': f'CorrectAnswer missing in DB for question: {question_id}'})
+    # Lectura correcta de la estructura anidada Options en DynamoDB
+    options = question.get('Options', {})
+    given_opt = options.get(str(given_answer).strip().upper(), {})
 
-    # 3. Comparar respuestas de forma segura
-    is_correct = (str(given_answer).strip().upper() == str(correct_answer).strip().upper())
+    # Evaluar si la opción elegida es la correcta
+    is_correct = bool(given_opt.get('is_correct', False))
 
     result_id = str(uuid.uuid4())
     timestamp = datetime.now(timezone.utc).isoformat()
 
-    # Guardar resultado verificado en DynamoDB
     quiz_results_table.put_item(Item={
         'ResultID': result_id,
         'QuizID': quiz_id,
@@ -150,7 +156,8 @@ def submit_answer(student_id, body):
     return build_response(201, {
         'result_id': result_id,
         'quiz_id': quiz_id,
-        'is_correct': is_correct
+        'is_correct': is_correct,
+        'explanation': given_opt.get('explanation', '')
     })
 
 
@@ -161,7 +168,6 @@ def get_results(quiz_id, student_id):
     if not quiz:
         return build_response(404, {'error': f'Quiz not found: {quiz_id}'})
 
-    # Validación de seguridad: un alumno no puede ver los resultados de otro
     if quiz.get('StudentID') != student_id:
         return build_response(403, {'error': 'Forbidden: You cannot access results for a quiz that is not yours'})
 
