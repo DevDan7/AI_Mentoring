@@ -1,0 +1,9 @@
+{
+  "action": "update_student",
+  "student_id": "REEMPLAZAR_CON_ID_REAL",
+  "access_token": "REEMPLAZAR_CON_TOKEN",
+  "data": {
+    "name": "Test Student Updated",
+    "cohort": "AWS-2026-Q4"
+  }
+}
