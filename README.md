@@ -35,13 +35,16 @@ S3 (exam question photo)
 - **AWS Lambda** — runs OCR via Rekognition, then prompts Amazon Bedrock (Claude) to return structured JSON (`topic`, `explanation`, `difficulty`), and writes the result to DynamoDB.
 - **Amazon DynamoDB** (`MentoringQuestions`) — `QuestionID` as partition key, with a GSI on `Topic` for querying the question bank by subject.
 - **Amazon DynamoDB** (`Quizzes`, `QuizResults`) — stores quiz sessions and student answers.
+- **Amazon DynamoDB** (`Students`) — stores student profiles with GSI on `Email`.
 - **AWS Lambda** (`quiz_engine.py`) — generates quizzes from the question bank and records student responses.
+- **AWS Lambda** (`student_api.py`) — CRUD operations for student profiles with Cognito token validation.
+- **Amazon Cognito** — user authentication with email/password, JWT tokens for API access.
 - **IAM** — a dedicated role and policy scoped to only the resources this Lambda needs.
 - **Terraform** — the entire infrastructure above is defined as code.
 
 ## Tech stack
 
-AWS Lambda · Amazon SQS · Amazon DynamoDB · Amazon Rekognition · Amazon Bedrock · Amazon S3 · IAM · Terraform · Python (Boto3)
+AWS Lambda · Amazon SQS · Amazon DynamoDB · Amazon Rekognition · Amazon Bedrock · Amazon S3 · Amazon Cognito · IAM · Terraform · Python (Boto3)
 
 ## Project structure
 
@@ -49,10 +52,13 @@ AWS Lambda · Amazon SQS · Amazon DynamoDB · Amazon Rekognition · Amazon Bedr
 .
 ├── main.tf, iam.tf, dynamodb.tf, lambda.tf, provider.tf   # Infrastructure as Code
 ├── lambda_quiz_engine.tf, iam_quiz_engine.tf               # Quiz engine Lambda + IAM
+├── lambda_student_api.tf, iam_student_api.tf               # Student API Lambda + IAM
+├── cognito.tf, outputs.tf                                  # Cognito User Pool + App Client
 ├── requirements.txt        # Python dependencies packaged with the Lambda
 ├── src/
 │   ├── processor.py        # Lambda: OCR + Bedrock + DynamoDB
-│   └── quiz_engine.py      # Lambda: generación de quizzes y registro de respuestas
+│   ├── quiz_engine.py      # Lambda: generación de quizzes y registro de respuestas
+│   └── student_api.py      # Lambda: CRUD de alumnos con validación Cognito
 ├── events/                 # Test events for Lambda invocations
 ├── docs/
 │   ├── status.md           # Engineering log: findings, technical debt, roadmap
@@ -66,7 +72,7 @@ Infrastructure code lives at the project root; application code lives under `src
 
 The pipeline above covers question ingestion and classification — one piece of a larger platform. Next up:
 
-- [ ] Student profiles and progress tracking
+- [x] Student profiles and progress tracking
 - [x] Quiz results storage (linking students to questions answered, correct/incorrect, timestamps)
 - [ ] "Class generation" logic: pull questions by topic/difficulty, prioritizing a student's weak areas
 - [ ] Automated report generation (monthly/annual metrics per student and per class)
