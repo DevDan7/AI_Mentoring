@@ -22,6 +22,6 @@
       }
     }
   },
-  "body": "{\"quiz_id\":\"test-quiz-001\",\"question_id\":\"test-question-001\",\"given_answer\":\"A\"}",
+  "body": "{\"quiz_id\":\"test-quiz-001\",\"question_id\":\"test-question-001\",\"given_answers\":[\"A\"]}",
   "isBase64Encoded": false
 }

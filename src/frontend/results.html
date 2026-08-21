@@ -122,7 +122,7 @@
                                 </span>
                             </header>
                             <div style="padding: 0.5rem 1rem;">
-                                <p style="margin-bottom: 0.25rem;"><strong>Respuesta enviada:</strong> ${item.given_answer || item.GivenAnswer || '-'}</p>
+                                <p style="margin-bottom: 0.25rem;"><strong>Respuesta enviada:</strong> ${(item.given_answers || []).join(', ') || '-'}</p>
                             </div>
                         `;
                         container.appendChild(card);
