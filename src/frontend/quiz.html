@@ -66,16 +66,17 @@
         }
 
         let currentIndex = 0;
-        let selectedAnswer = null;
+        let selectedAnswers = [];
         let answered = false;
 
         function renderQuestion(index) {
             const q = quizData.questions[index];
+            const isMultiple = q.type === 'multiple';
             document.getElementById("quizTopic").textContent = quizData.topic;
             document.getElementById("questionProgress").textContent = `${index + 1}/${quizData.questions.length}`;
             
-            // Garantizar que la pregunta muestre su texto original o fallback
-            document.getElementById("questionStatement").textContent = q.statement || q.question || `Pregunta ${index + 1}`;
+            const typeLabel = isMultiple ? ' (Selección múltiple)' : '';
+            document.getElementById("questionStatement").innerHTML = `<strong>${typeLabel}</strong> ${q.statement || q.question || `Pregunta ${index + 1}`}`;
 
             const container = document.getElementById("optionsContainer");
             container.innerHTML = "";
@@ -88,14 +89,23 @@
                 label.style.display = "block";
                 label.style.marginBottom = "0.8rem";
                 
+                const inputType = isMultiple ? "checkbox" : "radio";
                 label.innerHTML = `
-                    <input type="radio" name="option" value="${key}">
+                    <input type="${inputType}" name="option" value="${key}">
                     <strong>${key})</strong> ${opt.text || ''}
                 `;
                 
-                label.querySelector("input").addEventListener("change", () => {
-                    selectedAnswer = key;
-                    document.getElementById("submitBtn").disabled = false;
+                label.querySelector("input").addEventListener("change", (e) => {
+                    if (isMultiple) {
+                        if (e.target.checked) {
+                            selectedAnswers.push(key);
+                        } else {
+                            selectedAnswers = selectedAnswers.filter(k => k !== key);
+                        }
+                    } else {
+                        selectedAnswers = [key];
+                    }
+                    document.getElementById("submitBtn").disabled = selectedAnswers.length === 0;
                 });
                 container.appendChild(label);
             }
@@ -104,12 +114,12 @@
             document.getElementById("submitBtn").disabled = true;
             document.getElementById("nextBtn").style.display = "none";
             document.getElementById("feedbackMsg").style.display = "none";
-            selectedAnswer = null;
+            selectedAnswers = [];
             answered = false;
         }
 
         document.getElementById("submitBtn").addEventListener("click", async () => {
-            if (!selectedAnswer || answered) return;
+            if (selectedAnswers.length === 0 || answered) return;
 
             answered = true;
             const btn = document.getElementById("submitBtn");
@@ -118,17 +128,17 @@
 
             try {
                 const q = quizData.questions[currentIndex];
-                const result = await submitAnswer(quizData.quiz_id, q.question_id, selectedAnswer);
+                const result = await submitAnswer(quizData.quiz_id, q.question_id, selectedAnswers);
 
                 const feedback = document.getElementById("feedbackMsg");
                 if (result.is_correct) {
                     feedback.style.background = "var(--pico-color-green-100)";
                     feedback.style.color = "var(--pico-color-green-700)";
-                    feedback.innerHTML = "<strong>✅ ¡Correcto!</strong>";
+                    feedback.innerHTML = "<strong>Correcto!</strong>";
                 } else {
                     feedback.style.background = "var(--pico-color-red-100)";
                     feedback.style.color = "var(--pico-color-red-700)";
-                    feedback.innerHTML = `<strong>❌ Incorrecto.</strong> ${result.explanation || ''}`;
+                    feedback.innerHTML = `<strong>Incorrecto.</strong> ${result.explanation || ''}`;
                 }
                 feedback.style.display = "block";
 

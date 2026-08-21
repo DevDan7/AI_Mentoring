@@ -3,6 +3,6 @@
   "quiz_id": "ad25369d-60db-4668-84f0-108514afbf9f",
   "student_id": "test-student-001",
   "question_id": "fe953f61c5e9c78805c439cd56336463",
-  "given_answer": "A",
+  "given_answers": ["A"],
   "is_correct": true
 }
