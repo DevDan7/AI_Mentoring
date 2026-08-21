@@ -445,11 +445,11 @@
             <h2 class="section-title">Estado Actual del Proyecto</h2>
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-value">10</div>
+                    <div class="stat-value">14</div>
                     <div class="stat-label">Días de desarrollo</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">14</div>
+                    <div class="stat-value">21</div>
                     <div class="stat-label">PRs mergeados</div>
                 </div>
                 <div class="stat-card">
@@ -457,8 +457,8 @@
                     <div class="stat-label">Preguntas en DynamoDB</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">4</div>
-                    <div class="stat-label">Tablas DynamoDB</div>
+                    <div class="stat-value">3</div>
+                    <div class="stat-label">Lambdas activas</div>
                 </div>
             </div>
         </section>
@@ -549,22 +549,22 @@
                 <div class="arrow-down">↓</div>
 
                 <!-- Fase 3: Autenticación -->
-                <div class="phase-box phase-current">
+                <div class="phase-box phase-done">
                     <div class="phase-header">
                         <span class="phase-title">Fase 3: Autenticación</span>
-                        <span class="phase-badge badge-progress">EN PROGRESO</span>
+                        <span class="phase-badge badge-done">COMPLETADA</span>
                     </div>
                     <div class="flow-row">
-                        <div class="flow-box pending">
+                        <div class="flow-box active">
                             <div class="icon">🔐</div>
                             <div class="label">Cognito</div>
-                            <div class="status status-pending">Pendiente</div>
+                            <div class="status status-active">User Pool + Client</div>
                         </div>
                         <span class="arrow">→</span>
-                        <div class="flow-box pending">
+                        <div class="flow-box active">
                             <div class="icon">🎫</div>
                             <div class="label">JWT Token</div>
-                            <div class="status status-pending">Pendiente</div>
+                            <div class="status status-active">Validación activa</div>
                         </div>
                     </div>
                 </div>
@@ -572,28 +572,22 @@
                 <div class="arrow-down">↓</div>
 
                 <!-- Fase 4: API -->
-                <div class="phase-box phase-next">
+                <div class="phase-box phase-done">
                     <div class="phase-header">
                         <span class="phase-title">Fase 4: API + Lambdas de Negocio</span>
-                        <span class="phase-badge badge-next">PRÓXIMO</span>
+                        <span class="phase-badge badge-done">COMPLETADA</span>
                     </div>
                     <div class="flow-row">
-                        <div class="flow-box pending">
-                            <div class="icon">🌐</div>
-                            <div class="label">API Gateway</div>
-                            <div class="status status-pending">HTTP API</div>
-                        </div>
-                        <span class="arrow">→</span>
-                        <div class="flow-box pending">
+                        <div class="flow-box active">
                             <div class="icon">👤</div>
                             <div class="label">student_api.py</div>
-                            <div class="status status-pending">CRUD alumnos</div>
+                            <div class="status status-active">CRUD completo</div>
                         </div>
                         <span class="arrow">→</span>
-                        <div class="flow-box pending">
+                        <div class="flow-box active">
                             <div class="icon">🎯</div>
                             <div class="label">quiz_engine.py</div>
-                            <div class="status status-pending">Simulados</div>
+                            <div class="status status-active">3 acciones</div>
                         </div>
                     </div>
                 </div>
@@ -601,16 +595,22 @@
                 <div class="arrow-down">↓</div>
 
                 <!-- Fase 5: Frontend -->
-                <div class="phase-box phase-future">
+                <div class="phase-box phase-next">
                     <div class="phase-header">
-                        <span class="phase-title">Fase 5: Frontend</span>
-                        <span class="phase-badge badge-future">FUTURO</span>
+                        <span class="phase-title">Fase 5: Frontend + API Gateway</span>
+                        <span class="phase-badge badge-next">PRÓXIMO</span>
                     </div>
                     <div class="flow-row">
                         <div class="flow-box pending">
+                            <div class="icon">🌐</div>
+                            <div class="label">API Gateway</div>
+                            <div class="status status-pending">HTTP API + JWT</div>
+                        </div>
+                        <span class="arrow">→</span>
+                        <div class="flow-box pending">
                             <div class="icon">🖥️</div>
                             <div class="label">Landing Page</div>
-                            <div class="status status-pending">HTML/React</div>
+                            <div class="status status-pending">HTML + TypeScript</div>
                         </div>
                         <span class="arrow">→</span>
                         <div class="flow-box pending">
@@ -641,43 +641,43 @@
                 <tbody>
                     <tr>
                         <td>1</td>
-                        <td><strong>Configurar Cognito User Pool</strong><br><small>Crear User Pool + Client + Domain para autenticación de alumnos</small></td>
+                        <td><strong>Configurar Cognito User Pool</strong><br><small>User Pool + App Client para autenticación de alumnos</small></td>
                         <td class="priority-high">Alta</td>
                         <td>2-3 horas</td>
                         <td>Ninguna</td>
-                        <td><span class="phase-badge badge-next">Siguiente</span></td>
+                        <td><span class="phase-badge badge-done">✅ Completada</span></td>
                     </tr>
                     <tr>
                         <td>2</td>
-                        <td><strong>Crear Lambda student_api.py</strong><br><small>CRUD de alumnos: registro, perfil, actualización de progreso</small></td>
+                        <td><strong>Crear Lambda student_api.py</strong><br><small>CRUD de alumnos: create, get, update, get_by_email + validación Cognito</small></td>
                         <td class="priority-high">Alta</td>
                         <td>4-6 horas</td>
                         <td>Cognito</td>
-                        <td><span class="phase-badge badge-future">Pendiente</span></td>
+                        <td><span class="phase-badge badge-done">✅ Completada</span></td>
                     </tr>
                     <tr>
                         <td>3</td>
-                        <td><strong>Crear Lambda quiz_engine.py</strong><br><small>Generación de simulados, registro de respuestas, cálculo de métricas</small></td>
+                        <td><strong>Crear Lambda quiz_engine.py</strong><br><small>generate_quiz, submit_answer, get_results — 3 acciones</small></td>
                         <td class="priority-high">Alta</td>
                         <td>6-8 horas</td>
-                        <td>student_api.py</td>
-                        <td><span class="phase-badge badge-future">Pendiente</span></td>
+                        <td>DynamoDB Quizzes</td>
+                        <td><span class="phase-badge badge-done">✅ Completada</span></td>
                     </tr>
                     <tr>
                         <td>4</td>
-                        <td><strong>Configurar API Gateway</strong><br><small>HTTP API con rutas para Cognito, students, quizzes</small></td>
+                        <td><strong>Configurar API Gateway HTTP API</strong><br><small>HTTP API con JWT authorizer (Cognito), rutas para students y quizzes</small></td>
                         <td class="priority-high">Alta</td>
-                        <td>2-3 horas</td>
-                        <td>Lambdas</td>
-                        <td><span class="phase-badge badge-future">Pendiente</span></td>
+                        <td>3-4 horas</td>
+                        <td>Cognito, Lambdas</td>
+                        <td><span class="phase-badge badge-next">Siguiente</span></td>
                     </tr>
                     <tr>
                         <td>5</td>
-                        <td><strong>Desarrollar Landing Page</strong><br><small>HTML/CSS/JS o React con login, simulados, resultados</small></td>
-                        <td class="priority-medium">Media</td>
+                        <td><strong>Desarrollar Landing Page</strong><br><small>HTML + TypeScript (sin build tools): login, dashboard, quiz, resultados</small></td>
+                        <td class="priority-high">Alta</td>
                         <td>8-12 horas</td>
                         <td>API Gateway</td>
-                        <td><span class="phase-badge badge-future">Pendiente</span></td>
+                        <td><span class="phase-badge badge-next">Siguiente</span></td>
                     </tr>
                     <tr>
                         <td>6</td>
@@ -738,15 +738,14 @@
                     <div class="infra-card-header">
                         <span class="infra-icon">⚡</span>
                         <div>
-                            <div class="infra-name">Lambda</div>
-                            <span class="infra-status badge-done">Activo</span>
+                            <div class="infra-name">Lambda (3)</div>
+                            <span class="infra-status badge-done">Activas</span>
                         </div>
                     </div>
                     <div class="infra-details">
-                        <strong>Nombre:</strong> mentoring-exam-processor<br>
-                        <strong>Runtime:</strong> Python 3.12<br>
-                        <strong>Memoria:</strong> 256 MB<br>
-                        <strong>Timeout:</strong> 30s
+                        <strong>processor.py:</strong> OCR + Bedrock (256 MB)<br>
+                        <strong>quiz_engine.py:</strong> Simulados (128 MB)<br>
+                        <strong>student_api.py:</strong> CRUD alumnos (128 MB)
                     </div>
                 </div>
 
@@ -760,9 +759,9 @@
                     </div>
                     <div class="infra-details">
                         <strong>MentoringQuestions:</strong> 109 items<br>
-                        <strong>Students:</strong> Creada (0 items)<br>
-                        <strong>Quizzes:</strong> Creada (0 items)<br>
-                        <strong>QuizResults:</strong> Creada (0 items)
+                        <strong>Students:</strong> Perfiles de alumnos<br>
+                        <strong>Quizzes:</strong> Simulados generados<br>
+                        <strong>QuizResults:</strong> Respuestas y métricas
                     </div>
                 </div>
 
@@ -777,7 +776,7 @@
                     <div class="infra-details">
                         <strong>Modelo:</strong> Claude Haiku 4.5<br>
                         <strong>Retry:</strong> Adaptive (6 intentos)<br>
-                        <strong>Throttling:</strong> Controlado
+                        <strong>Throttling:</strong> Controlado (max 3)
                     </div>
                 </div>
 
@@ -786,13 +785,13 @@
                         <span class="infra-icon">🔐</span>
                         <div>
                             <div class="infra-name">Cognito</div>
-                            <span class="infra-status badge-next">Pendiente</span>
+                            <span class="infra-status badge-done">Activo</span>
                         </div>
                     </div>
                     <div class="infra-details">
-                        <strong>User Pool:</strong> No creado<br>
-                        <strong>App Client:</strong> No creado<br>
-                        <strong>Domain:</strong> No creado
+                        <strong>User Pool:</strong> us-east-1_YolmrF9tp<br>
+                        <strong>App Client:</strong> m5dcqn9lld9l5vhb8fhug4i80<br>
+                        <strong>Auth:</strong> SRP + JWT tokens
                     </div>
                 </div>
             </div>
@@ -804,31 +803,32 @@
             
             <div class="dependency-graph">
                 <div class="dependency-row">
-                    <div class="dependency-box">Cognito (Auth)</div>
+                    <div class="dependency-box" style="border-left: 3px solid #22c55e;">Cognito (Auth)</div>
                     <span class="dependency-arrow">→</span>
-                    <div class="dependency-box">API Gateway (JWT Validation)</div>
+                    <div class="dependency-box" style="border-left: 3px solid #22c55e;">student_api.py (GetUser)</div>
                     <span class="dependency-arrow">→</span>
-                    <div class="dependency-box">Lambdas (student_api, quiz_engine)</div>
+                    <div class="dependency-box" style="border-left: 3px solid #22c55e;">DynamoDB Students</div>
                 </div>
                 <div class="dependency-row">
-                    <div class="dependency-box">student_api.py</div>
+                    <div class="dependency-box" style="border-left: 3px solid #22c55e;">MentoringQuestions</div>
                     <span class="dependency-arrow">→</span>
-                    <div class="dependency-box">DynamoDB Students</div>
+                    <div class="dependency-box" style="border-left: 3px solid #22c55e;">quiz_engine.py (Query)</div>
+                    <span class="dependency-arrow">→</span>
+                    <div class="dependency-box" style="border-left: 3px solid #22c55e;">Quizzes + QuizResults</div>
                 </div>
                 <div class="dependency-row">
-                    <div class="dependency-box">quiz_engine.py</div>
+                    <div class="dependency-box" style="border-left: 3px solid #60a5fa;">API Gateway (JWT)</div>
                     <span class="dependency-arrow">→</span>
-                    <div class="dependency-box">DynamoDB Quizzes + QuizResults + MentoringQuestions</div>
+                    <div class="dependency-box" style="border-left: 3px solid #60a5fa;">Lambdas (student_api, quiz_engine)</div>
+                    <span class="dependency-arrow">→</span>
+                    <div class="dependency-box" style="border-left: 3px solid #60a5fa;">DynamoDB</div>
                 </div>
                 <div class="dependency-row">
-                    <div class="dependency-box">Landing Page</div>
+                    <div class="dependency-box" style="border-left: 3px solid #f59e0b;">Landing Page</div>
                     <span class="dependency-arrow">→</span>
-                    <div class="dependency-box">API Gateway → Lambdas → DynamoDB</div>
-                </div>
-                <div class="dependency-row">
-                    <div class="dependency-box">report_generator.py</div>
+                    <div class="dependency-box" style="border-left: 3px solid #f59e0b;">API Gateway → Lambdas</div>
                     <span class="dependency-arrow">→</span>
-                    <div class="dependency-box">DynamoDB QuizResults + Students</div>
+                    <div class="dependency-box" style="border-left: 3px solid #f59e0b;">DynamoDB</div>
                 </div>
             </div>
         </section>
@@ -858,20 +858,25 @@
                     <div class="timeline-title">Estabilidad</div>
                     <div class="timeline-desc">Retry adaptive, control de concurrencia (maximum_concurrency), 100% éxito</div>
                 </div>
-                <div class="timeline-item current">
-                    <div class="timeline-date">18 agosto 2026 (Hoy)</div>
+                <div class="timeline-item done">
+                    <div class="timeline-date">18 agosto 2026</div>
                     <div class="timeline-title">Modelo de Datos</div>
                     <div class="timeline-desc">3 tablas DynamoDB (Students, Quizzes, QuizResults), documentación actualizada</div>
                 </div>
-                <div class="timeline-item next">
-                    <div class="timeline-date">Próximos 2-3 días</div>
-                    <div class="timeline-title">Autenticación + API</div>
-                    <div class="timeline-desc">Cognito, API Gateway, Lambdas de negocio</div>
+                <div class="timeline-item done">
+                    <div class="timeline-date">21 agosto 2026</div>
+                    <div class="timeline-title">Autenticación + APIs</div>
+                    <div class="timeline-desc">Cognito User Pool, student_api.py (CRUD), quiz_engine.py (3 acciones), todos tests pasados</div>
                 </div>
-                <div class="timeline-item future">
+                <div class="timeline-item current">
+                    <div class="timeline-date">Próximos días</div>
+                    <div class="timeline-title">API Gateway + Landing Page</div>
+                    <div class="timeline-desc">HTTP API con JWT authorizer, S3 + CloudFront, HTML + TypeScript</div>
+                </div>
+                <div class="timeline-item next">
                     <div class="timeline-date">Próximas 2 semanas</div>
-                    <div class="timeline-title">Frontend + Reportes</div>
-                    <div class="timeline-desc">Landing page, dashboard, métricas por alumno</div>
+                    <div class="timeline-title">Reportes + Backend Remoto</div>
+                    <div class="timeline-desc">report_generator.py, migrar tfstate a S3 + DynamoDB lock</div>
                 </div>
             </div>
         </section>
@@ -882,26 +887,26 @@
             
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-value">30-40h</div>
+                    <div class="stat-value">15-20h</div>
                     <div class="stat-label">Tiempo total restante</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">3-5 días</div>
-                    <div class="stat-label">Autenticación + API</div>
+                    <div class="stat-value">3-4h</div>
+                    <div class="stat-label">API Gateway HTTP API</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">5-7 días</div>
+                    <div class="stat-value">8-12h</div>
                     <div class="stat-label">Landing Page</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">2-3 días</div>
+                    <div class="stat-value">4-6h</div>
                     <div class="stat-label">Reportes + Backend</div>
                 </div>
             </div>
         </section>
 
         <footer style="text-align: center; padding: 40px 0; color: #64748b; font-size: 0.9rem;">
-            <p>AI Mentoring — Roadmap generado el 18 de agosto de 2026</p>
+            <p>AI Mentoring — Roadmap generado el 21 de agosto de 2026</p>
             <p>Plataforma serverless para mentorías de certificación AWS</p>
         </footer>
     </div>
