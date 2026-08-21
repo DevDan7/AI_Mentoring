@@ -1,0 +1,25 @@
+{
+  "version": "2.0",
+  "routeKey": "GET /students/me",
+  "rawPath": "/students/me",
+  "rawQueryString": "",
+  "headers": {
+    "Authorization": "Bearer <TOKEN>"
+  },
+  "requestContext": {
+    "http": {
+      "method": "GET",
+      "path": "/students/me"
+    },
+    "authorizer": {
+      "jwt": {
+        "claims": {
+          "sub": "test-user-001",
+          "email": "test@example.com",
+          "name": "Test User"
+        }
+      }
+    }
+  },
+  "isBase64Encoded": false
+}
