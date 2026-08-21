@@ -18,7 +18,7 @@ resource "aws_dynamodb_table" "mentoring_questions_table" {
     projection_type = "ALL"
     key_schema {
       attribute_name = "Topic"
-      key_type       = "HASH"     
+      key_type       = "HASH"
     }
   }
 

@@ -132,10 +132,11 @@ resource "aws_iam_policy" "quiz_engine_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "AllowReadQuestionsByTopic"
+        Sid    = "AllowReadQuestions"
         Effect = "Allow"
         Action = [
-          "dynamodb:Query"
+          "dynamodb:Query",
+          "dynamodb:GetItem"
         ]
         Resource = [
           aws_dynamodb_table.mentoring_questions_table.arn,
