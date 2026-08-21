@@ -1,0 +1,6 @@
+{
+  "action": "generate_quiz",
+  "student_id": "test-student-001",
+  "topic": "AWS Well-Architected Framework",
+  "count": 3
+}

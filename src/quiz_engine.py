@@ -19,6 +19,8 @@ def lambda_handler(event, context):
         return generate_quiz(event)
     elif action == 'submit_answer':
         return submit_answer(event)
+    elif action == 'get_results':
+        return get_results(event)
     else:
         return {
             'statusCode': 400,
@@ -93,5 +95,60 @@ def submit_answer(event):
         'body': {
             'result_id': result_id,
             'quiz_id': quiz_id
+        }
+    }
+
+
+def get_results(event):
+    quiz_id = event['quiz_id']
+
+    quiz_response = quizzes_table.get_item(Key={'QuizID': quiz_id})
+    quiz = quiz_response.get('Item')
+
+    if not quiz:
+        return {
+            'statusCode': 404,
+            'body': f'Quiz not found: {quiz_id}'
+        }
+
+    results_response = quiz_results_table.query(
+        IndexName='QuizIndex',
+        KeyConditionExpression=Key('QuizID').eq(quiz_id)
+    )
+    results = results_response.get('Items', [])
+
+    total_questions = len(quiz.get('Questions', []))
+    answered_questions = len(results)
+    correct_answers = sum(1 for r in results if r.get('IsCorrect', False))
+    incorrect_answers = answered_questions - correct_answers
+    score_percentage = round((correct_answers / answered_questions) * 100, 1) if answered_questions > 0 else 0
+
+    questions_details = []
+    for result in results:
+        questions_details.append({
+            'question_id': result['QuestionID'],
+            'given_answer': result.get('GivenAnswer', ''),
+            'is_correct': result.get('IsCorrect', False),
+            'timestamp': result.get('Timestamp', '')
+        })
+
+    return {
+        'statusCode': 200,
+        'body': {
+            'quiz': {
+                'quiz_id': quiz['QuizID'],
+                'student_id': quiz['StudentID'],
+                'topic': quiz.get('Topic', ''),
+                'status': quiz.get('Status', ''),
+                'created_at': quiz.get('CreatedAt', '')
+            },
+            'metrics': {
+                'total_questions': total_questions,
+                'answered_questions': answered_questions,
+                'correct_answers': correct_answers,
+                'incorrect_answers': incorrect_answers,
+                'score_percentage': score_percentage
+            },
+            'results': questions_details
         }
     }
