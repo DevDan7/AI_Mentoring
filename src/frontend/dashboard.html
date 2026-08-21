@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Mentoring - Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+</head>
+<body>
+    <nav class="container">
+        <ul>
+            <li><strong>☁️ AI Mentoring Cloud</strong></li>
+        </ul>
+        <ul>
+            <li><span id="userName">Cargando perfil...</span></li>
+            <li><a href="#" role="button" class="secondary" onclick="logout()">Cerrar Sesión</a></li>
+        </ul>
+    </nav>
+
+    <main class="container">
+        <section id="profileSection">
+            <article>
+                <header>
+                    <h4>Perfil del Alumno</h4>
+                </header>
+                <div class="grid">
+                    <div><strong>Email:</strong> <span id="userEmail">-</span></div>
+                    <div><strong>Cohorte:</strong> <span id="userCohort">-</span></div>
+                    <div><strong>ID Estudiante:</strong> <span id="studentId">-</span></div>
+                </div>
+            </article>
+        </section>
+
+        <section id="quizSection">
+            <article>
+                <header>
+                    <h4>Generar Nuevo Simulado</h4>
+                </header>
+                <form id="quizForm">
+                    <label for="topicSelect">
+                        Tema de Certificación AWS
+                        <select id="topicSelect" required>
+                            <option value="AWS Well-Architected Framework">AWS Well-Architected Framework</option>
+                            <option value="IAM & Security">IAM & Security</option>
+                            <option value="Serverless Architectures">Serverless Architectures</option>
+                        </select>
+                    </label>
+
+                    <label for="questionCount">
+                        Cantidad de Preguntas
+                        <input type="number" id="questionCount" min="1" max="10" value="3" required>
+                    </label>
+
+                    <button type="submit" id="generateBtn">Comenzar Simulado</button>
+                </form>
+            </article>
+        </section>
+    </main>
+
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        checkAuth();
+
+        async function loadProfile() {
+            try {
+                const data = await getStudent();
+                document.getElementById("userName").innerText = data.Name || "Alumno";
+                document.getElementById("userEmail").innerText = data.Email;
+                document.getElementById("userCohort").innerText = data.Cohort || "Sin cohorte";
+                document.getElementById("studentId").innerText = data.StudentID;
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        document.getElementById("quizForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const topic = document.getElementById("topicSelect").value;
+            const count = parseInt(document.getElementById("questionCount").value);
+            const btn = document.getElementById("generateBtn");
+
+            btn.ariaBusy = "true";
+            btn.disabled = true;
+
+            try {
+                const quizData = await generateQuiz(topic, count);
+                localStorage.setItem("active_quiz", JSON.stringify(quizData));
+                window.location.href = "quiz.html";
+            } catch (err) {
+                alert(err.message);
+            } finally {
+                btn.ariaBusy = "false";
+                btn.disabled = false;
+            }
+        });
+
+        loadProfile();
+    </script>
+</body>
+</html>

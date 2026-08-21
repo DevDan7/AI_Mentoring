@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Mentoring - Iniciar Sesión</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+</head>
+<body>
+    <main class="container">
+        <article style="max-width: 450px; margin: 4rem auto;">
+            <header>
+                <h3 style="text-align: center;">☁️ AI Mentoring Cloud</h3>
+                <p style="text-align: center; color: var(--pico-color-slate-500);">Plataforma de Simulados y MENTORÍA AWS</p>
+            </header>
+
+            <form id="loginForm">
+                <label for="email">
+                    Correo Electrónico
+                    <input type="email" id="email" name="email" placeholder="tu-correo@ejemplo.com" required>
+                </label>
+
+                <label for="password">
+                    Contraseña
+                    <input type="password" id="password" name="password" placeholder="••••••••" required>
+                </label>
+
+                <button type="submit" id="submitBtn">Ingresar</button>
+            </form>
+
+            <div id="errorMessage" style="display: none; color: var(--pico-color-red-500); margin-top: 1rem; text-align: center;"></div>
+        </article>
+    </main>
+
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        // Redirigir directamente al Dashboard si ya existe sesión activa
+        if (localStorage.getItem("id_token")) {
+            window.location.href = "dashboard.html";
+        }
+
+        document.getElementById("loginForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+            const submitBtn = document.getElementById("submitBtn");
+            const errorDiv = document.getElementById("errorMessage");
+
+            submitBtn.ariaBusy = "true";
+            submitBtn.disabled = true;
+            errorDiv.style.display = "none";
+
+            try {
+                await login(email, password);
+            } catch (err) {
+                errorDiv.innerText = err.message;
+                errorDiv.style.display = "block";
+            } finally {
+                submitBtn.ariaBusy = "false";
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
