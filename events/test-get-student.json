@@ -1,0 +1,5 @@
+{
+  "action": "get_student",
+  "student_id": "REEMPLAZAR_CON_ID_REAL",
+  "access_token": "REEMPLAZAR_CON_TOKEN"
+}

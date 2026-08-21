@@ -1,0 +1,5 @@
+{
+  "action": "get_student_by_email",
+  "email": "test@ejemplo.com",
+  "access_token": "REEMPLAZAR_CON_TOKEN"
+}
