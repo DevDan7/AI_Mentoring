@@ -1,0 +1,28 @@
+{
+  "version": "2.0",
+  "routeKey": "GET /quizzes/{quizId}/results",
+  "rawPath": "/quizzes/test-quiz-001/results",
+  "rawQueryString": "",
+  "headers": {
+    "Authorization": "Bearer <TOKEN>"
+  },
+  "requestContext": {
+    "http": {
+      "method": "GET",
+      "path": "/quizzes/test-quiz-001/results"
+    },
+    "authorizer": {
+      "jwt": {
+        "claims": {
+          "sub": "test-user-001",
+          "email": "test@example.com",
+          "name": "Test User"
+        }
+      }
+    }
+  },
+  "pathParameters": {
+    "quizId": "test-quiz-001"
+  },
+  "isBase64Encoded": false
+}
