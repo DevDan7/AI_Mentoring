@@ -37,7 +37,7 @@ def lambda_handler(event, context):
         except json.JSONDecodeError:
             return build_response(400, {'error': 'Invalid JSON in request body'})
 
-    # Enrutamiento basado en route_key (más seguro que rawPath)
+    # Enrutamiento basado en route_key
     if route_key == 'POST /quizzes/generate':
         return generate_quiz(student_id, body)
     elif route_key == 'POST /quizzes/submit':
@@ -104,7 +104,7 @@ def generate_quiz(student_id, body):
         'quiz_id': quiz_id,
         'student_id': student_id,
         'topic': topic,
-        'questions': cleaned_questions # Enviar preguntas limpias sin la respuesta correcta
+        'questions': cleaned_questions
     })
 
 
@@ -124,13 +124,13 @@ def submit_answer(student_id, body):
     if not question:
         return build_response(404, {'error': f'Question not found: {question_id}'})
 
-    # 2. VALIDACIÓN DE SEGURIDAD EN EL BACKEND: Obtener la respuesta correcta verdadera
+    # 2. VALIDACIÓN DE SEGURIDAD EN BACKEND: Obtener la respuesta correcta verdadera
     correct_answer = question.get('CorrectAnswer')
     
     if not correct_answer:
         return build_response(500, {'error': f'CorrectAnswer missing in DB for question: {question_id}'})
 
-    # 3. Comparar respuestas de forma segura en el servidor
+    # 3. Comparar respuestas de forma segura
     is_correct = (str(given_answer).strip().upper() == str(correct_answer).strip().upper())
 
     result_id = str(uuid.uuid4())
@@ -143,14 +143,14 @@ def submit_answer(student_id, body):
         'StudentID': student_id,
         'QuestionID': question_id,
         'GivenAnswer': given_answer,
-        'IsCorrect': is_correct, # Guardamos el valor calculado en backend
+        'IsCorrect': is_correct,
         'Timestamp': timestamp
     })
 
     return build_response(201, {
         'result_id': result_id,
         'quiz_id': quiz_id,
-        'is_correct': is_correct # Informar al frontend si acertó
+        'is_correct': is_correct
     })
 
 
@@ -162,7 +162,7 @@ def get_results(quiz_id, student_id):
         return build_response(404, {'error': f'Quiz not found: {quiz_id}'})
 
     # Validación de seguridad: un alumno no puede ver los resultados de otro
-    if quiz['StudentID'] != student_id:
+    if quiz.get('StudentID') != student_id:
         return build_response(403, {'error': 'Forbidden: You cannot access results for a quiz that is not yours'})
 
     results_response = quiz_results_table.query(
@@ -174,7 +174,8 @@ def get_results(quiz_id, student_id):
     total_questions = len(quiz.get('Questions', []))
     answered_questions = len(results)
     correct_answers = sum(1 for r in results if r.get('IsCorrect', False))
-     score_percentage = round((correct_answers / answered_questions) * 100, 1) if answered_questions > 0 else 0
+    incorrect_answers = answered_questions - correct_answers
+    score_percentage = round((correct_answers / answered_questions) * 100, 1) if answered_questions > 0 else 0
 
     questions_details = []
     for result in results:
@@ -197,14 +198,8 @@ def get_results(quiz_id, student_id):
             'total_questions': total_questions,
             'answered_questions': answered_questions,
             'correct_answers': correct_answers,
-            'score_percentage': score_percentage
-        },
-        'answers': questions_details
-    })       'total_questions': total_questions,
-            'answered_questions': answered_questions,
-            'correct_answers': correct_answers,
             'incorrect_answers': incorrect_answers,
             'score_percentage': score_percentage
         },
-        'results': questions_details
+        'answers': questions_details
     })

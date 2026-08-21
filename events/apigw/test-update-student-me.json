@@ -1,0 +1,27 @@
+{
+  "version": "2.0",
+  "routeKey": "PUT /students/me",
+  "rawPath": "/students/me",
+  "rawQueryString": "",
+  "headers": {
+    "Authorization": "Bearer <TOKEN>",
+    "Content-Type": "application/json"
+  },
+  "requestContext": {
+    "http": {
+      "method": "PUT",
+      "path": "/students/me"
+    },
+    "authorizer": {
+      "jwt": {
+        "claims": {
+          "sub": "test-user-001",
+          "email": "test@example.com",
+          "name": "Test User"
+        }
+      }
+    }
+  },
+  "body": "{\"name\":\"Daniel Villegas Updated\",\"cohort\":\"AWS-2026-Q4\"}",
+  "isBase64Encoded": false
+}
