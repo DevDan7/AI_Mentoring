@@ -1,8 +1,8 @@
 {
   "action": "create_student",
   "data": {
-    "email": "test@ejemplo.com",
-    "name": "Test Student",
+    "email": "danielsvillegas17@gmail.com",
+    "name": "Daniel Villegas",
     "cohort": "AWS-2026-Q3"
   }
 }
