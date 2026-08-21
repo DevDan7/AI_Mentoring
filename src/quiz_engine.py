@@ -94,7 +94,7 @@ def generate_quiz(student_id, body):
             'question_id': q['QuestionID'],
             'topic': q['Topic'],
             'type': q.get('Type', 'multiple_choice'),
-            'statement': q.get('Statement', ''),
+            'statement': q.get('QuestionText', ''),
             'options': cleaned_options
         })
 

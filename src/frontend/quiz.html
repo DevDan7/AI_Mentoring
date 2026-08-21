@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Mentoring - Simulado</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+</head>
+<body>
+    <nav class="container">
+        <ul>
+            <li><strong>☁️ AI Mentoring Cloud</strong></li>
+        </ul>
+        <ul>
+            <li><a href="dashboard.html" role="button" class="secondary outline">Volver</a></li>
+        </ul>
+    </nav>
+
+    <main class="container">
+        <div id="loadingState" class="center">
+            <progress></progress>
+            <p>Cargando preguntas...</p>
+        </div>
+
+        <div id="quizState" style="display: none;">
+            <article>
+                <header>
+                    <div class="grid">
+                        <div><strong>Tema:</strong> <span id="quizTopic">-</span></div>
+                        <div><strong>Pregunta:</strong> <span id="questionProgress">1/3</span></div>
+                    </div>
+                </header>
+
+                <div id="questionStatement" style="font-size: 1.1rem; margin-bottom: 1.5rem; line-height: 1.6;"></div>
+
+                <div id="optionsContainer"></div>
+
+                <div class="grid" style="margin-top: 1.5rem;">
+                    <button id="submitBtn" disabled>Confirmar Respuesta</button>
+                    <button id="nextBtn" class="secondary" style="display: none;">Siguiente Pregunta</button>
+                </div>
+
+                <div id="feedbackMsg" style="display: none; margin-top: 1rem; padding: 1rem; border-radius: 8px;"></div>
+            </article>
+        </div>
+
+        <div id="completedState" style="display: none;">
+            <article class="center">
+                <h4>Simulado Completado 🎉</h4>
+                <p>Has respondido todas las preguntas exitosamente.</p>
+                <a href="results.html" id="viewResultsBtn" role="button">Ver Resultados</a>
+                <a href="dashboard.html" role="button" class="secondary outline" style="margin-top: 0.5rem;">Volver al Dashboard</a>
+            </article>
+        </div>
+    </main>
+
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        const token = checkAuth();
+        const quizData = JSON.parse(localStorage.getItem("active_quiz"));
+
+        if (!quizData) {
+            window.location.href = "dashboard.html";
+        }
+
+        let currentIndex = 0;
+        let selectedAnswer = null;
+        let answered = false;
+
+        function renderQuestion(index) {
+            const q = quizData.questions[index];
+            document.getElementById("quizTopic").textContent = quizData.topic;
+            document.getElementById("questionProgress").textContent = `${index + 1}/${quizData.questions.length}`;
+            
+            // Garantizar que la pregunta muestre su texto original o fallback
+            document.getElementById("questionStatement").textContent = q.statement || q.question || `Pregunta ${index + 1}`;
+
+            const container = document.getElementById("optionsContainer");
+            container.innerHTML = "";
+
+            const sortedKeys = Object.keys(q.options || {}).sort();
+            for (const key of sortedKeys) {
+                const opt = q.options[key];
+                const label = document.createElement("label");
+                label.style.cursor = "pointer";
+                label.style.display = "block";
+                label.style.marginBottom = "0.8rem";
+                
+                label.innerHTML = `
+                    <input type="radio" name="option" value="${key}">
+                    <strong>${key})</strong> ${opt.text || ''}
+                `;
+                
+                label.querySelector("input").addEventListener("change", () => {
+                    selectedAnswer = key;
+                    document.getElementById("submitBtn").disabled = false;
+                });
+                container.appendChild(label);
+            }
+
+            document.getElementById("submitBtn").style.display = "";
+            document.getElementById("submitBtn").disabled = true;
+            document.getElementById("nextBtn").style.display = "none";
+            document.getElementById("feedbackMsg").style.display = "none";
+            selectedAnswer = null;
+            answered = false;
+        }
+
+        document.getElementById("submitBtn").addEventListener("click", async () => {
+            if (!selectedAnswer || answered) return;
+
+            answered = true;
+            const btn = document.getElementById("submitBtn");
+            btn.ariaBusy = "true";
+            btn.disabled = true;
+
+            try {
+                const q = quizData.questions[currentIndex];
+                const result = await submitAnswer(quizData.quiz_id, q.question_id, selectedAnswer);
+
+                const feedback = document.getElementById("feedbackMsg");
+                if (result.is_correct) {
+                    feedback.style.background = "var(--pico-color-green-100)";
+                    feedback.style.color = "var(--pico-color-green-700)";
+                    feedback.innerHTML = "<strong>✅ ¡Correcto!</strong>";
+                } else {
+                    feedback.style.background = "var(--pico-color-red-100)";
+                    feedback.style.color = "var(--pico-color-red-700)";
+                    feedback.innerHTML = `<strong>❌ Incorrecto.</strong> ${result.explanation || ''}`;
+                }
+                feedback.style.display = "block";
+
+                document.getElementById("submitBtn").style.display = "none";
+                document.getElementById("nextBtn").style.display = "";
+            } catch (err) {
+                alert("Error al enviar respuesta: " + err.message);
+                answered = false;
+            } finally {
+                btn.ariaBusy = "false";
+            }
+        });
+
+        document.getElementById("nextBtn").addEventListener("click", () => {
+            currentIndex++;
+            if (currentIndex >= quizData.questions.length) {
+                // Guardar quiz_id en localStorage y configurar el botón a la URL exacta
+                localStorage.setItem("last_quiz_id", quizData.quiz_id);
+                
+                document.getElementById("quizState").style.display = "none";
+                document.getElementById("completedState").style.display = "";
+                document.getElementById("viewResultsBtn").href = `results.html?quizId=${quizData.quiz_id}`;
+            } else {
+                renderQuestion(currentIndex);
+            }
+        });
+
+        document.getElementById("loadingState").style.display = "none";
+        document.getElementById("quizState").style.display = "";
+        renderQuestion(0);
+    </script>
+</body>
+</html>
