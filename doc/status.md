@@ -474,3 +474,13 @@ Error: all attributes must be indexed. Unused attributes: ["GivenAnswer" "IsCorr
   - Test: ejecutado exitosamente con topic "AWS Well-Architected Framework", 3 preguntas, 1 respuesta registrada, score 100%.
   - Dashboard: `doc/quiz-results-dashboard.html` con KPIs, tabla de resultados y barra de progreso.
   - PR #16 merged.
+- **2026-08-21**: creada Lambda `student_api.py` con CRUD completo y validación de tokens Cognito:
+  - `create_student`: crea perfil de alumno en DynamoDB después del registro en Cognito.
+  - `get_student`: obtiene perfil por `StudentID`.
+  - `update_student`: actualiza nombre, cohort, etc.
+  - `get_student_by_email`: busca alumno por email usando `EmailIndex` GSI.
+  - Validación de token: `cognito-idp:GetUser` contra User Pool.
+  - Cognito User Pool desplegado: `us-east-1_YolmrF9tp` con App Client para frontend.
+  - IAM: permisos mínimos — DynamoDB (Students) + Cognito GetUser.
+  - Tests: 5/5 pasados (create, get, update, get_by_email, token inválido).
+  - Archivos: `src/student_api.py`, `lambda_student_api.tf`, `iam_student_api.tf`.
