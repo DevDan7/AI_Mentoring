@@ -441,7 +441,7 @@ Error: all attributes must be indexed. Unused attributes: ["GivenAnswer" "IsCorr
 
 - Configurar Cognito para autenticación de alumnos
 - Crear Lambda `student_api.py` para CRUD de alumnos
-- Crear Lambda `quiz_engine.py` para generación de simulados y registro de respuestas
+- ~~Crear Lambda `quiz_engine.py` para generación de simulados y registro de respuestas~~ — **Resuelto (2026-08-21)**
 - Desarrollar landing page (HTML/React)
 
 ---
@@ -466,3 +466,11 @@ Error: all attributes must be indexed. Unused attributes: ["GivenAnswer" "IsCorr
 - **2026-08-16**: implementado **botocore adaptive retry** en `processor.py` (PR #11) con `max_attempts=6` y `mode='adaptive'`. Resultado: tasa de éxito mejoró de 73.4% a 100% (109/109 fotos en DynamoDB), DLQ reducida de 30 a 5 mensajes, ThrottlingException reducidos de 290 a 92. **Problema**: duración promedio se duplicó de 7.7s a 18.9s debido a los 6 reintentos; algunas invocaciones alcanzaron timeout de 30s. Documentado en sección "Prueba de backoff con jitter — Lote 2026-08-16".
 - **2026-08-17**: intento fallido de configurar `reserved_concurrent_executions = 3` en la Lambda (PR #12). Error: `InvalidParameterValueException` porque la cuenta tiene límite de 10 concurrent executions y reservar 3 reduce el pool no reservado por debajo del mínimo de 10. **Solución**: reemplazado por `scaling_config.maximum_concurrency = 3` en el Event Source Mapping de SQS, que controla la concurrencia SIN tocar el pool de la cuenta. Documentado en sección "Error de concurrencia y solución — 2026-08-17".
 - **2026-08-18**: creadas 3 tablas DynamoDB (`Students`, `Quizzes`, `QuizResults`) con schema mínimo (solo PK + GSIs) para soportar landing page, sistema de dudas y métricas de progreso. Error de `Unused attributes` resuelto eliminando atributos no indexados del bloque `attribute` en Terraform. Auth planificada con Amazon Cognito. PR #14.
+- **2026-08-21**: creada Lambda `quiz_engine.py` con 3 acciones:
+  - `generate_quiz`: selecciona preguntas de `MentoringQuestions` por Topic (GSI TopicIndex), crea registro en `Quizzes` con `Status: in_progress`.
+  - `submit_answer`: registra respuesta individual en `QuizResults` con `IsCorrect`, `GivenAnswer` y `Timestamp`.
+  - `get_results`: consulta quiz y respuestas, calcula métricas (total_questions, correct_answers, score_percentage).
+  - IAM: permisos mínimos — `Query` en MentoringQuestions, `GetItem/PutItem/UpdateItem` en Quizzes, `GetItem/PutItem/Query` en QuizResults + indices.
+  - Test: ejecutado exitosamente con topic "AWS Well-Architected Framework", 3 preguntas, 1 respuesta registrada, score 100%.
+  - Dashboard: `doc/quiz-results-dashboard.html` con KPIs, tabla de resultados y barra de progreso.
+  - PR #16 merged.
