@@ -61,7 +61,7 @@
 <body>
     <div class="header">
         <h1>AI Mentoring — Dashboard de Resultados</h1>
-        <p>Lote: 109 fotos de preguntas de examen AWS | Última actualización: 17 agosto 2026, 12:00 UTC-3</p>
+        <p>Lote: 109 fotos de preguntas de examen AWS | Última actualización: 21 agosto 2026, 12:00 UTC-3</p>
     </div>
 
     <!-- KPIs -->
@@ -95,6 +95,33 @@
             <div class="kpi-label">Concurrencia SQS</div>
             <div class="kpi-value">3</div>
             <div class="kpi-change positive">maximum_concurrency activo</div>
+        </div>
+    </div>
+
+    <!-- Nuevos Servicios -->
+    <div class="section">
+        <h2>Nuevos Servicios (2026-08-21)</h2>
+        <div class="kpi-grid">
+            <div class="kpi-card success">
+                <div class="kpi-label">Lambda student_api.py</div>
+                <div class="kpi-value">CRUD</div>
+                <div class="kpi-change positive">create, get, update, get_by_email</div>
+            </div>
+            <div class="kpi-card success">
+                <div class="kpi-label">Lambda quiz_engine.py</div>
+                <div class="kpi-value">3 Actions</div>
+                <div class="kpi-change positive">generate_quiz, submit_answer, get_results</div>
+            </div>
+            <div class="kpi-card success">
+                <div class="kpi-label">Amazon Cognito</div>
+                <div class="kpi-value">User Pool</div>
+                <div class="kpi-change positive">Email + Password authentication</div>
+            </div>
+            <div class="kpi-card info">
+                <div class="kpi-label">DynamoDB Tables</div>
+                <div class="kpi-value">4</div>
+                <div class="kpi-change positive">MentoringQuestions, Quizzes, QuizResults, Students</div>
+            </div>
         </div>
     </div>
 
@@ -335,12 +362,20 @@
     <div class="section">
         <h2>Arquitectura Actual</h2>
         <pre style="background: #0f172a; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 0.85rem; color: #38bdf8;">
+Pipeline de Ingesta:
 S3 (foto examen) → SNS → email + SQS (main_queue)
     → Lambda (processor.py) [batch_size=1, max_concurrency=3]
         → Rekognition (OCR)
         → Bedrock Claude Haiku 4.5 (adaptive retry, 6 intentos)
         → DynamoDB (MentoringQuestions)
     → DLQ (maxReceiveCount=4)
+
+Sistema de Quizzes:
+Frontend → Cognito (auth) → student_api.py (CRUD alumnos)
+    → DynamoDB (Students)
+
+Frontend → quiz_engine.py (interno)
+    → DynamoDB (MentoringQuestions, Quizzes, QuizResults)
         </pre>
     </div>
 
@@ -371,8 +406,8 @@ S3 (foto examen) → SNS → email + SQS (main_queue)
         <div class="recommendation">
             <div class="recommendation-priority medium">Media</div>
             <div class="recommendation-text">
-                <h4>Reprocesar 5 mensajes de DLQ</h4>
-                <p>Restablecer mensajes fallidos para recuperar datos perdidos.</p>
+                <h4>Integrar student_api.py con Cognito triggers</h4>
+                <p>Usar Post Confirmation trigger para crear automáticamente el perfil en DynamoDB cuando el usuario se registra en Cognito.</p>
             </div>
         </div>
         <div class="recommendation">
