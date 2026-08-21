@@ -143,21 +143,27 @@ resource "aws_iam_policy" "quiz_engine_policy" {
         ]
       },
       {
-        Sid    = "AllowWriteAndUpdateQuizzes"
+        Sid    = "AllowReadAndUpdateQuizzes"
         Effect = "Allow"
         Action = [
+          "dynamodb:GetItem",
           "dynamodb:PutItem",
           "dynamodb:UpdateItem"
         ]
         Resource = aws_dynamodb_table.quizzes.arn
       },
       {
-        Sid    = "AllowWriteQuizResults"
+        Sid    = "AllowReadWriteQuizResults"
         Effect = "Allow"
         Action = [
-          "dynamodb:PutItem"
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:Query"
         ]
-        Resource = aws_dynamodb_table.quiz_results.arn
+        Resource = [
+          aws_dynamodb_table.quiz_results.arn,
+          "${aws_dynamodb_table.quiz_results.arn}/index/*"
+        ]
       },
       {
         Sid    = "AllowWriteLambdaLogs"
