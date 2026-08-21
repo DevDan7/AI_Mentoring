@@ -595,10 +595,10 @@
                 <div class="arrow-down">↓</div>
 
                 <!-- Fase 5: Frontend -->
-                <div class="phase-box phase-next">
+                <div class="phase-box phase-done">
                     <div class="phase-header">
                         <span class="phase-title">Fase 5: Frontend</span>
-                        <span class="phase-badge badge-next">PRÓXIMO</span>
+                        <span class="phase-badge badge-done">COMPLETADA</span>
                     </div>
                     <div class="flow-row">
                         <div class="flow-box active">
@@ -607,16 +607,16 @@
                             <div class="status status-active">HTTP API + JWT</div>
                         </div>
                         <span class="arrow">→</span>
-                        <div class="flow-box pending">
+                        <div class="flow-box active">
                             <div class="icon">🖥️</div>
                             <div class="label">Landing Page</div>
-                            <div class="status status-pending">HTML + TypeScript</div>
+                            <div class="status status-active">HTML + Pico.css</div>
                         </div>
                         <span class="arrow">→</span>
-                        <div class="flow-box pending">
-                            <div class="icon">📊</div>
-                            <div class="label">Dashboard</div>
-                            <div class="status status-pending">Métricas</div>
+                        <div class="flow-box active">
+                            <div class="icon">☁️</div>
+                            <div class="label">CloudFront</div>
+                            <div class="status status-active">HTTPS CDN</div>
                         </div>
                     </div>
                 </div>
@@ -673,11 +673,11 @@
                     </tr>
                     <tr>
                         <td>5</td>
-                        <td><strong>Desarrollar Landing Page</strong><br><small>HTML + TypeScript (sin build tools): login, dashboard, quiz, resultados</small></td>
+                        <td><strong>Desarrollar Landing Page</strong><br><small>HTML + Pico.css + JS: login, dashboard, quiz, resultados. S3 + CloudFront.</small></td>
                         <td class="priority-high">Alta</td>
                         <td>8-12 horas</td>
                         <td>API Gateway</td>
-                        <td><span class="phase-badge badge-next">Siguiente</span></td>
+                        <td><span class="phase-badge badge-done">✅ Completada</span></td>
                     </tr>
                     <tr>
                         <td>6</td>
@@ -871,12 +871,17 @@
                 <div class="timeline-item done">
                     <div class="timeline-date">21 agosto 2026</div>
                     <div class="timeline-title">API Gateway HTTP API</div>
-                    <div class="timeline-desc">JWT Authorizer, 7 rutas, Lambdas adaptadas a v2.0, IAM fix (GetItem), 7/7 tests pasados</div>
+                    <div class="timeline-desc">JWT Authorizer, 7 rutas, Lambdas adaptadas a v2.0, IAM fix, 7/7 tests pasados</div>
+                </div>
+                <div class="timeline-item done">
+                    <div class="timeline-date">21 agosto 2026</div>
+                    <div class="timeline-title">Landing Page + CloudFront</div>
+                    <div class="timeline-desc">4 páginas HTML, Pico.css, auth.js con refresh token, S3 + CloudFront HTTPS, bug fix QuestionText</div>
                 </div>
                 <div class="timeline-item current">
-                    <div class="timeline-date">Próximos días</div>
-                    <div class="timeline-title">Landing Page</div>
-                    <div class="timeline-desc">HTML + TypeScript, S3 + CloudFront, interfaz de alumno</div>
+                    <div class="timeline-date">Próximas semanas</div>
+                    <div class="timeline-title">Reportes + Backend Remoto</div>
+                    <div class="timeline-desc">report_generator.py, migrar tfstate a S3 + DynamoDB lock</div>
                 </div>
                 <div class="timeline-item next">
                     <div class="timeline-date">Próximas 2 semanas</div>
@@ -892,12 +897,8 @@
             
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-value">10-15h</div>
+                    <div class="stat-value">6-9h</div>
                     <div class="stat-label">Tiempo total restante</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">8-12h</div>
-                    <div class="stat-label">Landing Page</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value">4-6h</div>
