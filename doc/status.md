@@ -505,3 +505,8 @@ Error: all attributes must be indexed. Unused attributes: ["GivenAnswer" "IsCorr
 - **2026-08-21**: Implementación soporte *Multiple Choice*: Backend (`submit_answer` con sets) y Frontend (UI dinámica radio/checkbox).
 - **2026-08-21**: Fix: Bucle infinito en login/dashboard por sesión expirada en `auth.js`.
 - **2026-08-21**: Hallazgo: Fragmentación de tópicos (109 preguntas, 84 temas distintos). Decisión: Normalización a taxonomía cerrada (pendiente de ejecución).
+- **2026-08-22**: Normalización de tópicos (109 registros):
+  - **Diagnóstico**: ~84 tópicos fragmentados detectados tras escaneo de `MentoringQuestions`.
+  - **Acción**: Ejecución de script de migración (`scripts/normalizar_temas.py`) con mapa de mapeo en `scripts/mapa_temas.json`.
+  - **Resultado**: 109 ítems normalizados a 9 categorías canónicas. Preservación del valor original en atributo `OriginalTopic` (idempotente). Respaldo pre-migración generado.
+  - **Categorías resultantes**: Cloud Concepts & Well-Architected (34), General / Otros Servicios (16), Compute & Containers (12), Security, Identity & Compliance (12), Storage & Database (12), Billing, Cost Management & Support (10), Networking & Content Delivery (9), Management, Governance & DevOps (3), Application Integration & Serverless Architecture (1).
