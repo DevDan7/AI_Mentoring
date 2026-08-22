@@ -510,3 +510,10 @@ Error: all attributes must be indexed. Unused attributes: ["GivenAnswer" "IsCorr
   - **Acción**: Ejecución de script de migración (`scripts/normalizar_temas.py`) con mapa de mapeo en `scripts/mapa_temas.json`.
   - **Resultado**: 109 ítems normalizados a 9 categorías canónicas. Preservación del valor original en atributo `OriginalTopic` (idempotente). Respaldo pre-migración generado.
   - **Categorías resultantes**: Cloud Concepts & Well-Architected (34), General / Otros Servicios (16), Compute & Containers (12), Security, Identity & Compliance (12), Storage & Database (12), Billing, Cost Management & Support (10), Networking & Content Delivery (9), Management, Governance & DevOps (3), Application Integration & Serverless Architecture (1).
+- **2026-08-22**: Blindaje de taxonomía en `processor.py` (pipeline de ingesta):
+  - **Problema**: El prompt original de Bedrock usaba classificación de texto libre para el campo `topic`, lo que podía generar nuevos tópicos no canónicos con cada foto procesada.
+  - **Acción**: Tres cambios en `src/processor.py`:
+    1. Constante `CANONICAL_TOPICS` con las 9 categorías canónicas (línea 13-24).
+    2. Prompt de Bedrock reescrito con instrucción explícita de mapear a una de las 9 categorías, con descripción de qué entra en cada una (línea 96-128).
+    3. Validación defensiva post-Bedrock: si el topic devuelto no está en `CANONICAL_TOPICS`, se reasigna automáticamente a `General / Otros Servicios` con log de advertencia (línea 160-166).
+  - **Resultado**: Nuevas fotos se clasifican en la taxonomía cerrada "por diseño". La base de datos queda blindada a futuras inserciones fuera de las 9 categorías canónicas.
