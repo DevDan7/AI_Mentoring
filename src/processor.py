@@ -10,6 +10,19 @@ from botocore.exceptions import ClientError
 
 TABLE_NAME = os.environ.get("TABLE_NAME", "MentoringQuestions")
 
+# Taxonomía canónica de categorías (debe coincidir con dashboard.html <select>)
+CANONICAL_TOPICS = [
+    "Amazon EC2",
+    "Amazon S3",
+    "Amazon RDS",
+    "Amazon DynamoDB",
+    "AWS Lambda",
+    "Amazon VPC",
+    "AWS IAM",
+    "Amazon SQS",
+    "General / Otros Servicios",
+]
+
 # 1. Inicializar clientes de AWS
 s3_client = boto3.client("s3")
 rekognition_client = boto3.client("rekognition")  # <--- CAMBIO AQUÍ
@@ -80,9 +93,22 @@ it is a single-answer question. Mark exactly that many options as correct.
 
 For each option, determine whether it is correct or incorrect and explain why.
 
+IMPORTANT: For the "topic" field, you MUST use EXACTLY one of these 9 canonical
+categories. Do NOT invent new topics. Map the question to the closest match:
+
+- "Amazon EC2" — instances, AMIs, autoscaling, placement groups, ENIs
+- "Amazon S3" — buckets, storage classes, lifecycle, versioning, replication, presigned URLs
+- "Amazon RDS" — managed relational databases, Multi-AZ, read replicas, parameter groups
+- "Amazon DynamoDB" — NoSQL tables, capacity modes, DAX, global tables, DynamoDB Streams
+- "AWS Lambda" — serverless functions, layers, event sources, concurrency, destinations
+- "Amazon VPC" — subnets, route tables, NACLs, security groups, NAT, transit gateways
+- "AWS IAM" — users, groups, roles, policies, identity federation, Organizations
+- "Amazon SQS" — queues (Standard/FIFO), DLQ, visibility timeout, dead-letter handling
+- "General / Otros Servicios" — if the question does not clearly fit any category above
+
 Return strictly a JSON object with this exact structure, entirely in English:
 {{
-    "topic": "The main AWS service or concept (e.g. VPC, S3, IAM, EC2)",
+    "topic": "One of the 9 canonical categories listed above",
     "difficulty": "Difficulty level (Easy, Medium, Hard)",
     "question_text": "The full question statement, translated to English",
     "question_type": "single or multiple",
@@ -130,6 +156,14 @@ Do not include any text outside the JSON. Do not use markdown or code blocks.
             # Ahora intentamos cargar el JSON limpio
             ai_data = json.loads(clean_json)
             # -------------------------------
+
+            # Validación defensiva: asegurar que el topic esté en la taxonomía canónica
+            topic = ai_data.get("topic", "")
+            if topic not in CANONICAL_TOPICS:
+                print(
+                    f"Topic '{topic}' no es canónico. Reasignando a 'General / Otros Servicios'"
+                )
+                ai_data["topic"] = "General / Otros Servicios"
 
             # 4. Guardar en DynamoDB
             table = dynamodb.Table(TABLE_NAME)
