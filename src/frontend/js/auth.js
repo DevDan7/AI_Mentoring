@@ -92,7 +92,7 @@ async function getToken() {
 function checkAuth() {
     const token = localStorage.getItem("id_token");
     if (!token || isTokenExpired(token)) {
-        window.location.href = "index.html";
+        logout();
         return null;
     }
     return token;
