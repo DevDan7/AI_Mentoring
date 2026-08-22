@@ -517,3 +517,20 @@ Error: all attributes must be indexed. Unused attributes: ["GivenAnswer" "IsCorr
     2. Prompt de Bedrock reescrito con instrucción explícita de mapear a una de las 9 categorías, con descripción de qué entra en cada una (línea 96-128).
     3. Validación defensiva post-Bedrock: si el topic devuelto no está en `CANONICAL_TOPICS`, se reasigna automáticamente a `General / Otros Servicios` con log de advertencia (línea 160-166).
   - **Resultado**: Nuevas fotos se clasifican en la taxonomía cerrada "por diseño". La base de datos queda blindada a futuras inserciones fuera de las 9 categorías canónicas.
+- **2026-08-22**: Corrección de taxonomía canónica (servicios → funcional):
+  - **Problema**: La taxonomía implementada en `processor.py` usaba categorías basadas en servicios (`Amazon EC2`, `Amazon S3`, etc.) que no coincidían con las categorías funcionales definidas en `scripts/mapa_temas.json` y ya aplicadas a los 109 registros existentes.
+  - **Acción**: Reemplazadas las 9 categorías de servicios por las 10 categorías funcionales de `mapa_temas.json`:
+    - `Cloud Concepts & Well-Architected`
+    - `Security, Identity & Compliance`
+    - `Compute & Containers`
+    - `Storage & Database`
+    - `Networking & Content Delivery`
+    - `Data, Analytics & Machine Learning`
+    - `Management, Governance & DevOps`
+    - `Billing, Cost Management & Support`
+    - `Application Integration & Serverless Architecture`
+    - `General / Otros Servicios`
+  - **Archivos modificados**:
+    - `src/processor.py`: `CANONICAL_TOPICS` + prompt de Bedrock actualizado con descripciones de cada categoría funcional.
+    - `src/frontend/dashboard.html`: `<select>` actualizado con las 10 categorías funcionales.
+  - **Resultado**: Pipeline de ingesta y frontend ahora son consistentes con la taxonomía funcional existente en DynamoDB.
