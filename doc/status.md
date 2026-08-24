@@ -561,3 +561,15 @@ Textract no se justifica sin un problema real de calidad de OCR -- que no
 existe hoy. Textract queda evaluado y descartado por ahora; se reconsiderara 
 si el proyecto necesita procesar documentos complejos (tablas, formularios, 
 multi-columna) que Rekognition no maneje bien.
+
+## Automatización CI/CD con `terraform apply` (2026-08-24)
+
+- **Contexto**: Implementación de despliegue automático mediante GitHub Actions para el comando `terraform apply`.
+- **Arquitectura**: Configuración de `GitHub Environments` (`production`) con protección de *Required Reviewers*. Uso de OIDC para autenticación segura en AWS.
+- **Problemas enfrentados**:
+    - **Bloqueos de IAM (Huevo/Gallina)**: El rol de GitHub Actions inicial no tenía permisos suficientes (ni para crear recursos, ni para listar proveedores OIDC).
+- **Proceso de resolución**:
+    1. Ejecución manual de `terraform apply` local (con credenciales de administrador) para "bootstrapear" la política `terraform-cicd-policy`.
+    2. Corrección iterativa de permisos en `iam.tf` (`iam:ListOpenIDConnectProviders`, `iam:GetOpenIDConnectProvider`).
+    3. Consolidación de ramas y verificación final de privilegios.
+- **Estado final**: Pipeline funcional. Los cambios en `main` disparan automáticamente el workflow, que se pausa esperando aprobación manual en el entorno `production`.
