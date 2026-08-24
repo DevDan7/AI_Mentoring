@@ -641,55 +641,39 @@
                 <tbody>
                     <tr>
                         <td>1</td>
-                        <td><strong>Configurar Cognito User Pool</strong><br><small>User Pool + App Client para autenticación de alumnos</small></td>
+                        <td><strong>CI/CD con `apply`</strong><br><small>GitHub Environments con required reviewers</small></td>
                         <td class="priority-high">Alta</td>
-                        <td>2-3 horas</td>
+                        <td>3-4 horas</td>
                         <td>Ninguna</td>
-                        <td><span class="phase-badge badge-done">✅ Completada</span></td>
+                        <td><span class="phase-badge badge-next">Pendiente</span></td>
                     </tr>
                     <tr>
                         <td>2</td>
-                        <td><strong>Crear Lambda student_api.py</strong><br><small>CRUD de alumnos: create, get, update, get_by_email + validación Cognito</small></td>
+                        <td><strong>Migración Frontend a Amplify</strong><br><small>Desacoplar S3/CF y usar Amplify Hosting</small></td>
                         <td class="priority-high">Alta</td>
                         <td>4-6 horas</td>
-                        <td>Cognito</td>
-                        <td><span class="phase-badge badge-done">✅ Completada</span></td>
+                        <td>Ninguna</td>
+                        <td><span class="phase-badge badge-next">Pendiente</span></td>
                     </tr>
                     <tr>
                         <td>3</td>
-                        <td><strong>Crear Lambda quiz_engine.py</strong><br><small>generate_quiz, submit_answer, get_results — 3 acciones</small></td>
+                        <td><strong>Auto-registro de alumnos</strong><br><small>SignUp Cognito + trigger Sincronización DynamoDB</small></td>
                         <td class="priority-high">Alta</td>
-                        <td>6-8 horas</td>
-                        <td>DynamoDB Quizzes</td>
-                        <td><span class="phase-badge badge-done">✅ Completada</span></td>
+                        <td>4-6 horas</td>
+                        <td>Cognito, API Gateway</td>
+                        <td><span class="phase-badge badge-next">Pendiente</span></td>
                     </tr>
                     <tr>
                         <td>4</td>
-                        <td><strong>Configurar API Gateway HTTP API</strong><br><small>HTTP API con JWT authorizer (Cognito), 7 rutas protegidas, throttling 100 rps</small></td>
-                        <td class="priority-high">Alta</td>
-                        <td>3-4 horas</td>
-                        <td>Cognito, Lambdas</td>
-                        <td><span class="phase-badge badge-done">✅ Completada</span></td>
-                    </tr>
-                    <tr>
-                        <td>5</td>
-                        <td><strong>Desarrollar Landing Page</strong><br><small>HTML + Pico.css + JS: login, dashboard, quiz, resultados. S3 + CloudFront.</small></td>
-                        <td class="priority-high">Alta</td>
-                        <td>8-12 horas</td>
-                        <td>API Gateway</td>
-                        <td><span class="phase-badge badge-done">✅ Completada</span></td>
-                    </tr>
-                    <tr>
-                        <td>6</td>
-                        <td><strong>Crear Lambda report_generator.py</strong><br><small>Generación de reportes mensuales/anuales por alumno y aula</small></td>
+                        <td><strong>Refactor: AWS Step Functions</strong><br><small>Orquestación asíncrona del pipeline (processor.py)</small></td>
                         <td class="priority-medium">Media</td>
-                        <td>4-6 horas</td>
-                        <td>quiz_engine.py</td>
+                        <td>8-12 horas</td>
+                        <td>Lambda processor</td>
                         <td><span class="phase-badge badge-future">Pendiente</span></td>
                     </tr>
                     <tr>
-                        <td>7</td>
-                        <td><strong>Configurar Backend Remoto Terraform</strong><br><small>Migrar tfstate a S3 + DynamoDB lock para colaboración</small></td>
+                        <td>5</td>
+                        <td><strong>Cleanup: Refactor de Infraestructura</strong><br><small>Resolver avisos de depreciación (key_schema vs hash_key)</small></td>
                         <td class="priority-low">Baja</td>
                         <td>2-3 horas</td>
                         <td>Ninguna</td>
