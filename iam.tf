@@ -137,7 +137,8 @@ resource "aws_iam_policy" "terraform_cicd_policy" {
           "iam:GetRolePolicy",
           "iam:DetachRolePolicy",
           "iam:DeleteRolePolicy",
-          "iam:ListOpenIDConnectProviders"
+          "iam:ListOpenIDConnectProviders",
+          "iam:GetOpenIDConnectProvider"
         ]
         Resource = "*"
       }
