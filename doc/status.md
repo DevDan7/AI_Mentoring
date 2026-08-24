@@ -52,10 +52,11 @@ El objetivo tiene 3 piezas: (1) BD de alumnos, (2) generación de aulas desde un
 1. ~~Limpiar deuda técnica rápida (lambda vacía, README, primer commit)~~ — **Hecho.**
 2. ~~Configurar GitHub Actions con OIDC (validación de Terraform vía `plan` en PRs)~~ — **Hecho (2026-08-08).**
 3. ~~Diseñar el modelo de datos de "alumnos" y "resultados de simulados"~~ — **Hecho (2026-08-18).**
-4. Añadir una Lambda/endpoint para registrar respuestas del alumno y actualizar progreso.
-5. Añadir una Lambda de relatorios que consuma ambas tablas.
-6. ~~Resolver el manejo de duplicados (hallazgo #7) antes de escalar el volumen de fotos procesadas~~ — **Hecho (2026-08-13).**
-7. Evaluar backend remoto de Terraform (hallazgo #5).
+4. CI/CD con `apply` (GitHub Environments con required reviewers).
+5. Migración Frontend a Amplify.
+6. Auto-registro de alumnos (SignUp Cognito + sincronización DynamoDB).
+7. Refactor: AWS Step Functions para orquestación asíncrona.
+8. Cleanup: Resolver avisos de depreciación (key_schema vs hash_key).
 
 ---
 
@@ -534,3 +535,29 @@ Error: all attributes must be indexed. Unused attributes: ["GivenAnswer" "IsCorr
     - `src/processor.py`: `CANONICAL_TOPICS` + prompt de Bedrock actualizado con descripciones de cada categoría funcional.
     - `src/frontend/dashboard.html`: `<select>` actualizado con las 10 categorías funcionales.
   - **Resultado**: Pipeline de ingesta y frontend ahora son consistentes con la taxonomía funcional existente en DynamoDB.
+
+  ## Evaluacion — Migracion Rekognition a Textract (2026-08-24)
+
+### Contexto
+Se evaluo migrar el OCR de Rekognition a Textract, motivado por Textract 
+estar mas especializado en documentos estructurados.
+
+### Metodologia
+Script de comparacion aislado (`scripts/test_ocr_comparison.py`, rama 
+`test/ocr-comparison-textract`), sin tocar infraestructura ni Lambda de 
+produccion. Probado contra 5 fotos reales (`question_001.png` a `005.png`).
+
+### Resultado
+- Calidad de deteccion: equivalente entre ambos servicios para texto 
+  impreso claro (tipo de imagen que procesa este proyecto).
+- Complejidad de parsing: Rekognition devuelve una lista plana (`LINE`/`WORD`); 
+  Textract requiere reconstruir el orden de lectura navegando `Relationships` 
+  entre bloques `PAGE`/`LINE`/`WORD` -- notablemente mas complejo.
+- Costo: diferencia imperceptible al volumen actual (~$0.001/pregunta).
+
+### Decision
+Mantener Rekognition. La refactorizacion de `processor.py` que exigiria 
+Textract no se justifica sin un problema real de calidad de OCR -- que no 
+existe hoy. Textract queda evaluado y descartado por ahora; se reconsiderara 
+si el proyecto necesita procesar documentos complejos (tablas, formularios, 
+multi-columna) que Rekognition no maneje bien.

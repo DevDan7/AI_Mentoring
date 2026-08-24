@@ -106,9 +106,47 @@ resource "aws_iam_role" "github_actions" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "github_actions_readonly" {
+# Nueva política para permitir despliegue mediante Terraform
+resource "aws_iam_policy" "terraform_cicd_policy" {
+  name        = "terraform-cicd-policy"
+  description = "Permissions for Terraform CI/CD"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:*",
+          "sqs:*",
+          "sns:*",
+          "lambda:*",
+          "dynamodb:*",
+          "apigateway:*",
+          "cognito-idp:*",
+          "logs:*",
+          "iam:PassRole",
+          "iam:CreateRole",
+          "iam:DeleteRole",
+          "iam:UpdateRole",
+          "iam:AttachRolePolicy",
+          "iam:PutRolePolicy",
+          "iam:GetRole",
+          "iam:ListRolePolicies",
+          "iam:ListAttachedRolePolicies",
+          "iam:GetRolePolicy",
+          "iam:DetachRolePolicy",
+          "iam:DeleteRolePolicy"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "github_actions_deploy" {
   role       = aws_iam_role.github_actions.name
-  policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+  policy_arn = aws_iam_policy.terraform_cicd_policy.arn
 }
 
 resource "aws_iam_role" "quiz_engine_role" {
