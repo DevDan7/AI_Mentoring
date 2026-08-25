@@ -573,3 +573,93 @@ multi-columna) que Rekognition no maneje bien.
     2. Corrección iterativa de permisos en `iam.tf` (`iam:ListOpenIDConnectProviders`, `iam:GetOpenIDConnectProvider`).
     3. Consolidación de ramas y verificación final de privilegios.
 - **Estado final**: Pipeline funcional. Los cambios en `main` disparan automáticamente el workflow, que se pausa esperando aprobación manual en el entorno `production`.
+
+## CI/CD — Automatizacion de GitHub Actions con apply + aprobacion manual (2026-08-24)
+
+### Objetivo
+Automatizar `terraform apply` en el push a `main`, sin revertir la autenticacion 
+OIDC ya implementada (rechazado explicitamente: volver a `AWS_ACCESS_KEY_ID`/`SECRET` 
+como secretos de GitHub). Diseño aprobado: ampliar permisos del rol OIDC existente 
++ GitHub Environment (`production`) con "Required reviewers" como gate de aprobacion 
+manual antes de que el `apply` real se ejecute.
+
+### Intento 1 — Fallo en cascada (avalancha de "already exists")
+Al ejecutar el primer `apply` automatico, fallaron ~10 recursos distintos con 
+errores `ResourceInUseException`/`EntityAlreadyExists`/`BucketAlreadyExists` 
+(tablas DynamoDB, roles IAM, bucket S3, log group). 
+
+**Causa raiz:** el `tfstate` vivia solo en la maquina local (excluido de git por 
+`.gitignore`, correctamente, por contener ARNs/IDs sensibles). GitHub Actions 
+corre en una maquina limpia en cada ejecucion — sin acceso a ese estado, Terraform 
+no tenia forma de saber que los recursos ya existian, e intento crearlos todos 
+desde cero. Confirmado que ningun recurso real se duplico ni se perdio (los 
+errores ocurrieron antes de completar ninguna creacion).
+
+Error adicional detectado en el mismo intento: paradoja de arranque en 
+`iam:CreatePolicy` — el rol de GitHub Actions (con permisos de solo lectura en 
+ese momento) no podia crear la politica que le daria permisos de escritura a 
+si mismo. Resuelto aplicando ese cambio puntual manualmente, con credenciales 
+propias, desde la terminal local.
+
+### Solucion — Backend remoto de Terraform (hallazgo pendiente desde 2026-07-18, 
+### finalmente resuelto)
+- Creado bucket S3 (`daniel-mentoring-terraform-state-853106001369`) con 
+  versionado activado, y migrado el estado local al bucket via 
+  `terraform init -reconfigure`. Verificado con `terraform plan`: 
+  `0 to add, 1 to change, 0 to destroy` — cero recursos recreados, migracion 
+  exitosa.
+- Bloqueo de estado implementado con `use_lockfile = true` (mecanismo nativo 
+  de S3, generalmente disponible desde Terraform 1.11), en vez del patron 
+  tradicional de tabla DynamoDB dedicada — mas simple, una pieza menos de 
+  infraestructura que mantener. Se creo una tabla DynamoDB de bloqueo como 
+  respaldo durante la transicion, pero no se usa activamente; candidata a 
+  eliminarse en el futuro.
+
+### Incidente secundario — Scope creep de agente IA durante /implement
+Al pedirle a opencode que actualizara 3 skills puntuales, el comando `/implement` 
+(que le da acceso de lectura a todo el repo "para contexto") interpreto deuda 
+tecnica ya documentada en `status.md`/`roadmap.html` (ej. `deletion_protection_enabled`, 
+alarma de CloudWatch para DLQ) como parte de la tarea, y modifico 24 archivos en 
+vez de los 3 pedidos (incluyendo `src/processor.py`, la Lambda mas critica del 
+proyecto, sin que se solicitara). Ningun cambio llego a aplicarse a AWS (verificado 
+con `aws dynamodb describe-table` antes de descartar). Revertido selectivamente 
+con `git checkout --` a los archivos no solicitados, preservando unicamente el 
+trabajo real (backend remoto + las skills pedidas). 
+
+**Leccion:** la instruccion "Minimal Target Change" en el prompt del comando es 
+una sugerencia de comportamiento, no una restriccion tecnica dura. Para acotar 
+el alcance de un agente con acceso amplio al repo, hay que ser explicito en la 
+tarea puntual (ej. "modifica unicamente estos archivos, no toques nada mas aunque 
+detectes deuda tecnica en el camino"), no basta con que el comando lo sugiera 
+en general.
+
+### Incidente final — Drift de permisos IAM
+Al implementar `terraform-cicd-policy` (permisos de escritura para el rol de 
+GitHub Actions), la politica `ReadOnlyAccess` quedo desadjuntada del rol 
+(causa exacta no confirmada — probablemente durante la implementacion manual 
+inicial). Esto bloqueaba el `terraform plan` con errores de `iam:GetPolicy` y 
+`cloudfront:GetOriginAccessControl` denegados, ya que un `plan` necesita leer 
+el estado de *todos* los recursos gestionados, no solo los del cambio en curso.
+
+Resuelto reconectando `ReadOnlyAccess` manualmente via CLI 
+(`aws iam attach-role-policy`). El rol de GitHub Actions ahora combina 
+`ReadOnlyAccess` (lectura amplia) + `terraform-cicd-policy` (escritura acotada).
+
+**Pendiente (proxima sesion):** reflejar este attachment en `iam.tf` 
+(`aws_iam_role_policy_attachment` faltante) para eliminar el drift entre 
+el codigo y el estado real en AWS.
+
+### Estado actual
+- PR #33 (`chore/remote-backend-and-opencode-skills`): `terraform plan` en 
+  verde. Pendiente de merge.
+- Workflow de `apply` automatico con gate de aprobacion manual (`environment: 
+  production`): implementado, pero aun no probado de punta a punta con el 
+  backend remoto ya funcionando — se validara en el proximo merge a `main`.
+
+### Leccion general de la sesion
+Automatizar CI/CD para infraestructura real expone dependencias que un flujo 
+manual esconde (estado local, permisos incrementales, orden de bootstrap). 
+Cada fallo fue diagnosticable y reversible porque se verifico contra AWS real 
+antes de asumir nada (`aws dynamodb describe-table`, `terraform state list`, 
+`aws iam list-attached-role-policies`) en vez de confiar solo en el codigo o 
+en los mensajes de error de la superficie.
