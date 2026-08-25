@@ -1,45 +1,47 @@
 ---
 name: ai-mentoring-architecture
-description: Arquitectura y contexto del proyecto AI Mentoring. Usar cuando se trabaje en cualquier tarea relacionada con el proyecto: pipeline, servicios AWS, modelo de datos, roadmap o bitácora técnica.
+description: Architecture and context for the AI Mentoring project. Use when working on any task related to the project: pipeline, AWS services, data model, roadmap, or technical log.
 ---
 
-# AI Mentoring — Arquitectura del Proyecto
+# AI Mentoring — Project Architecture
 
-Plataforma serverless event-driven que convierte fotos de preguntas de examen en un banco de preguntas estructurado para mentorías de certificación AWS en Escola da Nuvem.
+Event-driven serverless platform that converts photos of exam questions into a structured question bank for AWS certification mentoring at Escola da Nuvem.
 
-## Pipeline actual (funcional)
+## Current Pipeline (Functional)
 
-```
-S3 (foto examen) → S3 Event Notification → SQS (main_queue + DLQ)
-   → Lambda (processor.py) → Rekognition (OCR) → Bedrock Claude → DynamoDB (MentoringQuestions)
-```
+`S3 (exam photo) -> S3 Event -> SNS (notifications + email) -> SQS (main_queue + DLQ, max_concurrency=3) -> Lambda -> Rekognition (OCR) -> Bedrock Claude Haiku 4.5 -> DynamoDB`
 
-## Servicios y roles
+## Services and Roles
 
-- **S3** — bucket `daniel-mentoring-exam-photos-edn-dev` recibe las fotos.
-- **SQS** — desacopla la ingesta del procesamiento; DLQ con `maxReceiveCount=4`.
-- **Lambda** — `src/processor.py` (Python 3.12, 256 MB, timeout 30s): OCR con Rekognition, prompt a Bedrock, limpieza de markdown y `PutItem` en DynamoDB.
-- **Bedrock** — Claude Haiku 4.5 estructura la respuesta como JSON (`topic`, `explanation`, `difficulty`).
-- **DynamoDB** — tabla `MentoringQuestions`: `QuestionID` (PK) + GSI `TopicIndex` por `Topic`, modo `PAY_PER_REQUEST`.
-- **SNS** — notificación por email (suscripción `notification_email`) ante nuevas fotos; política restringida por `SourceArn` al bucket.
-- **IAM** — rol `mentoring-processor-role` con permisos acotados; rol OIDC `github-actions` (solo lectura) para CI.
+- **S3** — Bucket `daniel-mentoring-exam-photos-edn-dev` receives incoming photos. Frontend bucket `ai-mentoring-frontend-*` for static hosting.
+- **SNS** — Email notifications (`notification_email`) on new photos; SQS subscription for pipeline ingestion. Access policy restricted by `SourceArn`.
+- **SQS** — Decouples ingestion from processing; DLQ with `maxReceiveCount=4`. ESM `maximum_concurrency=3` for Bedrock rate-limit protection.
+- **Lambda** — 3 handlers: `processor.py` (OCR pipeline, 256 MB, 30s, botocore adaptive retry), `student_api.py` (student CRUD, Cognito JWT validation, API Gateway v2.0), `quiz_engine.py` (quiz generation, answer submission, results).
+- **Bedrock** — Claude Haiku 4.5 structures response as JSON. Canonical taxonomy enforced via `CANONICAL_TOPICS` (10 categories).
+- **DynamoDB** — 4 tables: `MentoringQuestions` (QuestionID PK, TopicIndex GSI), `Students` (StudentID PK, EmailIndex GSI), `Quizzes` (QuizID PK, StudentIndex GSI), `QuizResults` (ResultID PK, QuizIndex + StudentIndex GSIs). All `PAY_PER_REQUEST`.
+- **API Gateway** — HTTP API with JWT Authorizer (Cognito), 7 routes, throttling 50 rps / burst 100.
+- **Cognito** — User Pool + App Client for student authentication (SRP, refresh tokens).
+- **CloudFront** — CDN with OAC, HTTPS redirect, S3 origin.
+- **IAM** — Least-privilege roles; OIDC for GitHub Actions (read-only CI).
 
-## Decisiones de arquitectura clave
+## Key Architectural Decisions
 
-- **Un solo `aws_s3_bucket_notification`**: AWS solo admite una configuración de notificaciones por bucket; `queue` y `topic` van en el mismo recurso.
-- **ARNs derivados de recursos** (`aws_recurso.nombre.atributo`), nunca literales hardcodeados.
-- **Secretos en `.tfvars`** (gitignored): valores sensibles van por variable; no sensibles pueden tener `default` en `variables.tf`.
-- **Estado local** (Pendiente): evaluar backend remoto S3 + DynamoDB lock.
+- **Single `aws_s3_bucket_notification`**: AWS allows only one notification configuration per bucket; `queue` and `topic` must reside within the same resource block.
+- **Derived ARNs**: Always use resource attributes (`aws_resource.name.attribute`), never hardcoded literals.
+- **Secrets in `.tfvars`** (gitignored): Sensitive values passed via variables; non-sensitive default values stored in `variables.tf`.
+- **Local State** (Pending): Evaluate remote backend using S3 + DynamoDB locking.
 
 ## Roadmap
 
-1. Modelo de datos de alumnos y resultados de simulados.
-2. Lambda/endpoint para registrar respuestas del alumno.
-3. Generación de aulas por tema/dificultad filtrando temas débiles.
-4. Reportes mensuales/anuales por alumno y aula.
-5. Resolver manejo de duplicados; evaluar backend remoto.
+1. ✅ Data model for students and mock exam results (3 DynamoDB tables created 2026-08-18).
+2. ✅ Lambda/endpoint to log student answers (`student_api.py`, `quiz_engine.py` created 2026-08-21).
+3. CI/CD with `terraform apply` on main (GitHub Environments with required reviewers).
+4. Migrate frontend to AWS Amplify.
+5. Auto-registration via Cognito + DynamoDB sync.
+6. Refactor to AWS Step Functions for async orchestration.
+7. Resolve duplicate handling; evaluate remote backend (S3 + DynamoDB lock).
 
-## Fuentes
+## Sources
 
-- `README.md` — documento público (reclutadores).
-- `doc/status.md` — bitácora técnica interna: hallazgos, deuda y log de cambios.
+- `README.md` — Public documentation (recruiters).
+- `doc/status.md` — Internal technical log: findings, technical debt, and change log.

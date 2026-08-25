@@ -1,33 +1,42 @@
 ---
 name: aws-serverless
-description: Patrones y buenas prácticas de arquitectura serverless en AWS para este repo. Usar cuando se escriba o revise infraestructura Terraform (S3, SQS, Lambda, DynamoDB, SNS, IAM) o se diseñe el flujo de eventos.
+description: AWS serverless architecture patterns and best practices for this repository. Use when writing or reviewing Terraform infrastructure (S3, SQS, Lambda, DynamoDB, SNS, IAM) or designing event flows.
 ---
 
-# AWS Serverless — Patrones del Proyecto
+# AWS Serverless — Project Patterns
 
-## Servicios usados
+## Services Used
 
-- **Amazon S3**: almacenamiento de objetos; dispara eventos `s3:ObjectCreated:*`.
-- **Amazon SQS**: cola principal + DLQ para desacoplar ingesta de procesamiento.
-- **AWS Lambda**: procesador Python; trigger por evento source mapping de SQS.
-- **Amazon DynamoDB**: almacenamiento de preguntas; `PAY_PER_REQUEST`; GSI para consultas por tema.
-- **Amazon SNS**: notificaciones por email.
+- **Amazon S3**: Object storage for exam photos (`s3:ObjectCreated:*` events) and frontend static hosting.
+- **Amazon SNS**: Event routing (S3 → SNS → SQS) and email notifications.
+- **Amazon SQS**: Main queue + DLQ to decouple ingestion from processing. ESM `maximum_concurrency=3`.
+- **AWS Lambda**: Python 3.12 handlers — `processor.py` (SQS-triggered OCR), `student_api.py` (API GW-triggered CRUD), `quiz_engine.py` (API GW-triggered quiz engine).
+- **Amazon DynamoDB**: 4 tables (`PAY_PER_REQUEST`), GSIs for topic/email/quiz/student queries.
+- **Amazon API Gateway**: HTTP API, JWT Authorizer (Cognito), 7 routes, payload format v2.0.
+- **Amazon Cognito**: User Pool + App Client for student authentication (SRP, refresh tokens).
+- **Amazon CloudFront**: CDN with OAC, HTTPS redirect, S3 origin.
 - **Amazon Rekognition**: OCR (`DetectText`).
-- **Amazon Bedrock**: modelo Claude Haiku 4.5 para estructurar respuestas.
-- **IAM**: roles con principio de menor privilegio; OIDC para GitHub Actions.
+- **Amazon Bedrock**: Claude Haiku 4.5 for structured JSON responses.
+- **IAM**: Least-privilege roles; OIDC for GitHub Actions.
 
-## Reglas de infraestructura (Terraform)
+## Infrastructure Rules (Terraform)
 
-- **Nunca dos recursos gestionando el mismo objeto** (ej. un solo `aws_s3_bucket_notification` por bucket). Dos recursos causan que cada `apply` sobrescriba la configuración anterior.
-- **Referencias por atributos**, no ARNs hardcodeados: `aws_bucket.recurso.arn`.
-- **Permisos acotados**: cada statement IAM apunta al ARN del recurso específico; restringir con condiciones `aws:SourceArn` cuando el servicio recibe eventos de terceros.
-- **Resiliencia**: DLQ con `maxReceiveCount` razonable; considerar idempotencia y manejo de duplicados.
-- **Costos**: `PAY_PER_REQUEST` para DynamoDB, `memory_size` mínimo suficiente, sin recursos ociosos.
-- Validar siempre con `terraform validate` (y `terraform plan` contra el estado real cuando haya credenciales).
+- **Single Management Resource**: Never use two resources to manage the same object (e.g., only one `aws_s3_bucket_notification` per bucket). Multiple resources cause `apply` operations to overwrite each other.
+- **Attribute References**: Always reference resources dynamically via attributes (`aws_resource.name.arn`), never hardcoded ARNs.
+- **Scoped Permissions**: Every IAM statement must target specific resource ARNs; restrict with `aws:SourceArn` conditions when handling cross-service events.
+- **Resilience**: Always configure a DLQ with a reasonable `maxReceiveCount`; enforce idempotency and duplicate handling.
+- **Cost Optimization**: Use `PAY_PER_REQUEST` for DynamoDB, minimum required `memory_size` for Lambda, and eliminate idle resources.
+- **API Gateway + Lambda**: Use payload format version `2.0`. Configure JWT Authorizer with Cognito User Pool ARN. Every route must specify `authorization_type = "JWT"`.
+- **Cognito Configuration**: App Client must set `generate_secret = false` for frontend SPAs. Configure `prevent_user_existence_errors = "ENABLED"`. Token validity: access/id 1h, refresh 30d.
+- **CloudFront + S3**: Use OAC (not legacy OAI). Bucket policy must condition on `AWS:SourceArn` matching the distribution ARN. Block all public access on S3.
+- **Validation**: Always validate using `terraform validate` (and `terraform plan` when AWS credentials are active).
 
-## Trampas comunes
+## Common Pitfalls
 
-- Política SQS/SNS sin condición `aws:SourceArn` → cualquier recurso puede inyectar mensajes.
-- Cambiar el nombre de un bucket en el estado sin actualizar las referencias literales.
-- Timeouts de Lambda muy cortos para operaciones de IA (Bedrock/OCR).
-- Provincias/servicios activados en una región distinta a `us-east-1`.
+- SQS/SNS policies missing `aws:SourceArn` condition → allows unauthorized resources to publish messages.
+- Renaming a bucket in state without updating literal references.
+- Lambda timeouts set too short for AI/OCR calls (Bedrock/Rekognition).
+- Deploying services/resources outside the target region (`us-east-1`).
+- API Gateway route added without corresponding Lambda `aws_lambda_permission` → Integration fails with 503.
+- Cognito token expiry (1h access token) causing infinite redirect loops in frontend if refresh fails.
+- DynamoDB `Unused attributes` error when defining non-indexed attributes in Terraform `attribute` blocks.
