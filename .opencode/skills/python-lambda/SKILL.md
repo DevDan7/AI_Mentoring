@@ -1,35 +1,33 @@
 ---
 name: python-lambda
-description: Patrones de código para las AWS Lambdas en Python de este repo. Usar cuando se escriba o modifique código en src/ (handlers, boto3, manejo de errores, parsing de respuestas de Bedrock).
+description: Python standards, handler patterns, error handling, and runtime execution rules for AWS Lambda. Use when writing, refactoring, or reviewing Python code in `src/`.
 ---
 
-# Python Lambda — Patrones del Proyecto
+# Python Lambda — Development Standards
 
-## Estructura del handler
+## Runtime & Environment
 
-- Runtime **Python 3.12**; archivo `src/processor.py` con función `lambda_handler(event, context)`.
-- Clientes boto3 inicializados a nivel de módulo (reutilización en invocaciones en caliente).
-- Configuración vía variables de entorno (`TABLE_NAME`), con valor por defecto seguro.
-- Logs con `print()` para CloudWatch (sin secretos).
+- **Target Runtime**: Python 3.12.
+- **Handler Structure**: Standard entry point `lambda_handler(event, context)`.
+- **Environment Variables**: Fetch runtime configuration (e.g., table names, bucket names) via `os.environ`. Never hardcode resource names.
+- **Initialization Outside Handler**: Initialize SDK clients (Boto3 `boto3.client(...)`, `boto3.resource(...)`) globally outside the handler function to reuse connections across cold starts.
 
-## Manejo de eventos
+## Code Quality & Structure
 
-- Los triggers de SQS entregan `event['Records']`; cada record tiene `body` (JSON).
-- Saltar mensajes de prueba/invalidos sin texto detectado (`continue` en vez de fallar).
-- Des-URL-encodear la key de S3 con `urllib.parse.unquote_plus`.
-- Rescatar la respuesta de IA entre bloques markdown (```json ... ```) antes de `json.loads`.
-- Error: loggear `str(e)` y re-lanzar para que SQS reintente según la política de la cola.
+- **Type Hints**: Use Python type annotations for function arguments and return types.
+- **Single Responsibility**: Keep `lambda_handler` focused on parsing events and routing orchestration. Delegate business logic, AI calls, and database operations to helper functions or modules.
+- **JSON Parsing & Cleanup**: Validate incoming event structures defensively. Sanitize and clean model responses (e.g., stripping Markdown fences like ` ```json `) before parsing JSON.
 
-## Flujo del procesador
+## Error Handling & Logging
 
-1. Parsear mensaje SQS → confirmar que trae un evento S3.
-2. Rekognition `detect_text` sobre el objeto S3 → concatenar líneas (`Type == 'LINE'`).
-3. Prompt a Bedrock (Claude) pidiendo JSON estricto: `topic`, `explanation`, `difficulty`.
-4. Limpiar y parsear el JSON de la respuesta.
-5. `put_item` en DynamoDB con `QuestionID` (UUID) + `CreatedAt` (ISO).
+- **Structured Logging**: Use the standard `logging` module configured at `INFO` level. Do not use raw `print()` statements.
+- **Sanitized Logs**: Never log entire raw payloads if they contain tokens, private keys, or sensitive student data.
+- **SQS Event Batching Handling**:
+  - Handle exceptions gracefully per record when processing SQS events.
+  - Fail explicitly (raise exception) if an item cannot be processed so SQS can retry or route it to the DLQ.
+  - Do not silently swallow exceptions unless intended.
 
-## Reglas
+## Dependencies & SDK
 
-- No loggear datos personales ni claves.
-- Usar `datetime.now().isoformat()` para timestamps.
-- Mantener cada paso en bloques pequeños y legibles; sin comentarios que repitan el código.
+- **Boto3**: Rely on the AWS Lambda runtime-provided `boto3` library unless a specific version lock is required.
+- **Lightweight Dependencies**: Keep external packages minimal to optimize deployment package size and reduce cold-start latency.
