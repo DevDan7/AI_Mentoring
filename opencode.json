@@ -1,6 +1,14 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "instructions": ["AGENTS.md"],
+  "agent": {
+    "plan": {
+      "prompt": "{file:./.opencode/prompts/plan.txt}"
+    },
+    "git": {
+      "description": "Generate git commands for committing and pushing changes"
+    }
+  },
   "permission": {
     "bash": {
       "*": "ask",

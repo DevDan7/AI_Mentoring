@@ -1,5 +1,5 @@
 ---
-description: Evaluate pros, cons and risks of a proposed AWS infrastructure change like an expert.
+description: Evaluate a proposed infrastructure change before implementing.
 agent: architect
 ---
 
