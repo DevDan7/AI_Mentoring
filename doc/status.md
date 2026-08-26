@@ -57,7 +57,7 @@ El objetivo tiene 3 piezas: (1) BD de alumnos, (2) generación de aulas desde un
 6. Auto-registro de alumnos (SignUp Cognito + sincronización DynamoDB). — **Pendiente.**
 7. Refactor: AWS Step Functions para orquestación asíncrona. — **Pendiente.**
 8. Cleanup: avisos de depreciación (`key_schema` vs `hash_key`) — **evaluado (2026-08-24) y mantenido deliberadamente sin cambios**: bugs activos conocidos del proveedor AWS al migrar a `key_schema` pueden causar drift perpetuo o recreación forzada de GSI. Reevaluar cuando se confirme que el bug está resuelto en una versión estable.
-9. **Nuevo pendiente (2026-08-24)**: reflejar en `iam.tf` el `aws_iam_role_policy_attachment` de `ReadOnlyAccess` para el rol `ai-mentoring-github-actions` — hoy existe en AWS real (reconectado vía CLI) pero no en el código, generando drift.
+9. ~~**Nuevo pendiente (2026-08-24)**: reflejar en `iam.tf` el `aws_iam_role_policy_attachment` de `ReadOnlyAccess` para el rol `ai-mentoring-github-actions`~~ — **Resuelto (2026-08-26): attachment agregada en PR #37 (`fix/iam-readonly-attachment`). Drift eliminado.**
 
 ---
 
@@ -540,6 +540,7 @@ Error: all attributes must be indexed. Unused attributes: ["GivenAnswer" "IsCorr
 - **2026-08-24**: **CI/CD con `terraform apply` automatizado**: GitHub Actions ejecuta `apply` en push a `main` con gate de aprobación manual (GitHub Environments `production`). Intento 1 falló por estado local (10 recursos duplicados) — solucionado con backend remoto S3 + `use_lockfile = true`. Incidente: scope creep de agente IA durante `/implement` (24 archivos modificados sin solicitud). Incidente: drift de permisos IAM (`ReadOnlyAccess` desadjuntado). Ver secciones detalladas más abajo.
 - **2026-08-24**: **Backend remoto de Terraform (resolución del hallazgo #5)**: bucket S3 (`daniel-mentoring-terraform-state-853106001369`) con versionado; estado migrado vía `terraform init -reconfigure`; bloqueo nativo con `use_lockfile = true`.
 - **2026-08-25**: **Reestructuración de configuración OpenCode**: agente `git.md` creado (generador de comandos git, solo lectura); agente `developer.md` eliminado; agentes `reviewer.md` y comando `review.md` traducidos al español; comandos obsoletos eliminados (`document.md`, `implement.md`, `plan.md`, `test.md`, `prompts.md`); comando `infra-eval.md` renombrado a `infra-review.md`; skill `testing/SKILL.md` simplificado; `AGENTS.md` actualizado con sección "Skills Update"; `opencode.json` actualizado con agentes `plan` y `git`; prompt `prompts/plan.txt` creado.
+- **2026-08-26**: **Fix drift IAM (resolución del hallazgo #9)**: agregado `aws_iam_role_policy_attachment.github_actions_readonly` en `iam.tf` para adjuntar `ReadOnlyAccess` al rol `ai-mentoring-github-actions`. Drift entre código y estado real en AWS eliminado. PR #37.
 
 ## Evaluacion — Migracion Rekognition a Textract (2026-08-24)
 
