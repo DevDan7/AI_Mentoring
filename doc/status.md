@@ -29,13 +29,13 @@ Esto ya cubre, parcialmente, el objetivo de "base de datos de simulados": convie
 2. ~~`lambda_processor.py` (raíz, vacío) es un artefacto muerto~~ — **Resuelto (2026-08-07): eliminado.**
 3. ~~`README.md` estaba vacío~~ — **Resuelto (2026-08-07): README reescrito, separado de esta bitácora.**
 4. ~~Sin control de versiones real~~ — **Resuelto (2026-08-07): repo creado en GitHub (`DevDan7/AI_Mentoring`), primer push hecho.**
-5. **`terraform.tfstate` y `.tfstate.backup` sin backend remoto** — riesgo si esto llega a un repo remoto sin `.gitignore` (el state puede contener ARNs/IDs sensibles). Confirmar que quedaron excluidos del repo; evaluar backend remoto (S3 + DynamoDB lock) más adelante para colaboración/recuperación segura. **Pendiente.**
+5. ~~**`terraform.tfstate` y `.tfstate.backup` sin backend remoto**~~ — **Resuelto (2026-08-24): backend remoto S3 + locking nativo implementado. Ver sección "CI/CD — Automatización de GitHub Actions con apply y aprobación manual".**
 6. ~~`.venv` y `.terraform` sin excluir~~ — **Resuelto (2026-08-07): agregados al `.gitignore`.**
 7. ~~**Sin manejo de duplicados**: cada foto genera un `QuestionID` nuevo aunque sea la misma pregunta reprocesada (ej. reintento desde DLQ) — puede generar duplicados en la tabla.~~ — **Resuelto (2026-08-13):** `QuestionID` se deriva ahora del `eTag` del objeto S3 (MD5 del contenido en uploads simples), con fallback a `uuid.uuid4()` si no viene. `put_item` usa `ConditionExpression='attribute_not_exists(QuestionID)'`; si ya existe, se captura `ConditionalCheckFailedException` (via `ClientError`), se loguea el duplicado y se omite sin relanzar, evitando reintentos infinitos vía SQS. **Limitación conocida:** en multipart upload el `eTag` es `hex-N` (depende del nº de partes), así que una misma foto subida por PUT simple vs multipart no se deduplica entre sí; el eTag solo es estable dentro del mismo evento S3 (caso SQS-redelivery, que es el objetivo).
-8. ~~**DynamoDB solo tiene la tabla de preguntas** — no exist todavía nada para "base de datos de alumnos" ni para relatorios/reportes de desempeño.~~ — **Parcialmente resuelto (2026-08-18):** creadas 3 tablas DynamoDB nuevas (`Students`, `Quizzes`, `QuizResults`) para soportar landing page, sistema de dudas y métricas de progreso. Pendiente: crear Lambdas de CRUD y lógica de negocio.
-9. ~~**No hay capa de generación de "aulas" ni de reportes** — el pipeline actual solo ingiere y clasifica preguntas; falta toda la capa de negocio (alumnos, sesiones de mentoría, resultados de simulados, relatorios).~~ — **Parcialmente resuelto (2026-08-18):** modelo de datos diseñado con tablas `Students`, `Quizzes` y `QuizResults`. Pendiente: implementación de Lambdas y lógica de generación de aulas.
+8. ~~**DynamoDB solo tiene la tabla de preguntas**~~ — **Resuelto (2026-08-21):** Lambdas `student_api.py` (CRUD completo) y `quiz_engine.py` (simulados + resultados) desplegadas. API Gateway HTTP API con JWT Authorizer funcionando (7 rutas). Landing Page desplegada (S3 + CloudFront). Cognito User Pool configurado.
+9. ~~**No hay capa de generación de "aulas" ni de reportes**~~ — **Parcialmente resuelto (2026-08-21):** `quiz_engine.py` implementa generación de simulados (`generate_quiz`), registro de respuestas (`submit_answer`) y cálculo de métricas (`get_results`). Pendiente: lógica de priorización por temas débiles del alumno y generación automatizada de reportes.
 10. **Datos sensibles en `.tf`**: se detectó un email personal hardcodeado en `aws_sns_topic_subscription`. **Resuelto (2026-08-11)**: movido a variable `notification_email` (sensible, sin default) con valor real en `terraform.tfvars`, excluido vía `.gitignore` (`*.tfvars`). Regla adoptada: valores que exponen datos personales o credenciales van a `.tfvars`; configuración no sensible (región, entorno, nombres) puede tener `default` en `variables.tf`.
-11. **CI sin deploy**: GitHub Actions solo ejecuta `terraform plan` (rol de solo lectura); `terraform apply` es manual. Es intencional hoy, pero hay que documentar que commit/push no despliega infraestructura. **Evaluar** si en el futuro se quiere un apply automático en `main` con permisos controlados.
+11. ~~**CI sin deploy**: GitHub Actions solo ejecuta `terraform plan` (rol de solo lectura); `terraform apply` es manual.~~ — **Resuelto (2026-08-24): `apply` automatizado en push a `main`, con gate de aprobación manual vía GitHub Environments. Ver sección de CI/CD.**
 
 ### Brecha entre lo que existe y el objetivo real
 
@@ -52,11 +52,12 @@ El objetivo tiene 3 piezas: (1) BD de alumnos, (2) generación de aulas desde un
 1. ~~Limpiar deuda técnica rápida (lambda vacía, README, primer commit)~~ — **Hecho.**
 2. ~~Configurar GitHub Actions con OIDC (validación de Terraform vía `plan` en PRs)~~ — **Hecho (2026-08-08).**
 3. ~~Diseñar el modelo de datos de "alumnos" y "resultados de simulados"~~ — **Hecho (2026-08-18).**
-4. CI/CD con `apply` (GitHub Environments con required reviewers).
-5. Migración Frontend a Amplify.
-6. Auto-registro de alumnos (SignUp Cognito + sincronización DynamoDB).
-7. Refactor: AWS Step Functions para orquestación asíncrona.
-8. Cleanup: Resolver avisos de depreciación (key_schema vs hash_key).
+4. ~~CI/CD con `apply` (GitHub Environments con required reviewers)~~ — **Hecho (2026-08-24).**
+5. Migración Frontend a Amplify. — **Pendiente.**
+6. Auto-registro de alumnos (SignUp Cognito + sincronización DynamoDB). — **Pendiente.**
+7. Refactor: AWS Step Functions para orquestación asíncrona. — **Pendiente.**
+8. Cleanup: avisos de depreciación (`key_schema` vs `hash_key`) — **evaluado (2026-08-24) y mantenido deliberadamente sin cambios**: bugs activos conocidos del proveedor AWS al migrar a `key_schema` pueden causar drift perpetuo o recreación forzada de GSI. Reevaluar cuando se confirme que el bug está resuelto en una versión estable.
+9. **Nuevo pendiente (2026-08-24)**: reflejar en `iam.tf` el `aws_iam_role_policy_attachment` de `ReadOnlyAccess` para el rol `ai-mentoring-github-actions` — hoy existe en AWS real (reconectado vía CLI) pero no en el código, generando drift.
 
 ---
 
@@ -535,8 +536,12 @@ Error: all attributes must be indexed. Unused attributes: ["GivenAnswer" "IsCorr
     - `src/processor.py`: `CANONICAL_TOPICS` + prompt de Bedrock actualizado con descripciones de cada categoría funcional.
     - `src/frontend/dashboard.html`: `<select>` actualizado con las 10 categorías funcionales.
   - **Resultado**: Pipeline de ingesta y frontend ahora son consistentes con la taxonomía funcional existente en DynamoDB.
+- **2026-08-24**: **Evaluación — Migración Rekognition a Textract**: script de comparación aislado (`scripts/test_ocr_comparison.py`), probado contra 5 fotos reales. Resultado: calidad equivalente, parsing notablemente más complejo en Textract. Decisión: mantener Rekognition.
+- **2026-08-24**: **CI/CD con `terraform apply` automatizado**: GitHub Actions ejecuta `apply` en push a `main` con gate de aprobación manual (GitHub Environments `production`). Intento 1 falló por estado local (10 recursos duplicados) — solucionado con backend remoto S3 + `use_lockfile = true`. Incidente: scope creep de agente IA durante `/implement` (24 archivos modificados sin solicitud). Incidente: drift de permisos IAM (`ReadOnlyAccess` desadjuntado). Ver secciones detalladas más abajo.
+- **2026-08-24**: **Backend remoto de Terraform (resolución del hallazgo #5)**: bucket S3 (`daniel-mentoring-terraform-state-853106001369`) con versionado; estado migrado vía `terraform init -reconfigure`; bloqueo nativo con `use_lockfile = true`.
+- **2026-08-25**: **Reestructuración de configuración OpenCode**: agente `git.md` creado (generador de comandos git, solo lectura); agente `developer.md` eliminado; agentes `reviewer.md` y comando `review.md` traducidos al español; comandos obsoletos eliminados (`document.md`, `implement.md`, `plan.md`, `test.md`, `prompts.md`); comando `infra-eval.md` renombrado a `infra-review.md`; skill `testing/SKILL.md` simplificado; `AGENTS.md` actualizado con sección "Skills Update"; `opencode.json` actualizado con agentes `plan` y `git`; prompt `prompts/plan.txt` creado.
 
-  ## Evaluacion — Migracion Rekognition a Textract (2026-08-24)
+## Evaluacion — Migracion Rekognition a Textract (2026-08-24)
 
 ### Contexto
 Se evaluo migrar el OCR de Rekognition a Textract, motivado por Textract 
@@ -676,15 +681,22 @@ Alinear la configuración de `.opencode/` con las mejores prácticas oficiales d
 | Archivo | Acción | Descripción |
 |---------|--------|-------------|
 | `agents.md` → `AGENTS.md` | Renombrado + Fusión | Migrado a formato estándar OpenCode; contenido de `.opencode/rules/*.md` fusionado |
-| `opencode.json` | Creado | Políticas de permisos tipo IAM: bloquea `git push`, `terraform apply`, `terraform destroy` |
+| `opencode.json` | Creado | Políticas de permisos tipo IAM; agentes `plan` y `git` añadidos |
 | `.opencode/agents/architect.md` | Corregido | Agregado frontmatter YAML válido (description, mode, temperature, permission) |
-| `.opencode/agents/reviewer.md` | Corregido | Agregado frontmatter YAML válido |
-| `.opencode/commands/promts.md` → `prompts.md` | Renombrado + Corregido | Fix typo; agente cambiado de `architect` a `developer`; contenido actualizado en español con opciones numeradas |
-| `.opencode/commands/infra-eval.md` | Creado | Nuevo comando para evaluación experta de cambios de infraestructura AWS |
-| `.opencode/skills/testing/SKILL.md` | Corregido | Name cambiado de `ai-engineering-skills` a `testing` para coincidir con directorio |
-| `.opencode/rules/` | Eliminado | Contenido migrado a `AGENTS.md` (estándar OpenCode) |
-| `.opencode/commands/plan.md` | Corregido | Agregadas restricciones de alcance explícitas |
-| `.opencode/commands/implement.md` | Corregido | Agregadas restricciones de alcance explícitas (CRÍTICO) |
+| `.opencode/agents/reviewer.md` | Corregido + Traducido | Agregado frontmatter YAML válido; contenido traducido al español; añadido veredicto `RECHAZADO` |
+| `.opencode/agents/developer.md` | Eliminado | Agente subagente innecesario — función cubierta por el agente principal |
+| `.opencode/agents/git.md` | **Creado** | Nuevo agente primario para generar comandos git (solo lectura, sin permisos de escritura) |
+| `.opencode/commands/prompts.md` | Eliminado | Comando obsoleto |
+| `.opencode/commands/infra-eval.md` → `infra-review.md` | Renombrado | Mantenido en inglés, contenido actualizado |
+| `.opencode/commands/review.md` | Traducido | Inglés → español |
+| `.opencode/commands/plan.md` | Eliminado | Comando obsoleto |
+| `.opencode/commands/implement.md` | Eliminado | Comando obsoleto |
+| `.opencode/commands/document.md` | Eliminado | Comando obsoleto |
+| `.opencode/commands/test.md` | Eliminado | Comando obsoleto |
+| `.opencode/skills/testing/SKILL.md` | Simplificado | Eliminadas secciones redundantes de arquitectura/patrones; añadido "Related Skills" |
+| `.opencode/prompts/plan.txt` | **Creado** | Prompt del agente planificador |
+| `.opencode/rules/` | Eliminado | Contenido migrado a `AGENTS.md` |
+| `AGENTS.md` | Actualizado | Añadida sección "Skills Update" (regla #9. Documentation) |
 
 ### Problemas resueltos
 1. **`agents.md` no era detectado por OpenCode** — Solo `AGENTS.md` (mayúsculas) es reconocido automáticamente.
@@ -693,6 +705,10 @@ Alinear la configuración de `.opencode/` con las mejores prácticas oficiales d
 4. **Name mismatch en skills** — `testing/SKILL.md` tenía `name: ai-engineering-skills` en vez de `name: testing`.
 5. **Sin control de permisos** — No había `opencode.json` para definir qué puede/no puede hacer la IA.
 6. **Scope creep en `/implement`** — Agregadas restricciones de alcance explícitas para prevenir que agentes toquen archivos no solicitados.
+7. **Agente `developer.md` redundante** — Eliminado; la funcionalidad está cubierta por el agente principal.
+8. **Comandos obsoletos acumulados** — Eliminados `document.md`, `implement.md`, `plan.md`, `test.md`, `prompts.md` (funcionalidad consolidada o abandonada).
+9. **Skill `testing` con secciones duplicadas** — Simplificado: eliminadas secciones de arquitectura/patrones que ya existen en otros skills (`ai-mentoring-architecture`, `aws-serverless`).
+10. **Falta de sincronización entre skills y arquitectura** — Añadida regla en `AGENTS.md` para mantener skills actualizados cuando cambia la arquitectura.
 
 ### Lecciones aprendidas
 - La documentación oficial de OpenCode es la fuente de verdad para estructura de archivos.
@@ -702,6 +718,6 @@ Alinear la configuración de `.opencode/` con las mejores prácticas oficiales d
 - Las restricciones de alcance en commands deben ser explícitas, no implícitas.
 
 ### Próximos pasos
-- [ ] Probar comando `/prompts` en TUI después de reiniciar OpenCode
-- [ ] Probar comando `/infra-eval` con un ejemplo real
+- [ ] Probar comando `/infra-review` con un ejemplo real
 - [ ] Verificar que permisos de `opencode.json` funcionan correctamente
+- [ ] Probar agente `git` para generar comandos de commit
