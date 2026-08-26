@@ -1,22 +1,20 @@
 ---
-description: Revisa cambios o un diff del proyecto buscando errores, seguridad y deuda técnica.
+description: Review changes or a diff looking for errors, security issues and technical debt.
 agent: reviewer
 ---
 
-Revisa los siguientes cambios del proyecto AI Mentoring:
+Review the following changes in the AI Mentoring project:
 
-**Alcance:** $ARGUMENTS
+**Scope:** $ARGUMENTS
 
-## Proceso
+## Process
 
-1. Identifica los archivos y líneas afectadas.
-2. Busca: errores funcionales (recursos duplicados, referencias rotas), fallas de seguridad (secretos, permisos amplios), deuda técnica (hardcodeos, código muerto) y desalineación con los patrones del repo.
-3. Reporta con severidad (Crítico / Medio / Menor), archivo:línea, problema y solución sugerida.
+1. Identify the affected files and lines.
+2. Look for: functional errors (duplicated resources, broken references), security flaws (secrets, overly permissive permissions), technical debt (hardcoded values, dead code), and misalignment with repo patterns.
+3. Report with severity (CRITICAL / HIGH / MEDIUM / LOW), file:line, issue and suggested fix.
 
-## Salida
+## Output
 
-- Resumen del cambio.
-- Hallazgos ordenados por severidad.
-- Veredicto: aprobar / aprobar con cambios / rechazar.
-
-No edites archivos durante la revisión.
+- Summary of changes.
+- Findings sorted by severity.
+- Verdict: APPROVED / CHANGES REQUIRED / REJECTED.
