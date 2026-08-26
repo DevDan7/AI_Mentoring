@@ -445,11 +445,11 @@
             <h2 class="section-title">Estado Actual del Proyecto</h2>
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-value">16</div>
+                    <div class="stat-value">39</div>
                     <div class="stat-label">Días de desarrollo</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">26</div>
+                    <div class="stat-value">34</div>
                     <div class="stat-label">PRs mergeados</div>
                 </div>
                 <div class="stat-card">
@@ -641,14 +641,6 @@
                 <tbody>
                     <tr>
                         <td>1</td>
-                        <td><strong>CI/CD con `apply`</strong><br><small>GitHub Environments con required reviewers</small></td>
-                        <td class="priority-high">Alta</td>
-                        <td>3-4 horas</td>
-                        <td>Ninguna</td>
-                        <td><span class="phase-badge badge-done">✅ Completada</span></td>
-                    </tr>
-                    <tr>
-                        <td>2</td>
                         <td><strong>Migración Frontend a Amplify</strong><br><small>Desacoplar S3/CF y usar Amplify Hosting</small></td>
                         <td class="priority-high">Alta</td>
                         <td>4-6 horas</td>
@@ -656,12 +648,20 @@
                         <td><span class="phase-badge badge-next">Pendiente</span></td>
                     </tr>
                     <tr>
-                        <td>3</td>
+                        <td>2</td>
                         <td><strong>Auto-registro de alumnos</strong><br><small>SignUp Cognito + trigger Sincronización DynamoDB</small></td>
                         <td class="priority-high">Alta</td>
                         <td>4-6 horas</td>
                         <td>Cognito, API Gateway</td>
                         <td><span class="phase-badge badge-next">Pendiente</span></td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td><strong>Generador de Reportes</strong><br><small>report_generator.py — métricas por alumno y clase</small></td>
+                        <td class="priority-medium">Media</td>
+                        <td>4-6 horas</td>
+                        <td>QuizResults, Bedrock</td>
+                        <td><span class="phase-badge badge-future">Pendiente</span></td>
                     </tr>
                     <tr>
                         <td>4</td>
@@ -673,10 +673,18 @@
                     </tr>
                     <tr>
                         <td>5</td>
-                        <td><strong>Cleanup: Refactor de Infraestructura</strong><br><small>Resolver avisos de depreciación (key_schema vs hash_key)</small></td>
+                        <td><strong>Fix drift IAM</strong><br><small>Reflejar `aws_iam_role_policy_attachment` de ReadOnlyAccess en `iam.tf`</small></td>
+                        <td class="priority-medium">Media</td>
+                        <td>0.5 horas</td>
+                        <td>Ninguna</td>
+                        <td><span class="phase-badge badge-next">Pendiente</span></td>
+                    </tr>
+                    <tr>
+                        <td>6</td>
+                        <td><strong>Cleanup: key_schema vs hash_key</strong><br><small>Evaluado (2026-08-24): mantenido deliberadamente — bugs activos del proveedor AWS</small></td>
                         <td class="priority-low">Baja</td>
                         <td>2-3 horas</td>
-                        <td>Ninguna</td>
+                        <td>Fix de upstream</td>
                         <td><span class="phase-badge badge-future">Pendiente</span></td>
                     </tr>
                 </tbody>
@@ -870,17 +878,22 @@
                 <div class="timeline-item done">
                     <div class="timeline-date">22 agosto 2026</div>
                     <div class="timeline-title">Normalización de Base de Datos</div>
-                    <div class="timeline-desc">Migración de ~84 tópicos fragmentados a 9 categorías canónicas. Script de migración con backup, idempotencia y preservación de OriginalTopic.</div>
+                    <div class="timeline-desc">Migración de ~84 tópicos fragmentados a 10 categorías canónicas. Blindaje de taxonomía en processor.py. Script de migración con backup e idempotencia.</div>
                 </div>
-                <div class="timeline-item current">
-                    <div class="timeline-date">Próximas semanas</div>
-                    <div class="timeline-title">Reportes + Backend Remoto</div>
-                    <div class="timeline-desc">report_generator.py, migrar tfstate a S3 + DynamoDB lock</div>
+                <div class="timeline-item done">
+                    <div class="timeline-date">24 agosto 2026</div>
+                    <div class="timeline-title">CI/CD + Backend Remoto</div>
+                    <div class="timeline-desc">terraform apply automatizado con GitHub Environments. Backend remoto S3 + use_lockfile. Evaluación Textract (descartado). 3 incidentes resueltos.</div>
+                </div>
+                <div class="timeline-item done">
+                    <div class="timeline-date">25 agosto 2026</div>
+                    <div class="timeline-title">Reestructuración OpenCode</div>
+                    <div class="timeline-desc">Agentes, comandos y skills reestructurados. Agente git creado. Traducción al español. AGENTS.md actualizado con Skills Update.</div>
                 </div>
                 <div class="timeline-item next">
-                    <div class="timeline-date">Próximas 2 semanas</div>
-                    <div class="timeline-title">Reportes + Backend Remoto</div>
-                    <div class="timeline-desc">report_generator.py, migrar tfstate a S3 + DynamoDB lock</div>
+                    <div class="timeline-date">Próximas semanas</div>
+                    <div class="timeline-title">Amplify + Auto-registro + Reportes</div>
+                    <div class="timeline-desc">Migración frontend a Amplify, auto-registro de alumnos vía Cognito, generador de reportes (report_generator.py)</div>
                 </div>
             </div>
         </section>
@@ -891,22 +904,26 @@
             
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-value">6-9h</div>
+                    <div class="stat-value">23-34h</div>
                     <div class="stat-label">Tiempo total restante</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">4-6h</div>
-                    <div class="stat-label">Reportes</div>
+                    <div class="stat-value">8-12h</div>
+                    <div class="stat-label">Amplify + Auto-registro</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">2-3h</div>
-                    <div class="stat-label">Backend Remoto</div>
+                    <div class="stat-value">4-6h</div>
+                    <div class="stat-label">Generador de Reportes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">8-12h</div>
+                    <div class="stat-label">Step Functions</div>
                 </div>
             </div>
         </section>
 
         <footer style="text-align: center; padding: 40px 0; color: #64748b; font-size: 0.9rem;">
-            <p>AI Mentoring — Roadmap actualizado el 22 de agosto de 2026</p>
+            <p>AI Mentoring — Roadmap actualizado el 26 de agosto de 2026</p>
             <p>Plataforma serverless para mentorías de certificación AWS</p>
         </footer>
     </div>
