@@ -663,3 +663,45 @@ Cada fallo fue diagnosticable y reversible porque se verifico contra AWS real
 antes de asumir nada (`aws dynamodb describe-table`, `terraform state list`, 
 `aws iam list-attached-role-policies`) en vez de confiar solo en el codigo o 
 en los mensajes de error de la superficie.
+
+---
+
+## Reestructuración de configuración OpenCode (2026-08-25)
+
+### Objetivo
+Alinear la configuración de `.opencode/` con las mejores prácticas oficiales de OpenCode, corregir problemas de estructura y agregar funcionalidades nuevas.
+
+### Cambios realizados
+
+| Archivo | Acción | Descripción |
+|---------|--------|-------------|
+| `agents.md` → `AGENTS.md` | Renombrado + Fusión | Migrado a formato estándar OpenCode; contenido de `.opencode/rules/*.md` fusionado |
+| `opencode.json` | Creado | Políticas de permisos tipo IAM: bloquea `git push`, `terraform apply`, `terraform destroy` |
+| `.opencode/agents/architect.md` | Corregido | Agregado frontmatter YAML válido (description, mode, temperature, permission) |
+| `.opencode/agents/reviewer.md` | Corregido | Agregado frontmatter YAML válido |
+| `.opencode/commands/promts.md` → `prompts.md` | Renombrado + Corregido | Fix typo; agente cambiado de `architect` a `developer`; contenido actualizado en español con opciones numeradas |
+| `.opencode/commands/infra-eval.md` | Creado | Nuevo comando para evaluación experta de cambios de infraestructura AWS |
+| `.opencode/skills/testing/SKILL.md` | Corregido | Name cambiado de `ai-engineering-skills` a `testing` para coincidir con directorio |
+| `.opencode/rules/` | Eliminado | Contenido migrado a `AGENTS.md` (estándar OpenCode) |
+| `.opencode/commands/plan.md` | Corregido | Agregadas restricciones de alcance explícitas |
+| `.opencode/commands/implement.md` | Corregido | Agregadas restricciones de alcance explícitas (CRÍTICO) |
+
+### Problemas resueltos
+1. **`agents.md` no era detectado por OpenCode** — Solo `AGENTS.md` (mayúsculas) es reconocido automáticamente.
+2. **Agents sin frontmatter YAML** — `architect.md` y `reviewer.md` carecían de metadatos válidos.
+3. **`rules/` no es estructura válida** — OpenCode no reconoce carpetas `rules/`; las reglas van en `AGENTS.md` o se referencian via `instructions`.
+4. **Name mismatch en skills** — `testing/SKILL.md` tenía `name: ai-engineering-skills` en vez de `name: testing`.
+5. **Sin control de permisos** — No había `opencode.json` para definir qué puede/no puede hacer la IA.
+6. **Scope creep en `/implement`** — Agregadas restricciones de alcance explícitas para prevenir que agentes toquen archivos no solicitados.
+
+### Lecciones aprendidas
+- La documentación oficial de OpenCode es la fuente de verdad para estructura de archivos.
+- `AGENTS.md` (mayúsculas) es el nombre estándar; `agents.md` (minúsculas) no funciona.
+- Los permisos en `opencode.json` son equivalentes a políticas IAM pero para la IA.
+- El agente asignado a un comando determina sus capacidades (developer tiene permisos de edición, architect no).
+- Las restricciones de alcance en commands deben ser explícitas, no implícitas.
+
+### Próximos pasos
+- [ ] Probar comando `/prompts` en TUI después de reiniciar OpenCode
+- [ ] Probar comando `/infra-eval` con un ejemplo real
+- [ ] Verificar que permisos de `opencode.json` funcionan correctamente

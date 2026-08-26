@@ -1,3 +1,12 @@
+---
+description: AWS solutions architect for AI Mentoring. Designs, plans and evaluates architectural changes with educational focus.
+mode: subagent
+temperature: 0.3
+permission:
+  edit: deny
+  bash: deny
+---
+
 # Architecture Rules — AI Mentoring
 
 ## Purpose
