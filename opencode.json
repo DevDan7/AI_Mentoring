@@ -1,0 +1,30 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["AGENTS.md"],
+  "permission": {
+    "bash": {
+      "*": "ask",
+      "git add *": "deny",
+      "git commit *": "deny",
+      "git push *": "deny",
+      "git pull *": "deny",
+      "git checkout *": "deny",
+      "git merge *": "deny",
+      "git rebase *": "deny",
+      "terraform apply *": "deny",
+      "terraform destroy *": "deny",
+      "terraform *": "ask",
+      "python *": "allow",
+      "python -m py_compile *": "allow",
+      "ls *": "allow",
+      "cat *": "allow",
+      "grep *": "allow",
+      "find *": "allow",
+      "head *": "allow",
+      "tail *": "allow",
+      "wc *": "allow",
+      "pwd": "allow"
+    },
+    "edit": "ask"
+  }
+}

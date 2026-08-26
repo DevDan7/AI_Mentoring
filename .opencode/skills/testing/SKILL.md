@@ -1,9 +1,9 @@
 ---
-name: ai-engineering-skills
-description: Comprehensive technical knowledge base for AI Mentoring. Includes project architecture, AWS serverless patterns, Python Lambda standards, and testing guidelines.
+name: testing
+description: Testing, verification and quality control guidelines for AI Mentoring project.
 ---
 
-# AI Engineering Skills — Consolidated Guide
+# Testing — Project Verification
 
 ## 1. Project Architecture (AI Mentoring)
 

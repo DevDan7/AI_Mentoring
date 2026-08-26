@@ -7,6 +7,14 @@ Planifica la siguiente tarea del proyecto AI Mentoring:
 
 **Solicitud:** $ARGUMENTS
 
+## Restricciones de Alcance
+
+- **NO toques** archivos en `.opencode/agents/`, `.opencode/commands/`, `.opencode/rules/` a menos que la solicitud lo pida explícitamente.
+- **NO crees** archivos nuevos sin que la solicitud lo indique.
+- **NO modifiqués** `AGENTS.md`, `opencode.json`, ni ningún archivo de configuración de OpenCode.
+- **NO toques** `src/processor.py` u otros archivos de código a menos que la tarea sea específicamente sobre ellos.
+- Tu trabajo es **planificar**, no implementar. Presenta el plan y espera confirmación.
+
 ## Proceso
 
 1. Lee el contexto necesario: `README.md`, `doc/status.md`, y los archivos afectados.
