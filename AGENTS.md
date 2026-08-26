@@ -146,6 +146,17 @@ When any of the following changes:
 
 the corresponding documentation must be updated.
 
+### Skills Update
+
+Skills in `.opencode/skills/` are **static files** that do not update automatically.
+When the architecture or infrastructure changes significantly, update the corresponding
+skill to keep agent context accurate:
+
+- `ai-mentoring-architecture` — update pipeline, services, roadmap, or decisions.
+- `aws-serverless` — update infrastructure rules or common pitfalls.
+- `python-lambda` — update handler patterns or runtime rules.
+- `testing` — update verification steps or checklist.
+
 ---
 
 ## 10. Git
