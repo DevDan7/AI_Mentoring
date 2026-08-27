@@ -124,6 +124,8 @@ resource "aws_iam_policy" "terraform_cicd_policy" {
           "dynamodb:*",
           "apigateway:*",
           "cognito-idp:*",
+          "cloudfront:*",
+          "amplify:*",
           "logs:*",
           "iam:PassRole",
           "iam:CreateRole",
