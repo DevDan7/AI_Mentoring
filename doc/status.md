@@ -672,6 +672,100 @@ en los mensajes de error de la superficie.
 
 ---
 
+## Migración Frontend a Amplify Hosting (2026-08-27)
+
+### Contexto
+Migrar el frontend de S3 + CloudFront a AWS Amplify Hosting, gestionado 
+vía Terraform. Objetivo: simplificar despliegues, integrar CI/CD nativo 
+y habilitar auto-registro de alumnos.
+
+### Cambios en Terraform
+
+| Archivo | Acción | Descripción |
+|---------|--------|-------------|
+| `amplify.tf` | **Creado** | Recursos `aws_amplify_app.frontend` + `aws_amplify_branch.main` |
+| `variables.tf` | Modificado | 5 nuevas variables: `github_access_token`, `aws_region`, `api_gateway_url`, `cognito_user_pool_id`, `cognito_client_id` |
+| `outputs.tf` | Modificado | Reemplazados `cloudfront_url` + `frontend_s3_bucket_name` con `amplify_app_id`, `amplify_default_domain`, `amplify_app_arn` |
+| `frontend.tf` | Modificado | Comentario de migración (recursos S3+CloudFront eliminados) |
+| `.github/workflows/terraform-apply.yml` | Modificado | Nuevos TF_VAR env vars usando `secrets.GH_PAT_AMPLIFY` |
+| `.github/workflows/terraform-plan.yml` | Modificado | Nuevos TF_VAR env vars usando `secrets.GH_PAT_AMPLIFY` |
+
+### Problema: Huevo y Gallina (segunda ocurrencia)
+
+**Contexto**: Al intentar hacer push a la rama `feat/amplify-hosting-migration`, 
+GitHub Actions falló con dos errores:
+
+1. `cloudfront:UpdateDistribution` — permiso faltante
+2. `amplify:CreateApp` — permiso faltante
+
+**Causa raíz**: La política `terraform-cicd-policy` no tenía permisos 
+para CloudFront ni Amplify. Al intentar actualizarla via `terraform apply`, 
+Terraform necesitaba `iam:CreatePolicyVersion` que tampoco existía en la política.
+
+**Solución**: 
+1. CLI manual con credenciales de admin para actualizar la política:
+   ```bash
+   aws iam create-policy-version \
+     --policy-arn arn:aws:iam::<ACCOUNT_ID>:policy/terraform-cicd-policy \
+     --policy-document '<JSON con cloudfront:*, amplify:*, iam:CreatePolicyVersion, iam:DeletePolicy>' \
+     --set-as-default
+   ```
+2. Sincronizar `iam.tf` con los permisos agregados via CLI
+3. Terraform plan local para verificar 0 cambios
+4. Commit y push
+
+**Patrón**: Esta es la segunda vez que ocurre este problema (primera: 2026-08-24). 
+Ver sección "Patrón recurrente: Huevo y Gallina en IAM" para solución estándar.
+
+### Estado actual
+- Branch `feat/amplify-hosting-migration` creada y push exitoso
+- GitHub Actions `terraform plan` pasó con permisos actualizados
+- PR pendiente de merge
+
+---
+
+## Patrón recurrente: Huevo y Gallina en IAM (2026-08-27)
+
+### Problema
+El proyecto ha enfrentado **dos veces** el mismo problema de dependencia circular
+en permisos IAM durante la automatización CI/CD:
+
+1. **2026-08-24**: El rol `ai-mentoring-github-actions` no podía ejecutar
+   `terraform apply` para crear `terraform-cicd-policy` porque esa política
+   le daría permisos de escritura que no tenía aún.
+
+2. **2026-08-27**: Al agregar permisos `cloudfront:*` y `amplify:*` a
+   `terraform-cicd-policy`, Terraform necesitaba `iam:CreatePolicyVersion`
+   para actualizar el body de la política, pero ese permiso no existía
+   en la política.
+
+### Causa raíz
+Terraform gestiona políticas IAM como recursos. Para actualizar una política
+existente, necesita `iam:CreatePolicyVersion`. Pero si la política no tiene
+ese permiso, Terraform no puede modificarse a sí mismo.
+
+```
+Política IAM (sin CreatePolicyVersion)
+    └── Terraform intenta actualizar
+        └── Necesita CreatePolicyVersion
+            └── No existe en la política
+                └── Error: AccessDenied
+```
+
+### Solución estándar
+Para **cualquier** cambio de permisos en `terraform-cicd-policy`:
+
+1. **CLI manual** con credenciales de admin para actualizar la política
+2. **Sincronizar `iam.tf`** para reflejar los cambios hechos en AWS
+3. **Terraform plan local** para verificar 0 cambios (sin drift)
+4. **Commit y push** para que GitHub Actions pueda ejecutar sin errores
+
+### Prevención
+Incluir `iam:CreatePolicyVersion` y `iam:DeletePolicy` en 
+`terraform-cicd-policy` desde el inicio (ya agregados en 2026-08-27).
+
+---
+
 ## Reestructuración de configuración OpenCode (2026-08-25)
 
 ### Objetivo
@@ -722,3 +816,96 @@ Alinear la configuración de `.opencode/` con las mejores prácticas oficiales d
 - [ ] Probar comando `/infra-review` con un ejemplo real
 - [ ] Verificar que permisos de `opencode.json` funcionan correctamente
 - [ ] Probar agente `git` para generar comandos de commit
+
+---
+
+## Log de cambios
+
+- **2026-07-18**: análisis inicial del proyecto.
+- **2026-08-07**: repo creado en GitHub, primer push. Lambda vacía eliminada. README separado de esta bitácora. Trust role OIDC para GitHub Actions creado (solo lectura por ahora).
+- **2026-08-08**: GitHub Actions (`terraform-plan.yml`) funcionando con autenticación OIDC — sin credenciales de larga duración guardadas en GitHub.
+- **2026-08-10/11**: consolidado el statement duplicado de `bedrock:InvokeModel` en `iam.tf`. Agregado notificación por email (SNS) sobre nuevas fotos subidas a S3, con política de tópico restringida por `SourceArn` al bucket. Confirmado funcionando el flujo PR → `terraform plan` automático vía GitHub Actions (rol de solo lectura, no aplica cambios). Movido bloque OIDC de `main.tf` a `iam.tf`. Creado `variables.tf` con variables no sensibles (`aws_region`, `environment`, `project_name`, `bucket_name`) y `notification_email` como sensible, con valor real en `terraform.tfvars` (excluido del repo).
+- **2026-08-11**: configurado el entorno de desarrollo de opencode para el proyecto (`.opencode/`): agentes (`architect`, `developer`, `reviewer`), skills (`ai-mentoring-architecture`, `aws-serverless`, `python-lambda`, `testing`), comandos (`plan`, `implement`, `test`, `review`, `document`) y reglas (`architecture`, `aws`, `python`, `security`). Se codificaron como reglas los patrones y hallazgos clave del proyecto (un solo `aws_s3_bucket_notification`, referencias en vez de ARNs hardcodeados, secretos en `.tfvars`, menor privilegio) para que futuras sesiones de IA las respeten sin re-descubrirlos.
+- **2026-08-12**: rediseñado el prompt de Bedrock en `src/processor.py` para responder preguntas completas de examen: estructura en inglés con opciones A–F, `question_type`, `correct_count`, y por opción (`text`, `is_correct`, `explanation`, `keywords`). El `put_item` en DynamoDB se actualizó a los nuevos campos (`QuestionText`, `QuestionType`, `CorrectCount`, `Options`).
+- **2026-08-13**: implementada idempotencia en `src/processor.py` (hallazgo #7). `QuestionID` = `eTag` del objeto S3 (sin comillas) con fallback a `uuid.uuid4()`; `ConditionExpression='attribute_not_exists(QuestionID)'` en `put_item`; `ConditionalCheckFailedException` capturada y omitida silenciosamente. Limitación documentada: multipart upload genera eTag compuesto (`hex-N`), pierde deduplicación entre subidas distintas.
+- **2026-08-13**: **Prueba de desempeño** — `memory_size` de la Lambda `mentoring-exam-processor` subido de 256 a 512 MB. Hipótesis: más CPU provisionada → menor `Duration` → coste neto igual o menor. **Línea base (256 MB) registrada** en la sección `Pruebas de desempeño`. Aplicado vía `terraform apply`.
+- **2026-08-14**: **Resultado de la prueba 512 MB verificado en CloudWatch** — **no se confirma la hipótesis**: duración promedio no mejoró (contaminada por 17 `ThrottlingException` de Bedrock), memoria usada siguió en ~105 MB y el costo de Lambda se duplica. La causa raíz fue la ráfaga de 34 fotos con alta concurrencia (límite cuenta: 10) saturado el rate limit de Claude Haiku 4.5; `raise` incondicional en `processor.py` convirtió el throttle en errores Lambda y **1 mensaje (`07.png`) cayó a la DLQ** sin procesarse. Documentados problemas y soluciones propuestas en la sección `Pruebas de desempeño`.
+- **2026-08-15**: vaciada la tabla `MentoringQuestions` (operación de datos vía AWS CLI, sin cambios en Terraform) para eliminar formatos heredados de versiones anteriores del prompt (items sin `Options`/`QuestionType` de antes del rediseño del 2026-08-12) y arrancar el lote real (~100 fotos) con datos 100% consistentes. `memory_size` de la Lambda revertido a 256 MB (PR #8) tras confirmar que 512 MB no mejoraba el desempeño.
+- **2026-08-16**: implementado **botocore adaptive retry** en `processor.py` (PR #11) con `max_attempts=6` y `mode='adaptive'`. Resultado: tasa de éxito mejoró de 73.4% a 100% (109/109 fotos en DynamoDB), DLQ reducida de 30 a 5 mensajes, ThrottlingException reducidos de 290 a 92. **Problema**: duración promedio se duplicó de 7.7s a 18.9s debido a los 6 reintentos; algunas invocaciones alcanzaron timeout de 30s. Documentado en sección "Prueba de backoff con jitter — Lote 2026-08-16".
+- **2026-08-17**: intento fallido de configurar `reserved_concurrent_executions = 3` en la Lambda (PR #12). Error: `InvalidParameterValueException` porque la cuenta tiene límite de 10 concurrent executions y reservar 3 reduce el pool no reservado por debajo del mínimo de 10. **Solución**: reemplazado por `scaling_config.maximum_concurrency = 3` en el Event Source Mapping de SQS, que controla la concurrencia SIN tocar el pool de la cuenta. Documentado en sección "Error de concurrencia y solución — 2026-08-17".
+- **2026-08-18**: creadas 3 tablas DynamoDB (`Students`, `Quizzes`, `QuizResults`) con schema mínimo (solo PK + GSIs) para soportar landing page, sistema de dudas y métricas de progreso. Error de `Unused attributes` resuelto eliminando atributos no indexados del bloque `attribute` en Terraform. Auth planificada con Amazon Cognito. PR #14.
+- **2026-08-21**: creada Lambda `quiz_engine.py` con 3 acciones:
+  - `generate_quiz`: selecciona preguntas de `MentoringQuestions` por Topic (GSI TopicIndex), crea registro en `Quizzes` con `Status: in_progress`.
+  - `submit_answer`: registra respuesta individual en `QuizResults` con `IsCorrect`, `GivenAnswer` y `Timestamp`.
+  - `get_results`: consulta quiz y respuestas, calcula métricas (total_questions, correct_answers, score_percentage).
+  - IAM: permisos mínimos — `Query` en MentoringQuestions, `GetItem/PutItem/UpdateItem` en Quizzes, `GetItem/PutItem/Query` en QuizResults + indices.
+  - Test: ejecutado exitosamente con topic "AWS Well-Architected Framework", 3 preguntas, 1 respuesta registrada, score 100%.
+  - Dashboard: `doc/quiz-results-dashboard.html` con KPIs, tabla de resultados y barra de progreso.
+  - PR #16 merged.
+- **2026-08-21**: creada Lambda `student_api.py` con CRUD completo y validación de tokens Cognito:
+  - `create_student`: crea perfil de alumno en DynamoDB después del registro en Cognito.
+  - `get_student`: obtiene perfil por `StudentID`.
+  - `update_student`: actualiza nombre, cohort, etc.
+  - `get_student_by_email`: busca alumno por email usando `EmailIndex` GSI.
+  - Validación de token: `cognito-idp:GetUser` contra User Pool.
+  - Cognito User Pool desplegado: `us-east-1_YolmrF9tp` con App Client para frontend.
+  - IAM: permisos mínimos — DynamoDB (Students) + Cognito GetUser.
+  - Tests: 5/5 pasados (create, get, update, get_by_email, token inválido).
+  - Archivos: `src/student_api.py`, `lambda_student_api.tf`, `iam_student_api.tf`.
+- **2026-08-21**: desplegado API Gateway HTTP API con JWT Authorizer:
+  - Archivos creados: `api_gateway.tf` (HTTP API + Stage + Throttling 100 rps/burst 200), `api_gateway_authorizer.tf` (JWT Authorizer con Cognito User Pool), `api_gateway_routes.tf` (7 rutas + 2 integraciones + 2 permisos Lambda).
+  - 7 rutas protegidas con JWT: `POST /students`, `GET /students/me`, `PUT /students/me`, `GET /students/{studentId}`, `POST /quizzes/generate`, `POST /quizzes/submit`, `GET /quizzes/{quizId}/results`.
+  - Lambdas adaptadas al formato API Gateway v2.0: `student_api.py` y `quiz_engine.py` ahora leen `requestContext.authorizer.jwt.claims` en lugar de `action` del body. Routing por HTTP method + path.
+  - `student_api.py`: nuevos endpoints `GET /students/me` y `PUT /students/me` que usan `sub` del JWT claims. `create_student` extrae `email` y `name` del JWT claims.
+  - `quiz_engine.py`: `generate_quiz` extrae `student_id` del JWT claims (no del body). `get_results` valida que el quiz pertenezca al alumno autenticado.
+  - Outputs: `api_gateway_url` y `api_gateway_id` agregados a `outputs.tf`.
+  - Test events creados en `events/apigw/` con formato API Gateway v2.0 (6 archivos).
+  - Test script `scripts/test_api.sh`: 7/7 endpoints probados exitosamente.
+  - **Error IAM resuelto**: `submit_answer` fallaba con `AccessDeniedException: dynamodb:GetItem on MentoringQuestions`. El policy de `quiz_engine` solo tenía `dynamodb:Query` en `MentoringQuestions`, pero `submit_answer` necesita `dynamodb:GetItem` para verificar la respuesta. Agregado `GetItem` al statement `AllowReadQuestions` en `iam.tf`.
+- **2026-08-21**: desplegado la Landing Page con S3 + CloudFront:
+  - Frontend: 4 páginas HTML (`index.html`, `dashboard.html`, `quiz.html`, `results.html`) con Pico.css vía CDN.
+  - JS modules: `config.js` (variables de entorno), `auth.js` (login, refresh token, logout, token expiry check), `api.js` (wrapper fetch con auto-refresh en 401).
+  - Hosting: S3 bucket `ai-mentoring-frontend-*` + CloudFront distribution (`d2dsobmtfi3ppb.cloudfront.net`).
+  - Terraform: `landing.tf` con S3 bucket, website configuration, bucket policy pública, CloudFront distribution con redirect a HTTPS.
+  - Outputs: `cloudfront_url`, `frontend_s3_bucket_name` agregados a `outputs.tf`.
+  - **Bug fix**: `quiz_engine.py` línea 97 buscaba campo `Statement` pero en DynamoDB el campo es `QuestionText`. Corregido `q.get('Statement', '')` → `q.get('QuestionText', '')`.
+  - PR #16 merged.
+- **2026-08-21**: Bug fix: `quiz_engine.py` (mapeo `QuestionType` corregido).
+- **2026-08-21**: Implementación soporte *Multiple Choice*: Backend (`submit_answer` con sets) y Frontend (UI dinámica radio/checkbox).
+- **2026-08-21**: Fix: Bucle infinito en login/dashboard por sesión expirada en `auth.js`.
+- **2026-08-21**: Hallazgo: Fragmentación de tópicos (109 preguntas, 84 temas distintos). Decisión: Normalización a taxonomía cerrada (pendiente de ejecución).
+- **2026-08-22**: Normalización de tópicos (109 registros):
+  - **Diagnóstico**: ~84 tópicos fragmentados detectados tras escaneo de `MentoringQuestions`.
+  - **Acción**: Ejecución de script de migración (`scripts/normalizar_temas.py`) con mapa de mapeo en `scripts/mapa_temas.json`.
+  - **Resultado**: 109 ítems normalizados a 9 categorías canónicas. Preservación del valor original en atributo `OriginalTopic` (idempotente). Respaldo pre-migración generado.
+  - **Categorías resultantes**: Cloud Concepts & Well-Architected (34), General / Otros Servicios (16), Compute & Containers (12), Security, Identity & Compliance (12), Storage & Database (12), Billing, Cost Management & Support (10), Networking & Content Delivery (9), Management, Governance & DevOps (3), Application Integration & Serverless Architecture (1).
+- **2026-08-22**: Blindaje de taxonomía en `processor.py` (pipeline de ingesta):
+  - **Problema**: El prompt original de Bedrock usaba classificación de texto libre para el campo `topic`, lo que podía generar nuevos tópicos no canónicos con cada foto procesada.
+  - **Acción**: Tres cambios en `src/processor.py`:
+    1. Constante `CANONICAL_TOPICS` con las 9 categorías canónicas (línea 13-24).
+    2. Prompt de Bedrock reescrito con instrucción explícita de mapear a una de las 9 categorías, con descripción de qué entra en cada una (línea 96-128).
+    3. Validación defensiva post-Bedrock: si el topic devuelto no está en `CANONICAL_TOPICS`, se reasigna automáticamente a `General / Otros Servicios` con log de advertencia (línea 160-166).
+  - **Resultado**: Nuevas fotos se clasifican en la taxonomía cerrada "por diseño". La base de datos queda blindada a futuras inserciones fuera de las 9 categorías canónicas.
+- **2026-08-22**: Corrección de taxonomía canónica (servicios → funcional):
+  - **Problema**: La taxonomía implementada en `processor.py` usaba categorías basadas en servicios (`Amazon EC2`, `Amazon S3`, etc.) que no coincidían con las categorías funcionales definidas en `scripts/mapa_temas.json` y ya aplicadas a los 109 registros existentes.
+  - **Acción**: Reemplazadas las 9 categorías de servicios por las 10 categorías funcionales de `mapa_temas.json`:
+    - `Cloud Concepts & Well-Architected`
+    - `Security, Identity & Compliance`
+    - `Compute & Containers`
+    - `Storage & Database`
+    - `Networking & Content Delivery`
+    - `Data, Analytics & Machine Learning`
+    - `Management, Governance & DevOps`
+    - `Billing, Cost Management & Support`
+    - `Application Integration & Serverless Architecture`
+    - `General / Otros Servicios`
+  - **Archivos modificados**:
+    - `src/processor.py`: `CANONICAL_TOPICS` + prompt de Bedrock actualizado con descripciones de cada categoría funcional.
+    - `src/frontend/dashboard.html`: `<select>` actualizado con las 10 categorías funcionales.
+  - **Resultado**: Pipeline de ingesta y frontend ahora son consistentes con la taxonomía funcional existente en DynamoDB.
+- **2026-08-24**: **Evaluación — Migración Rekognition a Textract**: script de comparación aislado (`scripts/test_ocr_comparison.py`), probado contra 5 fotos reales. Resultado: calidad equivalente, parsing notablemente más complejo en Textract. Decisión: mantener Rekognition.
+- **2026-08-24**: **CI/CD con `terraform apply` automatizado**: GitHub Actions ejecuta `apply` en push a `main` con gate de aprobación manual (GitHub Environments `production`). Intento 1 falló por estado local (10 recursos duplicados) — solucionado con backend remoto S3 + `use_lockfile = true`. Incidente: scope creep de agente IA durante `/implement` (24 archivos modificados sin solicitud). Incidente: drift de permisos IAM (`ReadOnlyAccess` desadjuntado). Ver secciones detalladas más abajo.
+- **2026-08-24**: **Backend remoto de Terraform (resolución del hallazgo #5)**: bucket S3 (`daniel-mentoring-terraform-state-853106001369`) con versionado; estado migrado vía `terraform init -reconfigure`; bloqueo nativo con `use_lockfile = true`.
+- **2026-08-25**: **Reestructuración de configuración OpenCode**: agente `git.md` creado (generador de comandos git, solo lectura); agente `developer.md` eliminado; agentes `reviewer.md` y comando `review.md` traducidos al español; comandos obsoletos eliminados (`document.md`, `implement.md`, `plan.md`, `test.md`, `prompts.md`); comando `infra-eval.md` renombrado a `infra-review.md`; skill `testing/SKILL.md` simplificado; `AGENTS.md` actualizado con sección "Skills Update"; `opencode.json` actualizado con agentes `plan` y `git`; prompt `prompts/plan.txt` creado.
+- **2026-08-26**: **Fix drift IAM (resolución del hallazgo #9)**: agregado `aws_iam_role_policy_attachment.github_actions_readonly` en `iam.tf` para adjuntar `ReadOnlyAccess` al rol `ai-mentoring-github-actions`. Drift entre código y estado real en AWS eliminado. PR #37.
+- **2026-08-27**: **Migración Frontend a Amplify Hosting**: creados recursos Terraform (`amplify.tf` con `aws_amplify_app.frontend` + `aws_amplify_branch.main`), actualizados outputs (`outputs.tf`), workflows de GitHub Actions (`.github/workflows/`) y variables (`variables.tf`). Segunda ocurrencia del problema huevo/gallina IAM — resuelta con CLI manual (`aws iam create-policy-version`) + sincronización de `iam.tf` (agregados `cloudfront:*`, `amplify:*`, `iam:CreatePolicyVersion`, `iam:DeletePolicy`). Branch `feat/amplify-hosting-migration` en proceso de merge.

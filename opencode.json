@@ -16,7 +16,6 @@
       "git commit *": "deny",
       "git push *": "deny",
       "git pull *": "deny",
-      "git checkout *": "deny",
       "git merge *": "deny",
       "git rebase *": "deny",
       "terraform apply *": "deny",
