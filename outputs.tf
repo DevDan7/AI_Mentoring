@@ -23,12 +23,17 @@ output "api_gateway_id" {
   value       = aws_apigatewayv2_api.mentoring_api.id
 }
 
-output "cloudfront_url" {
-  description = "URL pública de la aplicación web alojada en CloudFront"
-  value       = "https://${aws_cloudfront_distribution.frontend_distribution.domain_name}"
+output "amplify_app_id" {
+  description = "ID de la app de Amplify Hosting"
+  value       = aws_amplify_app.frontend.id
 }
 
-output "frontend_s3_bucket_name" {
-  description = "Nombre del bucket S3 de almacenamiento estático"
-  value       = aws_s3_bucket.frontend_bucket.id
+output "amplify_default_domain" {
+  description = "Dominio por defecto de Amplify (*.amplifyapp.com)"
+  value       = aws_amplify_app.frontend.default_domain
+}
+
+output "amplify_app_arn" {
+  description = "ARN de la app de Amplify"
+  value       = aws_amplify_app.frontend.arn
 }
