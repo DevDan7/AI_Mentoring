@@ -124,6 +124,8 @@ resource "aws_iam_policy" "terraform_cicd_policy" {
           "dynamodb:*",
           "apigateway:*",
           "cognito-idp:*",
+          "cloudfront:*",
+          "amplify:*",
           "logs:*",
           "iam:PassRole",
           "iam:CreateRole",
@@ -137,6 +139,8 @@ resource "aws_iam_policy" "terraform_cicd_policy" {
           "iam:GetRolePolicy",
           "iam:DetachRolePolicy",
           "iam:DeleteRolePolicy",
+          "iam:CreatePolicyVersion",
+          "iam:DeletePolicy",
           "iam:ListOpenIDConnectProviders",
           "iam:GetOpenIDConnectProvider"
         ]
