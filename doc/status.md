@@ -541,6 +541,16 @@ Error: all attributes must be indexed. Unused attributes: ["GivenAnswer" "IsCorr
 - **2026-08-24**: **Backend remoto de Terraform (resolución del hallazgo #5)**: bucket S3 (`daniel-mentoring-terraform-state-853106001369`) con versionado; estado migrado vía `terraform init -reconfigure`; bloqueo nativo con `use_lockfile = true`.
 - **2026-08-25**: **Reestructuración de configuración OpenCode**: agente `git.md` creado (generador de comandos git, solo lectura); agente `developer.md` eliminado; agentes `reviewer.md` y comando `review.md` traducidos al español; comandos obsoletos eliminados (`document.md`, `implement.md`, `plan.md`, `test.md`, `prompts.md`); comando `infra-eval.md` renombrado a `infra-review.md`; skill `testing/SKILL.md` simplificado; `AGENTS.md` actualizado con sección "Skills Update"; `opencode.json` actualizado con agentes `plan` y `git`; prompt `prompts/plan.txt` creado.
 - **2026-08-26**: **Fix drift IAM (resolución del hallazgo #9)**: agregado `aws_iam_role_policy_attachment.github_actions_readonly` en `iam.tf` para adjuntar `ReadOnlyAccess` al rol `ai-mentoring-github-actions`. Drift entre código y estado real en AWS eliminado. PR #37.
+- **2026-08-28**: **IAM Service Role para Amplify Hosting (resolución del build fallido)**:
+  - **Problema**: Los builds de Amplify fallaban con `BadRequestException: You should at least provide one valid token` porque `aws_amplify_app.frontend` no tenía `iam_service_role_arn` configurado. Builds completaban el paso BUILD pero fallaban en DEPLOY.
+  - **Solución**:
+    1. Crear `aws_iam_role.amplify_role` con nombre `mentoring-amplify-role` en `iam.tf`.
+    2. Crear política personalizada `amplify_logging_policy` con permisos mínimos (solo `logs:CreateLogGroup`, `logs:CreateLogStream`, `logs:PutLogEvents` en `arn:aws:logs:${var.aws_region}:${account_id}:log-group:/aws/amplify/*`).
+    3. Agregar condición `aws:SourceArn` al trust policy para prevenir confused deputy.
+    4. Asignar `iam_service_role_arn = aws_iam_role.amplify_role.arn` al recurso `aws_amplify_app.frontend`.
+    5. Extraer repository URL a variable `var.gh_repository` para mayor mantenibilidad.
+  - **Lección**: Amplify Hosting requiere un service role para desplegar artifacts. Sin él, el build pasa pero el deploy falla silenciosamente.
+  - **Archivos modificados**: `iam.tf`, `amplify.tf`, `variables.tf`, `.github/workflows/terraform-plan.yml`, `.github/workflows/terraform-apply.yml`.
 
 ## Evaluacion — Migracion Rekognition a Textract (2026-08-24)
 
@@ -683,7 +693,7 @@ y habilitar auto-registro de alumnos.
 
 | Archivo | Acción | Descripción |
 |---------|--------|-------------|
-| `amplify.tf` | **Creado** | Recursos `aws_amplify_app.frontend` + `aws_amplify_branch.main` |
+| `amplify.tf` | **Creado** | Recursos `aws_amplify_app.frontend` + `aws_amplify_branch.main` + `iam_service_role_arn` |
 | `variables.tf` | Modificado | 5 nuevas variables: `github_access_token`, `aws_region`, `api_gateway_url`, `cognito_user_pool_id`, `cognito_client_id` |
 | `outputs.tf` | Modificado | Reemplazados `cloudfront_url` + `frontend_s3_bucket_name` con `amplify_app_id`, `amplify_default_domain`, `amplify_app_arn` |
 | `frontend.tf` | Modificado | Comentario de migración (recursos S3+CloudFront eliminados) |
@@ -718,9 +728,12 @@ Terraform necesitaba `iam:CreatePolicyVersion` que tampoco existía en la polít
 Ver sección "Patrón recurrente: Huevo y Gallina en IAM" para solución estándar.
 
 ### Estado actual
-- Branch `feat/amplify-hosting-migration` creada y push exitoso
-- GitHub Actions `terraform plan` pasó con permisos actualizados
-- PR pendiente de merge
+- PR #40 mergeado a `main`
+- IAM Service Role configurado con least privilege en `iam.tf`
+- GitHub Actions `terraform apply` ejecutado exitosamente
+- Amplify App desplegado: `d1jhem8rxt5h6t`
+- Dominio: `main.d1jhem8rxt5h6t.amplifyapp.com`
+- **Pendiente**: primer build exitoso (requiere rebuild tras service role)
 
 ---
 
