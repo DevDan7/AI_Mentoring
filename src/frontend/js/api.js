@@ -61,3 +61,44 @@ async function submitAnswer(quizId, questionId, givenAnswers) {
 async function getQuizResults(quizId) {
     return apiCall("GET", `/quizzes/${quizId}/results`);
 }
+
+// ========== AUTO-CREACIÓN DE PERFIL ==========
+
+async function ensureStudentProfile() {
+    try {
+        return await getStudent();
+    } catch (err) {
+        if (err.message.includes("404") || err.message.includes("not found")) {
+            try {
+                return await createStudentProfile();
+            } catch (createErr) {
+                if (createErr.message.includes("409")) {
+                    return await getStudent();
+                }
+                throw createErr;
+            }
+        }
+        throw err;
+    }
+}
+
+async function createStudentProfile() {
+    const token = localStorage.getItem("id_token");
+    let name = "";
+    let email = localStorage.getItem("user_email") || "";
+
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        name = payload.name || payload.given_name || email.split("@")[0];
+        email = payload.email || email;
+    } catch {
+        // Si no se puede decodificar, usar lo disponible
+    }
+
+    const body = {
+        name: name,
+        cohort: ""
+    };
+
+    return apiCall("POST", "/students", body);
+}

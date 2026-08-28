@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mentoring - Iniciar Sesión</title>
+    <title>AI Mentoring - Entrar</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
 </head>
 <body>
@@ -11,23 +11,130 @@
         <article style="max-width: 450px; margin: 4rem auto;">
             <header>
                 <h3 style="text-align: center;">☁️ AI Mentoring Cloud</h3>
-                <p style="text-align: center; color: var(--pico-color-slate-500);">Plataforma de Simulados y MENTORÍA AWS</p>
+                <p style="text-align: center; color: var(--pico-color-slate-500);">Plataforma de Simulados e MENTORIA AWS</p>
             </header>
 
+            <!-- ========== FORMULÁRIO DE LOGIN ========== -->
             <form id="loginForm">
                 <label for="email">
-                    Correo Electrónico
-                    <input type="email" id="email" name="email" placeholder="tu-correo@ejemplo.com" required>
+                    E-mail
+                    <input type="email" id="email" name="email" placeholder="seu-email@exemplo.com" required>
                 </label>
 
                 <label for="password">
-                    Contraseña
+                    Senha
                     <input type="password" id="password" name="password" placeholder="••••••••" required>
                 </label>
 
-                <button type="submit" id="submitBtn">Ingresar</button>
+                <button type="submit" id="submitBtn">Entrar</button>
+
+                <p style="text-align: center; margin-top: 1rem; font-size: 0.9rem;">
+                    <a href="#" id="showForgotPassword">Esqueceu sua senha?</a>
+                </p>
+                <p style="text-align: center; margin-top: 0.5rem; font-size: 0.9rem;">
+                    Não tem conta? <a href="#" id="showRegister">Registre-se aqui</a>
+                </p>
             </form>
 
+            <!-- ========== FORMULÁRIO DE REGISTRO ========== -->
+            <form id="registerForm" style="display: none;">
+                <label for="regName">
+                    Nome Completo
+                    <input type="text" id="regName" name="regName" placeholder="Seu nome" required>
+                </label>
+
+                <label for="regEmail">
+                    E-mail
+                    <input type="email" id="regEmail" name="regEmail" placeholder="seu-email@exemplo.com" required>
+                </label>
+
+                <label for="regPassword">
+                    Senha
+                    <input type="password" id="regPassword" name="regPassword" placeholder="Mínimo 8 caracteres" required>
+                    <small style="color: var(--pico-color-slate-500);">
+                        Mínimo 8 caracteres, uma maiúscula e um número
+                    </small>
+                </label>
+
+                <button type="submit" id="registerBtn">Criar Conta</button>
+
+                <p style="text-align: center; margin-top: 1rem; font-size: 0.9rem;">
+                    Já tem conta? <a href="#" id="showLoginFromRegister">Entre aqui</a>
+                </p>
+            </form>
+
+            <!-- ========== FORMULÁRIO DE CONFIRMAÇÃO ========== -->
+            <form id="confirmForm" style="display: none;">
+                <p style="text-align: center;">
+                    Enviamos um código de verificação para <strong id="confirmEmailDisplay"></strong>.
+                    Insira o código para confirmar sua conta.
+                </p>
+
+                <label for="confirmCode">
+                    Código de Verificação
+                    <input type="text" id="confirmCode" name="confirmCode" placeholder="123456" required
+                           maxlength="6" pattern="[0-9]{6}" inputmode="numeric">
+                </label>
+
+                <button type="submit" id="confirmBtn">Confirmar Conta</button>
+
+                <p style="text-align: center; margin-top: 1rem; font-size: 0.9rem;">
+                    <a href="#" id="resendCode">Reenviar código</a>
+                </p>
+                <p style="text-align: center; margin-top: 0.5rem; font-size: 0.9rem;">
+                    <a href="#" id="showLoginFromConfirm">Voltar ao login</a>
+                </p>
+            </form>
+
+            <!-- ========== FORMULÁRIO RECUPERAR SENHA ========== -->
+            <form id="forgotForm" style="display: none;">
+                <p style="text-align: center;">
+                    Insira seu e-mail e enviaremos um código para redefinir sua senha.
+                </p>
+
+                <label for="forgotEmail">
+                    E-mail
+                    <input type="email" id="forgotEmail" name="forgotEmail" placeholder="seu-email@exemplo.com" required>
+                </label>
+
+                <button type="submit" id="forgotBtn">Enviar Código</button>
+
+                <p style="text-align: center; margin-top: 1rem; font-size: 0.9rem;">
+                    <a href="#" id="showLoginFromForgot">Voltar ao login</a>
+                </p>
+            </form>
+
+            <!-- ========== FORMULÁRIO REDEFINIR SENHA ========== -->
+            <form id="resetPasswordForm" style="display: none;">
+                <p style="text-align: center;">
+                    Insira o código enviado para <strong id="resetEmailDisplay"></strong> e sua nova senha.
+                </p>
+
+                <label for="resetCode">
+                    Código de Verificação
+                    <input type="text" id="resetCode" name="resetCode" placeholder="123456" required
+                           maxlength="6" pattern="[0-9]{6}" inputmode="numeric">
+                </label>
+
+                <label for="newPassword">
+                    Nova Senha
+                    <input type="password" id="newPassword" name="newPassword" placeholder="Mínimo 8 caracteres" required>
+                    <small style="color: var(--pico-color-slate-500);">
+                        Mínimo 8 caracteres, uma maiúscula e um número
+                    </small>
+                </label>
+
+                <button type="submit" id="resetBtn">Redefinir Senha</button>
+
+                <p style="text-align: center; margin-top: 1rem; font-size: 0.9rem;">
+                    <a href="#" id="resendResetCode">Reenviar código</a>
+                </p>
+            </form>
+
+            <!-- ========== MENSAJE DE ÉXITO ========== -->
+            <div id="successMessage" style="display: none; color: var(--pico-color-green-500); margin-top: 1rem; text-align: center;"></div>
+
+            <!-- ========== MENSAJE DE ERROR ========== -->
             <div id="errorMessage" style="display: none; color: var(--pico-color-red-500); margin-top: 1rem; text-align: center;"></div>
         </article>
     </main>
@@ -36,12 +143,68 @@
     <script src="js/auth.js"></script>
     <script src="js/api.js"></script>
     <script>
-        // Redirigir directamente al Dashboard si ya existe sesión activa y es válida
+        // Redirecionar ao Painel se já houver sessão ativa
         const token = localStorage.getItem("id_token");
         if (token && !isTokenExpired(token)) {
             window.location.href = "dashboard.html";
         }
 
+        // Helper: ocultar todos os formulários e mensagens
+        function hideAll() {
+            document.getElementById("loginForm").style.display = "none";
+            document.getElementById("registerForm").style.display = "none";
+            document.getElementById("confirmForm").style.display = "none";
+            document.getElementById("forgotForm").style.display = "none";
+            document.getElementById("resetPasswordForm").style.display = "none";
+            document.getElementById("errorMessage").style.display = "none";
+            document.getElementById("successMessage").style.display = "none";
+        }
+
+        // Helper: mostrar login
+        function showLogin() {
+            hideAll();
+            document.getElementById("loginForm").style.display = "block";
+        }
+
+        // Helper: mostrar erro
+        function showError(msg) {
+            const errorDiv = document.getElementById("errorMessage");
+            errorDiv.innerText = msg;
+            errorDiv.style.color = "var(--pico-color-red-500)";
+            errorDiv.style.display = "block";
+        }
+
+        // Helper: mostrar sucesso
+        function showSuccess(msg) {
+            const successDiv = document.getElementById("successMessage");
+            successDiv.innerText = msg;
+            successDiv.style.display = "block";
+        }
+
+        // ========== Toggle entre formulários ==========
+        document.getElementById("showRegister").addEventListener("click", (e) => {
+            e.preventDefault();
+            hideAll();
+            document.getElementById("registerForm").style.display = "block";
+        });
+
+        document.getElementById("showLoginFromConfirm").addEventListener("click", (e) => {
+            e.preventDefault();
+            showLogin();
+        });
+
+        document.getElementById("showForgotPassword").addEventListener("click", (e) => {
+            e.preventDefault();
+            hideAll();
+            document.getElementById("forgotForm").style.display = "block";
+        });
+
+        document.getElementById("showLoginFromForgot").addEventListener("click", (e) => {
+            e.preventDefault();
+            showLogin();
+        });
+
+        // ========== Login ==========
         document.getElementById("loginForm").addEventListener("submit", async (e) => {
             e.preventDefault();
             const email = document.getElementById("email").value;
@@ -61,6 +224,168 @@
             } finally {
                 submitBtn.ariaBusy = "false";
                 submitBtn.disabled = false;
+            }
+        });
+
+        // ========== Registro ==========
+        document.getElementById("registerForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const name = document.getElementById("regName").value.trim();
+            const email = document.getElementById("regEmail").value;
+            const password = document.getElementById("regPassword").value;
+            const registerBtn = document.getElementById("registerBtn");
+            const errorDiv = document.getElementById("errorMessage");
+
+            // Validação client-side de senha
+            const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+            if (!passwordRegex.test(password)) {
+                errorDiv.innerText = "A senha deve ter no mínimo 8 caracteres, uma maiúscula e um número.";
+                errorDiv.style.display = "block";
+                return;
+            }
+
+            registerBtn.ariaBusy = "true";
+            registerBtn.disabled = true;
+            errorDiv.style.display = "none";
+
+            try {
+                await signUp(email, password, name);
+                hideAll();
+                document.getElementById("confirmForm").style.display = "block";
+                document.getElementById("confirmEmailDisplay").textContent = email;
+                // Salvar e-mail para reenvio
+                document.getElementById("confirmForm").dataset.email = email;
+            } catch (err) {
+                errorDiv.innerText = err.message;
+                errorDiv.style.display = "block";
+            } finally {
+                registerBtn.ariaBusy = "false";
+                registerBtn.disabled = false;
+            }
+        });
+
+        // ========== Confirmação de conta ==========
+        document.getElementById("confirmForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const code = document.getElementById("confirmCode").value;
+            const email = document.getElementById("confirmForm").dataset.email;
+            const confirmBtn = document.getElementById("confirmBtn");
+            const errorDiv = document.getElementById("errorMessage");
+
+            confirmBtn.ariaBusy = "true";
+            confirmBtn.disabled = true;
+            errorDiv.style.display = "none";
+
+            try {
+                await confirmSignUp(email, code);
+                hideAll();
+                showSuccess("Conta confirmada! Agora faça login.");
+                showLogin();
+            } catch (err) {
+                errorDiv.innerText = err.message;
+                errorDiv.style.display = "block";
+            } finally {
+                confirmBtn.ariaBusy = "false";
+                confirmBtn.disabled = false;
+            }
+        });
+
+        // ========== Reenviar código de confirmação ==========
+        document.getElementById("resendCode").addEventListener("click", async (e) => {
+            e.preventDefault();
+            const email = document.getElementById("confirmForm").dataset.email;
+            const errorDiv = document.getElementById("errorMessage");
+            const successDiv = document.getElementById("successMessage");
+
+            try {
+                await resendConfirmationCode(email);
+                successDiv.innerText = "Código reenviado. Verifique seu e-mail.";
+                successDiv.style.display = "block";
+                errorDiv.style.display = "none";
+                setTimeout(() => { successDiv.style.display = "none"; }, 5000);
+            } catch (err) {
+                errorDiv.innerText = err.message;
+                errorDiv.style.display = "block";
+            }
+        });
+
+        // ========== Recuperar senha (passo 1: enviar código) ==========
+        document.getElementById("forgotForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const email = document.getElementById("forgotEmail").value;
+            const forgotBtn = document.getElementById("forgotBtn");
+            const errorDiv = document.getElementById("errorMessage");
+
+            forgotBtn.ariaBusy = "true";
+            forgotBtn.disabled = true;
+            errorDiv.style.display = "none";
+
+            try {
+                await forgotPassword(email);
+                hideAll();
+                document.getElementById("resetPasswordForm").style.display = "block";
+                document.getElementById("resetEmailDisplay").textContent = email;
+                document.getElementById("resetPasswordForm").dataset.email = email;
+            } catch (err) {
+                errorDiv.innerText = err.message;
+                errorDiv.style.display = "block";
+            } finally {
+                forgotBtn.ariaBusy = "false";
+                forgotBtn.disabled = false;
+            }
+        });
+
+        // ========== Redefinir senha (passo 2: código + nova senha) ==========
+        document.getElementById("resetPasswordForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const email = document.getElementById("resetPasswordForm").dataset.email;
+            const code = document.getElementById("resetCode").value;
+            const newPassword = document.getElementById("newPassword").value;
+            const resetBtn = document.getElementById("resetBtn");
+            const errorDiv = document.getElementById("errorMessage");
+
+            // Validação client-side de senha
+            const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+            if (!passwordRegex.test(newPassword)) {
+                errorDiv.innerText = "A senha deve ter no mínimo 8 caracteres, uma maiúscula e um número.";
+                errorDiv.style.display = "block";
+                return;
+            }
+
+            resetBtn.ariaBusy = "true";
+            resetBtn.disabled = true;
+            errorDiv.style.display = "none";
+
+            try {
+                await confirmForgotPassword(email, code, newPassword);
+                hideAll();
+                showSuccess("Senha atualizada! Agora faça login.");
+                showLogin();
+            } catch (err) {
+                errorDiv.innerText = err.message;
+                errorDiv.style.display = "block";
+            } finally {
+                resetBtn.ariaBusy = "false";
+                resetBtn.disabled = false;
+            }
+        });
+
+        // ========== Reenviar código de recuperação ==========
+        document.getElementById("resendResetCode").addEventListener("click", async (e) => {
+            e.preventDefault();
+            const email = document.getElementById("resetPasswordForm").dataset.email;
+            const errorDiv = document.getElementById("errorMessage");
+            const successDiv = document.getElementById("successMessage");
+
+            try {
+                await forgotPassword(email);
+                successDiv.innerText = "Código reenviado. Verifique seu e-mail.";
+                successDiv.style.display = "block";
+                errorDiv.style.display = "none";
+                setTimeout(() => { successDiv.style.display = "none"; }, 5000);
+            } catch (err) {
+                errorDiv.innerText = err.message;
+                errorDiv.style.display = "block";
             }
         });
     </script>
