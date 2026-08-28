@@ -11,27 +11,13 @@
   },
   "permission": {
     "bash": {
-      "*": "ask",
+      "*": "allow",
       "git add *": "deny",
       "git commit *": "deny",
       "git push *": "deny",
-      "git pull *": "deny",
-      "git merge *": "deny",
-      "git rebase *": "deny",
-      "terraform apply *": "deny",
-      "terraform destroy *": "deny",
-      "terraform *": "ask",
-      "python *": "allow",
-      "python -m py_compile *": "allow",
-      "ls *": "allow",
-      "cat *": "allow",
-      "grep *": "allow",
-      "find *": "allow",
-      "head *": "allow",
-      "tail *": "allow",
-      "wc *": "allow",
-      "pwd": "allow"
+      "terraform plan *": "deny",
+      "terraform apply *": "deny"
     },
-    "edit": "ask"
+    "edit": "allow"
   }
 }
