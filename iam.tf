@@ -233,3 +233,59 @@ resource "aws_iam_role_policy_attachment" "quiz_engine_attach" {
   role       = aws_iam_role.quiz_engine_role.name
   policy_arn = aws_iam_policy.quiz_engine_policy.arn
 }
+
+# =============================================================
+# Amplify Hosting — Rol + Política (Menor Privilegio)
+# =============================================================
+
+data "aws_caller_identity" "current" {}
+
+resource "aws_iam_role" "amplify_role" {
+  name = "mentoring-amplify-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = {
+        Service = "amplify.amazonaws.com"
+      }
+      Condition = {
+        ArnLike = {
+          "aws:SourceArn" = "arn:aws:amplify:${var.aws_region}:${data.aws_caller_identity.current.account_id}:apps/*"
+        }
+      }
+    }]
+  })
+
+  tags = {
+    Name        = "mentoring-amplify-role"
+    Environment = var.environment
+  }
+}
+
+resource "aws_iam_policy" "amplify_logging_policy" {
+  name        = "mentoring-amplify-logging-policy"
+  description = "Permisos mínimos para Amplify Hosting y envío de logs a CloudWatch"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/amplify/*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "amplify_logs_attach" {
+  role       = aws_iam_role.amplify_role.name
+  policy_arn = aws_iam_policy.amplify_logging_policy.arn
+}

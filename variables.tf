@@ -56,3 +56,8 @@ variable "cognito_client_id" {
   description = "ID del App Client de Cognito para el frontend"
   type        = string
 }
+
+variable "gh_repository" {
+  description = "GitHub repository URL for the Amplify app"
+  type        = string
+}
