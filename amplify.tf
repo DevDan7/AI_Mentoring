@@ -1,19 +1,13 @@
 # =============================================================
-# AWS Amplify Hosting — Frontend estatico
-# Reemplaza la infraestructura anterior (S3 + CloudFront).
-# Cada push a la rama 'main' activa build + deploy automatico.
+# AWS Amplify Hosting — Frontend Estático
 # =============================================================
-
 resource "aws_amplify_app" "frontend" {
   name       = "${var.project_name}-frontend-${var.environment}"
-  repository = "https://github.com/DevDan7/AI_Mentoring"
+  repository = var.gh_repository
 
-  # GitHub Personal Access Token (scope: repo)
-  # Permite a Amplify clonar el repo y hacer deploy
-  access_token = var.github_access_token
+  access_token         = var.github_access_token
+  iam_service_role_arn = aws_iam_role.amplify_role.arn
 
-  # Build spec para sitio estatico (HTML puro, sin framework)
-  # Amplify ejecuta esto en cada push a una rama conectada
   build_spec = <<-EOT
     version: 1
     frontend:
@@ -31,8 +25,6 @@ resource "aws_amplify_app" "frontend" {
           - "**/*"
   EOT
 
-  # Variables de entorno inyectadas al frontend
-  # Reemplazan el config.js hardcodeado
   environment_variables = {
     API_URL              = var.api_gateway_url
     COGNITO_REGION       = var.aws_region
@@ -40,11 +32,8 @@ resource "aws_amplify_app" "frontend" {
     COGNITO_CLIENT_ID    = var.cognito_client_id
   }
 
-  # Build automatico en cada push a ramas conectadas
   enable_branch_auto_build = true
-
-  # Sitio estatico (no SSR)
-  platform = "WEB"
+  platform                 = "WEB"
 
   tags = {
     Name        = "${var.project_name}-frontend"
@@ -52,7 +41,6 @@ resource "aws_amplify_app" "frontend" {
   }
 }
 
-# Rama principal conectada a produccion
 resource "aws_amplify_branch" "main" {
   app_id      = aws_amplify_app.frontend.id
   branch_name = "main"
