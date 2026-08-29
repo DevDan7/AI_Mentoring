@@ -922,3 +922,20 @@ Alinear la configuración de `.opencode/` con las mejores prácticas oficiales d
 - **2026-08-25**: **Reestructuración de configuración OpenCode**: agente `git.md` creado (generador de comandos git, solo lectura); agente `developer.md` eliminado; agentes `reviewer.md` y comando `review.md` traducidos al español; comandos obsoletos eliminados (`document.md`, `implement.md`, `plan.md`, `test.md`, `prompts.md`); comando `infra-eval.md` renombrado a `infra-review.md`; skill `testing/SKILL.md` simplificado; `AGENTS.md` actualizado con sección "Skills Update"; `opencode.json` actualizado con agentes `plan` y `git`; prompt `prompts/plan.txt` creado.
 - **2026-08-26**: **Fix drift IAM (resolución del hallazgo #9)**: agregado `aws_iam_role_policy_attachment.github_actions_readonly` en `iam.tf` para adjuntar `ReadOnlyAccess` al rol `ai-mentoring-github-actions`. Drift entre código y estado real en AWS eliminado. PR #37.
 - **2026-08-27**: **Migración Frontend a Amplify Hosting**: creados recursos Terraform (`amplify.tf` con `aws_amplify_app.frontend` + `aws_amplify_branch.main`), actualizados outputs (`outputs.tf`), workflows de GitHub Actions (`.github/workflows/`) y variables (`variables.tf`). Segunda ocurrencia del problema huevo/gallina IAM — resuelta con CLI manual (`aws iam create-policy-version`) + sincronización de `iam.tf` (agregados `cloudfront:*`, `amplify:*`, `iam:CreatePolicyVersion`, `iam:DeletePolicy`). Branch `feat/amplify-hosting-migration` en proceso de merge.
+- **2026-08-28**: **Auto-registro de alumnos (Paso 5)**: implementación completa de Option B:
+  - **Archivos modificados**:
+    - `src/frontend/js/auth.js`: +5 funciones (`signUp`, `confirmSignUp`, `resendConfirmationCode`, `forgotPassword`, `confirmForgotPassword`)
+    - `src/frontend/index.html`: 5 formularios (login, registro, confirmación, forgot password, reset password) con toggle
+    - `src/frontend/js/api.js`: +2 funciones (`ensureStudentProfile`, `createStudentProfile`)
+    - `src/frontend/dashboard.html`: `loadProfile()` actualizado para usar `ensureStudentProfile()`
+  - **Funcionalidades**:
+    - Registro de nuevos alumnos vía Cognito SignUp API
+    - Confirmación por código de email
+    - Reenvío de código
+    - Recuperación de contraseña ("Esqueceu sua senha?")
+    - Auto-creación de perfil en DynamoDB al primer login (detecta 404 en `GET /students/me`)
+    - Validación client-side de contraseña (8+ chars, 1 maiúscula, 1 número)
+    - Manejo de errores con mensajes en Portugués Brasil
+    - Sin contraseña en memoria (re-ingreso post-confirmación)
+  - **Traducción**: Interfaz completa traducida a Portugués Brasil (pt-BR)
+  - **Resultado**: Prueba exitosa del flujo completo (registro → confirmación → login → perfil auto-creado)
