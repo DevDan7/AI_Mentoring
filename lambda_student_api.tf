@@ -20,6 +20,7 @@ resource "aws_lambda_function" "student_api" {
       COGNITO_USER_POOL_ID = aws_cognito_user_pool.students.id
       COGNITO_CLIENT_ID    = aws_cognito_user_pool_client.student_app.id
       STUDENTS_TABLE       = aws_dynamodb_table.students.name
+      COHORTS_TABLE        = aws_dynamodb_table.cohorts.name
     }
   }
 
