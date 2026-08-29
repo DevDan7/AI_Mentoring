@@ -203,8 +203,8 @@ A task is considered complete when:
 ## 13. Architecture Rules
 
 ### Reference Patterns
-- Pipeline reference in `.opencode/skills/ai-mentoring-architecture/SKILL.md` and `doc/status.md`.
-- All evolution must be documented in `doc/status.md`.
+- Pipeline reference in `.opencode/skills/ai-mentoring-architecture/SKILL.md` and `doc/DOCUMENTATION.md`.
+- All evolution must be documented in `doc/changelog.md` and `doc/architecture.md`.
 
 ### Rules
 1. **One AWS resource per managed object**: Never two `aws_*_notification`, configs or settings pointing to the same object (AWS overwrites complete configurations).
@@ -281,7 +281,7 @@ A task is considered complete when:
 1. **Prohibited** to commit secrets, credentials, personal emails, or tokens in any file.
 2. Sensitive values go in `variables.tf` (with `sensitive = true`) and actual value in `terraform.tfvars` (excluded by `.gitignore` with `*.tfvars`).
 3. Verify `git status` and `git diff` before committing to confirm no secrets entered the repo.
-4. If a secret is exposed: rotate and log the incident in `doc/status.md`.
+4. If a secret is exposed: rotate and log the incident in `doc/changelog.md`.
 
 ### Terraform State
 - `terraform.tfstate` and `.tfstate.backup` contain sensitive ARNs/IDs: **do not** commit. Remote backend (S3 + DynamoDB lock) pending — evaluate.
