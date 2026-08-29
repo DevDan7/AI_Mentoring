@@ -143,6 +143,13 @@
     <script src="js/auth.js"></script>
     <script src="js/api.js"></script>
     <script>
+        // Capturar parâmetro 'turma' da URL e salvar no sessionStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        const pendingCohort = urlParams.get('turma');
+        if (pendingCohort) {
+            sessionStorage.setItem('pending_cohort_id', pendingCohort);
+        }
+
         // Redirecionar ao Painel se já houver sessão ativa
         const token = localStorage.getItem("id_token");
         if (token && !isTokenExpired(token)) {
