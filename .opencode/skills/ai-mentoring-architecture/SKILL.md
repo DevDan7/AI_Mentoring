@@ -44,4 +44,6 @@ Event-driven serverless platform that converts photos of exam questions into a s
 ## Sources
 
 - `README.md` — Public documentation (recruiters).
-- `doc/status.md` — Internal technical log: findings, technical debt, and change log.
+- `doc/DOCUMENTATION.md` — Documentation index and maintenance instructions.
+- `doc/architecture.md` — Internal technical log: architecture, data model, decisions.
+- `doc/changelog.md` — Consolidated chronological change log.

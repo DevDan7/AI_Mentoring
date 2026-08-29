@@ -66,9 +66,10 @@ S3 (foto examen) → S3 Event → SNS (notificaciones + email)
 | Tabla | PK | GSIs | Propósito |
 |-------|-----|------|-----------|
 | `MentoringQuestions` | `QuestionID` | `TopicIndex` (Topic) | Banco de preguntas |
-| `Students` | `StudentID` | `EmailIndex` (Email) | Perfiles de alumnos |
+| `Students` | `StudentID` | `EmailIndex` (Email), `CohortIndex` (CohortID) | Perfiles de alumnos |
 | `Quizzes` | `QuizID` | `StudentIndex` (StudentID) | Simulados generados |
 | `QuizResults` | `ResultID` | `QuizIndex` (QuizID), `StudentIndex` (StudentID + Timestamp) | Respuestas y resultados |
+| `Cohorts` | `CohortID` | — | Gestión de cohortes |
 
 **Configuración común:**
 - `PAY_PER_REQUEST` (sin capacidad provisionada)
@@ -127,7 +128,7 @@ S3 (foto examen) → S3 Event → SNS (notificaciones + email)
 | Rol | Propósito | Permisos |
 |-----|-----------|----------|
 | `mentoring-lambda-processor` | Ejecutar `processor.py` | Rekognition, Bedrock, DynamoDB, SNS, SQS, CloudWatch |
-| `mentoring-lambda-student-api` | Ejecutar `student_api.py` | DynamoDB (Students), Cognito GetUser |
+| `mentoring-lambda-student-api` | Ejecutar `student_api.py` | DynamoDB (Students, Cohorts), Cognito GetUser |
 | `mentoring-lambda-quiz-engine` | Ejecutar `quiz_engine.py` | DynamoDB (todas las tablas), Cognito GetUser |
 | `ai-mentoring-github-actions` | CI/CD con OIDC | `ReadOnlyAccess` + `terraform-cicd-policy` |
 | `mentoring-amplify-role` | Amplify Hosting | Logs (CloudWatch) |
@@ -155,11 +156,12 @@ QuestionID (PK)    | Topic | QuestionText | QuestionType | CorrectCount | Option
 ### Students
 
 ```
-StudentID (PK) | Email | Name | CreatedAt | SessionExpiresAt | TopicsWeak[] | TotalQuizzes | AvgScore
+StudentID (PK) | Email | Name | CreatedAt | SessionExpiresAt | CohortID | TopicsWeak[] | TotalQuizzes | AvgScore
 ```
 
 - **GSI EmailIndex**: Permite buscar por email
-- **SessionExpiresAt**: Tracking de última actividad
+- **GSI CohortIndex**: Permite buscar alumnos por cohorte
+- **CohortID**: Referencia a tabla `Cohorts` (enrollment vía URL `?turma=<id>`)
 
 ### Quizzes
 
@@ -178,6 +180,16 @@ ResultID (PK) | QuizID | StudentID | QuestionID | GivenAnswer | IsCorrect | Time
 
 - **GSI QuizIndex**: Ver todas las respuestas de un quiz
 - **GSI StudentIndex**: Ver historial cronológico de un alumno
+
+### Cohorts
+
+```
+CohortID (PK) | Name | CreatedAt | MaxStudents | Active
+```
+
+- **Propósito**: Gestión de cohortes para mentoría grupal
+- **Enrollment**: Estudiantes se unen vía URL con parámetro `?turma=<cohort_id>`
+- **Validación**: `student_api.py` verifica existencia de cohorte antes de crear/actualizar perfil
 
 ---
 
@@ -303,6 +315,7 @@ El objetivo del proyecto tiene 3 piezas:
 | BD de alumnos | ✅ `Students` table + `student_api.py` |
 | Banco de preguntas | ✅ `MentoringQuestions` + pipeline de ingesta |
 | Generación de quizzes | ✅ `quiz_engine.py` (generate_quiz, submit_answer, get_results) |
+| Gestión de cohortes | ✅ `Cohorts` table + enrollment vía URL |
 | Relatorios | ⚠️ Parcial — métricas en `get_results`, sin generación automatizada de reportes |
 
 **Próximos pasos (roadmap ejecutivo):**
@@ -315,9 +328,10 @@ El objetivo del proyecto tiene 3 piezas:
 | 4 | ~~CI/CD con apply~~ | ✅ Hecho (2026-08-24) |
 | 5 | ~~Migración Frontend a Amplify~~ | ✅ Hecho (2026-08-27) |
 | 6 | ~~Auto-registro de alumnos~~ | ✅ Hecho (2026-08-28) |
-| 7 | Refactor: AWS Step Functions para orquestación asíncrona | ⏳ Pendiente |
-| 8 | Cleanup: avisos de depreciación (`key_schema` vs `hash_key`) | ⏳ Evaluado, mantenido (bug del proveedor AWS) |
-| 9 | Generación automatizada de relatorios | ⏳ Pendiente |
+| 7 | ~~Gestión de cohortes~~ | ✅ Hecho (2026-08-29) |
+| 8 | Refactor: AWS Step Functions para orquestación asíncrona | ⏳ Pendiente |
+| 9 | Cleanup: avisos de depreciación (`key_schema` vs `hash_key`) | ⏳ Evaluado, mantenido (bug del proveedor AWS) |
+| 10 | Generación automatizada de relatorios | ⏳ Pendiente |
 
 ---
 
