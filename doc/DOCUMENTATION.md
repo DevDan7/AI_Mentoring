@@ -18,7 +18,6 @@
 
 | Archivo | Propósito |
 |---------|-----------|
-| `status.md` | Bitácora histórica original (referencia temporal, pendiente de eliminación) |
 | `questions/` | Imágenes de preguntas de examen procesadas |
 
 ---
@@ -86,7 +85,7 @@ Por qué se implementó así y no de otra manera.
 AI_Mentoring/
 ├── src/
 │   ├── processor.py              # Lambda: OCR + Bedrock + DynamoDB
-│   ├── student_api.py            # Lambda: CRUD de estudiantes
+│   ├── student_api.py            # Lambda: CRUD de estudiantes + cohortes
 │   ├── quiz_engine.py            # Lambda: quizzes y resultados
 │   └── frontend/                 # Frontend (HTML/JS)
 │       ├── index.html
@@ -94,7 +93,7 @@ AI_Mentoring/
 │       ├── quiz.html
 │       ├── results.html
 │       └── js/
-├── *.tf                          # Terraform (19 archivos)
+├── *.tf                          # Terraform (20 archivos)
 ├── .opencode/                    # Configuración OpenCode
 ├── doc/                          # Esta documentación
 ├── scripts/                      # Scripts de utilería
@@ -112,7 +111,7 @@ AI_Mentoring/
 | SQS | Cola de ingesta + DLQ | `main.tf` |
 | SNS | Notificaciones por email | `main.tf` |
 | Lambda | 3 handlers (processor, student_api, quiz_engine) | `lambda.tf`, `lambda_student_api.tf`, `lambda_quiz_engine.tf` |
-| DynamoDB | 4 tablas (MentoringQuestions, Students, Quizzes, QuizResults) | `dynamodb*.tf` |
+| DynamoDB | 5 tablas (MentoringQuestions, Students, Quizzes, QuizResults, Cohorts) | `dynamodb*.tf` |
 | Bedrock | Claude Haiku 4.5 para clasificación | (invocado desde `processor.py`) |
 | Rekognition | OCR de fotos | (invocado desde `processor.py`) |
 | API Gateway | HTTP API con JWT Authorizer | `api_gateway*.tf` |

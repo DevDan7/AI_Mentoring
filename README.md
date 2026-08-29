@@ -82,9 +82,12 @@ AWS Lambda · Amazon API Gateway · Amazon SQS · Amazon DynamoDB · Amazon Reko
 ├── scripts/
 │   └── test_api.sh         # Script de testing end-to-end
 ├── doc/
-│   ├── status.md           # Engineering log: findings, technical debt, roadmap
+│   ├── DOCUMENTATION.md    # Índice de documentación del proyecto
+│   ├── architecture.md     # Arquitectura, modelo de datos, decisiones
+│   ├── technical-log.md    # Pruebas, problemas, soluciones
+│   ├── changelog.md        # Registro de cambios consolidado
 │   ├── roadmap.html        # Roadmap interactivo del proyecto
-│   └── quiz-results-dashboard.html  # Quiz results visualization
+│   └── questions/          # Banco de preguntas (PNG)
 └── README.md
 ```
 
@@ -100,7 +103,21 @@ The pipeline above covers question ingestion and classification — one piece of
 - [ ] "Class generation" logic: pull questions by topic/difficulty, prioritizing a student's weak areas
 - [ ] Automated report generation (monthly/annual metrics per student and per class)
 
-Full engineering notes and technical debt tracking live in [`doc/status.md`](doc/status.md).
+Full engineering notes and technical debt tracking live in [`doc/DOCUMENTATION.md`](doc/DOCUMENTATION.md).
+
+## Documentation
+
+Internal documentation lives in `doc/`, organized by theme:
+
+| File | Purpose |
+|------|---------|
+| [`DOCUMENTATION.md`](doc/DOCUMENTATION.md) | Documentation index and maintenance instructions |
+| [`architecture.md`](doc/architecture.md) | System architecture, data model, design decisions |
+| [`technical-log.md`](doc/technical-log.md) | Performance tests, problems, solutions |
+| [`changelog.md`](doc/changelog.md) | Consolidated chronological change log |
+| [`roadmap.html`](doc/roadmap.html) | Interactive project roadmap |
+
+Each file is self-contained. Start with `DOCUMENTATION.md` for an overview of the project's technical state.
 
 ## Deploying
 

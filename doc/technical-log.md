@@ -167,6 +167,16 @@ question_074, 077, 084, 087, 088, 090, 094, 098, 104
 - Reducir `max_attempts` de 6 a 3-4
 - O implementar retry a nivel de aplicación con timeout menor
 
+### 5. Perfiles Duplicados en Students
+
+**Problema**: 2 registros en `Students` para el mismo email, con `StudentID` (sub de Cognito) distintos.
+
+**Causa probable**: `create_student` no valida unicidad por `Email`, solo por `StudentID`.
+
+**Impacto**: No afecta funcionamiento actual (todos los quizzes usan el `StudentID` más reciente).
+
+**Solución pendiente**: Evaluar validación adicional por `EmailIndex` antes de crear perfil nuevo.
+
 ---
 
 ## Problemas Resueltos
@@ -217,6 +227,7 @@ question_074, 077, 084, 087, 088, 090, 094, 098, 104
 | Media | Evaluar validación de unicidad por Email en Students | Evitar perfiles duplicados |
 | Baja | Habilitar `deletion_protection_enabled = true` en DynamoDB | Protección contra eliminación accidental |
 | Baja | Escalar recursos IAM a ARNs específicos | Reducir uso de `Resource: "*"` |
+| Baja | Auditar cohortes vacías | Limpiar datos de prueba |
 
 ---
 
