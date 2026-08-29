@@ -13,9 +13,20 @@ resource "aws_dynamodb_table" "students" {
     type = "S"
   }
 
+  attribute {
+    name = "CohortID"
+    type = "S"
+  }
+
   global_secondary_index {
     name            = "EmailIndex"
     hash_key        = "Email"
+    projection_type = "ALL"
+  }
+
+  global_secondary_index {
+    name            = "CohortIndex"
+    hash_key        = "CohortID"
     projection_type = "ALL"
   }
 

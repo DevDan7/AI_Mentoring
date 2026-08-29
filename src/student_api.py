@@ -7,6 +7,7 @@ from botocore.exceptions import ClientError
 # Inicialización del cliente de DynamoDB
 dynamodb = boto3.resource('dynamodb')
 students_table = dynamodb.Table(os.environ['STUDENTS_TABLE'])
+cohorts_table = dynamodb.Table(os.environ['COHORTS_TABLE'])
 
 # Encabezados CORS estándar para permitir integración con el Frontend
 HEADERS = {
@@ -59,16 +60,26 @@ def create_student(event, claims):
     if not student_id or not email or not name:
         return build_response(400, {'message': 'Missing required student claims (sub, email, name)'})
 
+    cohort_id = data.get('cohort_id', '')
+    if cohort_id:
+        cohort_item = cohorts_table.get_item(Key={'CohortID': cohort_id})
+        if 'Item' not in cohort_item:
+            return build_response(400, {'message': f'Cohort not found: {cohort_id}'})
+
     try:
+        item = {
+            'StudentID': student_id,
+            'Email': email,
+            'Name': name,
+            'Cohort': data.get('cohort', ''),
+            'CreatedAt': created_at,
+            'UpdatedAt': created_at
+        }
+        if cohort_id:
+            item['CohortID'] = cohort_id
+
         students_table.put_item(
-            Item={
-                'StudentID': student_id,
-                'Email': email,
-                'Name': name,
-                'Cohort': data.get('cohort', ''),
-                'CreatedAt': created_at,
-                'UpdatedAt': created_at
-            },
+            Item=item,
             ConditionExpression='attribute_not_exists(StudentID)'
         )
     except ClientError as e:
@@ -122,6 +133,17 @@ def update_student_by_claims(event, claims):
     if 'cohort' in data:
         update_expr += ", Cohort = :cohort"
         expr_values[':cohort'] = data['cohort']
+
+    if 'cohort_id' in data:
+        cohort_id = data['cohort_id']
+        if cohort_id:
+            cohort_item = cohorts_table.get_item(Key={'CohortID': cohort_id})
+            if 'Item' not in cohort_item:
+                return build_response(400, {'message': f'Cohort not found: {cohort_id}'})
+            update_expr += ", CohortID = :cohort_id"
+            expr_values[':cohort_id'] = cohort_id
+        else:
+            update_expr += " REMOVE CohortID"
 
     kwargs = {
         'Key': {'StudentID': student_id},

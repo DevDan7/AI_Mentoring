@@ -1,7 +1,6 @@
 ---
 description: Tutor y mentor especialista en AWS que evalúa arquitecturas y guía cambios usando el método socrático.
 mode: subagent
-model: anthropic/claude-sonnet-4-5#high
 color: "#FF9900"
 steps: 10
 permissions:
