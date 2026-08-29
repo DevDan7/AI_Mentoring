@@ -6,11 +6,38 @@
 
 ## 2026-08
 
+### 29 Ago — Gestión de cohortes
+- Nueva tabla DynamoDB `Cohorts` con `CohortID` como PK (PR #47)
+- GSI `CohortIndex` en tabla `Students` para buscar alumnos por cohorte
+- `student_api.py`: validación de existencia de cohorte antes de crear/actualizar alumno
+- Frontend: enrollment automático vía parámetro URL `?turma=<cohort_id>`
+- IAM: permisos de lectura para `Cohorts` table en `student_api`
+
+### 29 Ago — Reorganización de documentación
+- Creados 4 archivos temáticos: `DOCUMENTATION.md`, `architecture.md`, `technical-log.md`, `changelog.md`
+- Eliminado `status.md` (migración completa a estructura temática)
+- Eliminados dashboards HTML temporales: `dashboard.html`, `quiz-results-dashboard.html`
+- Agentes OpenCode actualizados: `git.md` (DevOps workflow), `aws-tutor.md` (nuevo subagente)
+
+### 28 Ago — Flujo de autenticación completo
+- Implementación completa: SignUp, confirmación, forgot password, auto-creación de perfil (PR #44)
+- Localización completa a Portugués Brasil (pt-BR)
+- Archivos: `auth.js`, `index.html`, `api.js`, `dashboard.html`
+
+### 28 Ago — Fix CI/CD y workflow
+- Agregada variable `TF_VAR_gh_repository` en `terraform-apply.yml`
+- Workflow `terraform-plan.yml` actualizado para soporte de Amplify Hosting
+
 ### 28 Ago — Auto-registro de alumnos
 - Implementación completa de Option B (PR #45)
 - Archivos: `auth.js`, `index.html`, `api.js`, `dashboard.html`
 - Funcionalidades: SignUp, confirmación, forgot password, auto-creación de perfil
 - Traducción: Interfaz completa a Portugués Brasil (pt-BR)
+
+### 27 Ago — Fix permisos IAM para CI/CD
+- Sincronizados permisos de `terraform-cicd-policy` con AWS
+- Agregados: `iam:CreatePolicyVersion`, `iam:DeletePolicy`
+- Agregados permisos `cloudfront:*` y `amplify:*` para migración frontend
 
 ### 27 Ago — Migración Frontend a Amplify Hosting
 - Creados recursos Terraform: `amplify.tf` con `aws_amplify_app.frontend` + `aws_amplify_branch.main`
@@ -182,8 +209,9 @@
 - Archivos ZIP en raíz — Artefactos de build generados por Terraform (en `.gitignore`)
 - `.opencode/node_modules/` — Excluido via `.opencode/.gitignore`
 
-### Items Resueltos (referencia a status.md)
+### Items Resueltos
 - **Hallazgo #5**: Backend remoto S3 + locking (2026-08-24)
 - **Hallazgo #9**: Drift IAM ReadOnlyAccess (2026-08-26)
 - **Item 5 "Próximos pasos"**: Migración Frontend a Amplify (2026-08-27)
 - **Item 6 "Próximos pasos"**: Auto-registro de alumnos (2026-08-28)
+- **Item 7 "Próximos pasos"**: Gestión de cohortes (2026-08-29)

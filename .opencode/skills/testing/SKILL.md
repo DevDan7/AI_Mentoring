@@ -10,7 +10,7 @@ description: Testing, verification and quality control guidelines for AI Mentori
 - **AWS Mocking**: Run automated unit tests using `pytest` and mock all Boto3 SDK calls with `moto` or `unittest.mock`. Never execute unit tests against live AWS resources.
 - **Syntax Verification**: Execute byte-compilation check locally before committing: `python -m py_compile src/*.py`
 - **Terraform Verification**: Run `terraform validate` after editing `.tf` files and inspect `terraform plan` outputs to prevent accidental resource deletion or duplication.
-- **Documentation Integrity**: Keep internal logs (`doc/status.md`) and public docs (`README.md`) strictly aligned with functional code.
+- **Documentation Integrity**: Keep internal docs (`doc/DOCUMENTATION.md`, `doc/changelog.md`) and public docs (`README.md`) strictly aligned with functional code.
 
 ## 2. Final Pre-Commit Checklist
 
@@ -20,7 +20,7 @@ description: Testing, verification and quality control guidelines for AI Mentori
 4. Staged code contains no hardcoded secrets, API keys, or sensitive personal data.
 5. API Gateway routes match Lambda integrations and permissions.
 6. Cognito User Pool ID and App Client ID present in `outputs.tf`.
-7. Internal log (`doc/status.md`) is updated with recent changes and debt items.
+7. Internal docs (`doc/changelog.md`) are updated with recent changes and debt items.
 
 ## 3. Related Skills
 
