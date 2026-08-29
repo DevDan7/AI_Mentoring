@@ -100,5 +100,10 @@ async function createStudentProfile() {
         cohort: ""
     };
 
+    const pendingCohortId = sessionStorage.getItem('pending_cohort_id');
+    if (pendingCohortId) {
+        body.cohort_id = pendingCohortId;
+    }
+
     return apiCall("POST", "/students", body);
 }
