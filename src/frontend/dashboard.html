@@ -75,7 +75,7 @@
                 const data = await ensureStudentProfile();
                 document.getElementById("userName").innerText = data.Name || "Aluno";
                 document.getElementById("userEmail").innerText = data.Email;
-                document.getElementById("userCohort").innerText = data.Cohort || "Sem turma";
+                document.getElementById("userCohort").innerText = data.CohortID || data.Cohort || "Sem turma";
                 document.getElementById("studentId").innerText = data.StudentID;
             } catch (err) {
                 console.error(err);
