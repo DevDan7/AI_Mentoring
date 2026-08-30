@@ -70,7 +70,8 @@ async function ensureStudentProfile() {
     } catch (err) {
         if (err.message.includes("404") || err.message.includes("not found")) {
             try {
-                return await createStudentProfile();
+                await createStudentProfile();
+                return await getStudent();
             } catch (createErr) {
                 if (createErr.message.includes("409")) {
                     return await getStudent();
