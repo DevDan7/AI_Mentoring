@@ -20,6 +20,7 @@ resource "aws_lambda_function" "quiz_engine" {
       QUESTIONS_TABLE    = aws_dynamodb_table.mentoring_questions_table.name
       QUIZZES_TABLE      = aws_dynamodb_table.quizzes.name
       QUIZ_RESULTS_TABLE = aws_dynamodb_table.quiz_results.name
+      STUDENTS_TABLE     = aws_dynamodb_table.students.name
     }
   }
 }

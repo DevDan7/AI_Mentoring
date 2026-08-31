@@ -80,6 +80,22 @@ resource "aws_apigatewayv2_route" "quizzes_results" {
   authorization_type = "JWT"
 }
 
+resource "aws_apigatewayv2_route" "quizzes_get" {
+  api_id             = aws_apigatewayv2_api.mentoring_api.id
+  route_key          = "GET /quizzes/{quizId}"
+  target             = "integrations/${aws_apigatewayv2_integration.quiz.id}"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+  authorization_type = "JWT"
+}
+
+resource "aws_apigatewayv2_route" "quizzes_complete" {
+  api_id             = aws_apigatewayv2_api.mentoring_api.id
+  route_key          = "POST /quizzes/{quizId}/complete"
+  target             = "integrations/${aws_apigatewayv2_integration.quiz.id}"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+  authorization_type = "JWT"
+}
+
 # =============================================================================
 # Lambda Permissions
 # =============================================================================

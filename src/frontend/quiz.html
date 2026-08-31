@@ -46,8 +46,8 @@
 
         <div id="completedState" style="display: none;">
             <article class="center">
-                <h4>Simulado Completado 🎉</h4>
-                <p>Has respondido todas las preguntas exitosamente.</p>
+                <h4 id="completedTitle">Simulado Completado 🎉</h4>
+                <p id="completedText">Has respondido todas las preguntas exitosamente.</p>
                 <a href="results.html" id="viewResultsBtn" role="button">Ver Resultados</a>
                 <a href="dashboard.html" role="button" class="secondary outline" style="margin-top: 0.5rem;">Volver al Dashboard</a>
             </article>
@@ -65,14 +65,28 @@
             window.location.href = "dashboard.html";
         }
 
-        let currentIndex = 0;
         let selectedAnswers = [];
         let answered = false;
+
+        const answeredIds = quizData.answered_question_ids || [];
+        let currentIndex = quizData.questions.findIndex(q => !answeredIds.includes(q.question_id));
+        if (currentIndex === -1) {
+            document.getElementById("loadingState").style.display = "none";
+            document.getElementById("completedState").style.display = "";
+            document.getElementById("viewResultsBtn").href = `results.html?quizId=${quizData.quiz_id}`;
+        } else {
+            document.getElementById("loadingState").style.display = "none";
+            document.getElementById("quizState").style.display = "";
+            renderQuestion(currentIndex);
+        }
 
         function renderQuestion(index) {
             const q = quizData.questions[index];
             const isMultiple = q.type === 'multiple';
-            document.getElementById("quizTopic").textContent = quizData.topic;
+            const topicDisplay = quizData.quiz_type === "initial" 
+                ? "Diagnóstico Inicial" 
+                : quizData.topic;
+            document.getElementById("quizTopic").textContent = topicDisplay;
             document.getElementById("questionProgress").textContent = `${index + 1}/${quizData.questions.length}`;
             
             const typeLabel = isMultiple ? ' (Selección múltiple)' : '';
@@ -155,9 +169,14 @@
         document.getElementById("nextBtn").addEventListener("click", () => {
             currentIndex++;
             if (currentIndex >= quizData.questions.length) {
-                // Guardar quiz_id en localStorage y configurar el botón a la URL exacta
                 localStorage.setItem("last_quiz_id", quizData.quiz_id);
                 
+                const completionMessage = quizData.quiz_type === "initial"
+                    ? { title: "Diagnóstico Completado 🎉", text: "¡Diagnóstico completado! Ahora conocemos tu punto de partida." }
+                    : { title: "Simulado Completado 🎉", text: "Has respondido todas las preguntas exitosamente." };
+                document.getElementById("completedTitle").textContent = completionMessage.title;
+                document.getElementById("completedText").textContent = completionMessage.text;
+
                 document.getElementById("quizState").style.display = "none";
                 document.getElementById("completedState").style.display = "";
                 document.getElementById("viewResultsBtn").href = `results.html?quizId=${quizData.quiz_id}`;
@@ -165,10 +184,6 @@
                 renderQuestion(currentIndex);
             }
         });
-
-        document.getElementById("loadingState").style.display = "none";
-        document.getElementById("quizState").style.display = "";
-        renderQuestion(0);
     </script>
 </body>
 </html>
