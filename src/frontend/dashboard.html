@@ -73,6 +73,19 @@
         async function loadProfile() {
             try {
                 const data = await ensureStudentProfile();
+
+                if (!data.HasTakenInitialTest) {
+                    let quizData;
+                    if (data.InitialTestQuizID) {
+                        quizData = await getQuiz(data.InitialTestQuizID);
+                    } else {
+                        quizData = await generateInitialTest();
+                    }
+                    localStorage.setItem("active_quiz", JSON.stringify(quizData));
+                    window.location.href = "quiz.html";
+                    return;
+                }
+
                 document.getElementById("userName").innerText = data.Name || "Aluno";
                 document.getElementById("userEmail").innerText = data.Email;
                 document.getElementById("userCohort").innerText = data.CohortID || data.Cohort || "Sem turma";

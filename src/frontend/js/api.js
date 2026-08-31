@@ -62,6 +62,18 @@ async function getQuizResults(quizId) {
     return apiCall("GET", `/quizzes/${quizId}/results`);
 }
 
+async function generateInitialTest() {
+    return apiCall("POST", "/quizzes/generate", { quiz_type: "initial" });
+}
+
+async function completeQuiz(quizId) {
+    return apiCall("POST", `/quizzes/${quizId}/complete`, {});
+}
+
+async function getQuiz(quizId) {
+    return apiCall("GET", `/quizzes/${quizId}`);
+}
+
 // ========== AUTO-CREACIÓN DE PERFIL ==========
 
 async function ensureStudentProfile() {
