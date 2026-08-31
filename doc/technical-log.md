@@ -249,6 +249,39 @@ question_074, 077, 084, 087, 088, 090, 094, 098, 104
 
 ---
 
+### Prueba de Flujo de Usuario — 2026-08-31
+
+**Contexto**: Validación del flujo completo de usuario nuevo: registro → quiz inicial → cierre de sesión → retorno.
+
+**Escenario probado**: Usuario sin cohorte, verificación de persistencia de datos y retoma de quiz.
+
+**Pasos ejecutados**:
+1. Usuario creado en Cognito (`testflow02@gmail.com`)
+2. Primer login: auto-creación de perfil en DynamoDB (sin `CohortID`)
+3. Quiz inicial generado (20 preguntas)
+4. Usuario respondió parcialmente el quiz
+5. Cierre de navegador
+6. Segundo login: verificación de retoma
+
+**Resultado**: ✅ Flujo completo exitoso
+
+| Criterio | Estado | Notas |
+|----------|--------|-------|
+| Auto-creación de perfil | ✅ | `ensureStudentProfile()` crea perfil sin cohorte |
+| Quiz inicial generado | ✅ | 20 preguntas distribuidas por temas |
+| Retoma después de cierre | ✅ | `HasTakenInitialTest = false` → retoma quiz |
+| Dashboard sin cohorte | ✅ | Muestra "Sem turma" correctamente |
+| Persistencia de datos | ✅ | Perfil, quiz y respuestas persisten en DynamoDB |
+
+**Comportamiento verificado**:
+- **Primera entrada**: Login → auto-creación perfil → redirect a `quiz.html`
+- **Retorno después de cierre**: Login → `HasTakenInitialTest = false` → retoma quiz donde quedó
+- **Después de completar quiz**: Login → `HasTakenInitialTest = true` → muestra dashboard
+
+**Datos de prueba eliminados**: Cognito, DynamoDB (Students, Quizzes, QuizResults)
+
+---
+
 ## Acciones Correctivas Pendientes
 
 | Prioridad | Acción | Impacto Esperado |
