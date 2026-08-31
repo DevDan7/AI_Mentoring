@@ -6,6 +6,12 @@
 
 ## 2026-08
 
+### 30 Ago — Fix visualización de perfil y cohorte en dashboard
+- Corregido `ensureStudentProfile()` para retornar perfil completo después de crear
+- Corregido `dashboard.html` para leer `CohortID` en vez de `Cohort`
+- Bug: Email, StudentID y Cohort mostraban `undefined`/`Sem turma` para alumnos nuevos
+- PR #49
+
 ### 29 Ago — Gestión de cohortes
 - Nueva tabla DynamoDB `Cohorts` con `CohortID` como PK (PR #47)
 - GSI `CohortIndex` en tabla `Students` para buscar alumnos por cohorte
