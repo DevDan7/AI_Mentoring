@@ -217,6 +217,38 @@ question_074, 077, 084, 087, 088, 090, 094, 098, 104
 
 ---
 
+### Prueba de Cohortes — 2026-08-29/30
+
+**Contexto**: Validación end-to-end de la funcionalidad de cohortes después de implementar la tabla `Cohorts` y el enrollment vía URL.
+
+**Pasos ejecutados**:
+1. Cohorte `BRSAO236` creada vía CLI (`put-item`)
+2. Alumno registrado con link `?turma=BRSAO236`
+3. Verificación en DynamoDB: `CohortID` asignado correctamente
+
+**Resultado**: ✅ Funcional (con bugs detectados y corregidos)
+
+| Criterio | Estado | Notas |
+|----------|--------|-------|
+| Cohorte creada | ✅ | `get-item` retorna datos correctos |
+| URL capturada | ✅ | Session Storage tiene `pending_cohort_id` |
+| Alumno registrado | ✅ | Cognito tiene nuevo usuario |
+| CohortID asignado | ✅ | DynamoDB `Students` tiene `CohortID: BRSAO236` |
+| CohortIndex GSI | ✅ | Query por `CohortID` retorna el alumno |
+| Dashboard muestra turma | ✅ | Corregido (ver bug abaixo) |
+
+**Bug detectado**: Dashboard mostraba `undefined` en Email, ID do Estudante y `Sem turma` en Turma.
+
+**Causa raíz**:
+1. `ensureStudentProfile()` retornaba respuesta de `createStudentProfile()` (campos en minúsculas: `student_id`, `email`, `name`) en vez del perfil completo de DynamoDB (PascalCase: `StudentID`, `Email`, `Name`)
+2. Dashboard leía `data.Cohort` (string vacío) en vez de `data.CohortID` (valor real)
+
+**Fix aplicado**:
+- `api.js`: Después de crear perfil, llamar `getStudent()` para obtener datos completos
+- `dashboard.html`: Cambiar `data.Cohort` por `data.CohortID || data.Cohort`
+
+---
+
 ## Acciones Correctivas Pendientes
 
 | Prioridad | Acción | Impacto Esperado |
