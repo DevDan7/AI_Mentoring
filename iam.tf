@@ -142,6 +142,7 @@ resource "aws_iam_policy" "terraform_cicd_policy" {
           "iam:CreatePolicyVersion",
           "iam:DeletePolicy",
           "iam:ListOpenIDConnectProviders",
+          "iam:UpdateAssumeRolePolicy",
           "iam:GetOpenIDConnectProvider"
         ]
         Resource = "*"
@@ -258,7 +259,12 @@ resource "aws_iam_role" "amplify_role" {
       Effect = "Allow"
       Principal = {
         Service = "amplify.amazonaws.com"
-      },
+      }
+      Condition = {
+        ArnLikeIfExists = {
+          "aws:SourceArn" = "arn:aws:amplify:${var.aws_region}:${data.aws_caller_identity.current.account_id}:apps/*"
+        }
+      }
     }]
   })
 
