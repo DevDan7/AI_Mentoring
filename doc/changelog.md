@@ -4,6 +4,38 @@
 
 ---
 
+## 2026-09
+
+### 01 Sep — Fase 7c: Historial de quizzes + fixes críticos
+
+#### Features
+- Nuevo endpoint `GET /students/me/quizzes` para historial de simulados
+- Sección "Histórico de Simulados" en dashboard con tabla de resultados
+- Cálculo y almacenamiento de `ScorePercentage` al completar quizzes
+- IAM: permiso `Query` sobre tabla Quizzes para Lambda `student_api`
+
+#### Bugs corregidos
+- `QUIZZES_TABLE` faltante en variables de entorno de Lambda `student_api`
+- `Float` no soportado por DynamoDB → convertido a `Decimal`
+- `Decimal` no serializable por JSON → convertido a `float` en respuestas
+- Amplify IAM trust policy con `Condition` demasiado restrictiva → eliminada
+
+#### Archivos modificados
+- `src/quiz_engine.py`: score calculation + Decimal/Float handling
+- `src/student_api.py`: quiz history endpoint + Decimal/Float handling
+- `src/frontend/dashboard.html`: sección historial
+- `src/frontend/js/api.js`: función `getQuizHistory()`
+- `iam_student_api.tf`: permiso Quizzes
+- `iam.tf`: Amplify role trust policy
+- `api_gateway_routes.tf`: nueva ruta
+- `lambda_student_api.tf`: variable `QUIZZES_TABLE`
+
+#### PRs
+- #57: fix: convert score_percentage to Decimal for DynamoDB compatibility
+- #58: fix: remove SourceArn condition from Amplify IAM trust policy
+
+---
+
 ## 2026-08
 
 ### 30 Ago — Fix visualización de perfil y cohorte en dashboard
