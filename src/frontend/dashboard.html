@@ -61,6 +61,17 @@
                 </form>
             </article>
         </section>
+
+        <section id="historySection">
+            <article>
+                <header>
+                    <h4>Histórico de Simulados</h4>
+                </header>
+                <div id="historyContainer">
+                    <p>Carregando histórico...</p>
+                </div>
+            </article>
+        </section>
     </main>
 
     <script src="js/config.js"></script>
@@ -116,6 +127,40 @@
         });
 
         loadProfile();
+        loadHistory();
+
+        async function loadHistory() {
+            const container = document.getElementById("historyContainer");
+            try {
+                const data = await getQuizHistory();
+                const quizzes = data.quizzes || [];
+
+                if (quizzes.length === 0) {
+                    container.innerHTML = "<p>Nenhum simulado realizado ainda.</p>";
+                    return;
+                }
+
+                let html = "<table><thead><tr><th>Tipo</th><th>Tema</th><th>Status</th><th>Score</th><th>Data</th></tr></thead><tbody>";
+                for (const q of quizzes) {
+                    const typeLabels = {
+                        'initial': 'Diagnóstico',
+                        'free': 'Simulado Livre',
+                        'phase_1': 'Fase 1',
+                        'phase_2': 'Fase 2',
+                        'final_exam': 'Exame Final'
+                    };
+                    const type = typeLabels[q.quiz_type] || q.quiz_type;
+                    const score = q.score_percentage !== null ? `${q.score_percentage}%` : '-';
+                    const date = q.completed_at ? new Date(q.completed_at).toLocaleDateString('pt-BR') : '-';
+                    html += `<tr><td>${type}</td><td>${q.topic}</td><td>${q.status}</td><td>${score}</td><td>${date}</td></tr>`;
+                }
+                html += "</tbody></table>";
+                container.innerHTML = html;
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = "<p>Erro ao carregar histórico.</p>";
+            }
+        }
     </script>
 </body>
 </html>
