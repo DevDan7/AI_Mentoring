@@ -285,7 +285,7 @@ def complete_quiz(quiz_id, student_id):
         'message': 'Quiz completed',
         'quiz_id': quiz_id,
         'completed_at': completed_at,
-        'score_percentage': score_percentage
+        'score_percentage': float(score_percentage)
     })
 
 
