@@ -74,6 +74,10 @@ async function getQuiz(quizId) {
     return apiCall("GET", `/quizzes/${quizId}`);
 }
 
+async function getQuizHistory() {
+    return apiCall("GET", "/students/me/quizzes");
+}
+
 // ========== AUTO-CREACIÓN DE PERFIL ==========
 
 async function ensureStudentProfile() {
