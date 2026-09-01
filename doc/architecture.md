@@ -275,11 +275,29 @@ decreases account's UnreservedConcurrentExecution below its minimum value of [10
 
 ### Patrón recurrente: Huevo y Gallina en IAM
 
-**Problema**: El proyecto ha enfrentado **dos veces** el mismo problema de dependencia circular en permisos IAM durante la automatización CI/CD:
+**Problema**: El proyecto ha enfrentado **tres veces** el mismo problema de dependencia circular en permisos IAM durante la automatización CI/CD:
 
 1. **2026-08-24**: El rol `ai-mentoring-github-actions` no podía ejecutar `terraform apply` para crear `terraform-cicd-policy` porque esa política le daría permisos de escritura que no tenía aún.
 
 2. **2026-08-27**: Al agregar permisos `cloudfront:*` y `amplify:*` a `terraform-cicd-policy`, Terraform necesitaba `iam:CreatePolicyVersion` para actualizar el body de la política, pero ese permiso no existía en la política.
+
+3. **2026-09-01**: El rol `mentoring-amplify-role` empezó a fallar con
+   `Unable to assume specified IAM Role` durante builds de Amplify. La causa
+   NO fue el patrón del ARN en la condición `ArnLike` sobre `aws:SourceArn`
+   — fue que Amplify, en ciertos flujos (validación de la app antes de que
+   exista un branch o build job concreto), intenta asumir el rol sin enviar
+   la clave `aws:SourceArn` en absoluto. Una condición `ArnLike` estricta
+   exige que la clave esté presente para evaluar; si falta, la condición
+   falla y deniega el acceso.
+
+
+   Para aplicar el fix (cambiar `ArnLike` por `ArnLikeIfExists` en el trust
+   policy de `amplify_role`) apareció una **variante nueva** del mismo
+   problema de fondo: el rol `ai-mentoring-github-actions` no tenía el
+   permiso `iam:UpdateAssumeRolePolicy` — que es una acción DISTINTA de
+   `iam:UpdateRole` (esa solo cubre descripción/duración de sesión, no el
+   trust policy). Sin ese permiso puntual, ni siquiera GitHub Actions podía
+   aplicar el cambio.
 
 **Causa raíz**: Terraform gestiona políticas IAM como recursos. Para actualizar una política existente, necesita `iam:CreatePolicyVersion`. Pero si la política no tiene ese permiso, Terraform no puede modificarse a sí mismo.
 
@@ -299,6 +317,11 @@ Política IAM (sin CreatePolicyVersion)
 4. **Commit y push** para que GitHub Actions pueda ejecutar sin errores
 
 **Prevención**: Incluir `iam:CreatePolicyVersion` y `iam:DeletePolicy` en `terraform-cicd-policy` desde el inicio (agregados 2026-08-27).
+
+**Nota (2026-09-01)**: si el cambio de IAM es sobre un *trust policy*
+(`assume_role_policy`) en vez de una política de permisos regular, el
+permiso necesario en `terraform-cicd-policy` es específicamente
+`iam:UpdateAssumeRolePolicy` — no alcanza con `iam:UpdateRole`.
 
 ### Estado vs Objetivo
 
