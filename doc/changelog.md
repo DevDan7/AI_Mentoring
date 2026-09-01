@@ -6,6 +6,21 @@
 
 ## 2026-09
 
+### 01 Sep — Fix trust policy de Amplify (huevo-gallina IAM #3)
+- `iam.tf`: `amplify_role` — condición `ArnLike` reemplazada por
+  `ArnLikeIfExists` sobre `aws:SourceArn` (Amplify no siempre envía esa
+  clave; la condición estricta bloqueaba builds legítimos)
+- `iam.tf`: `terraform_cicd_policy` — agregado `iam:UpdateAssumeRolePolicy`
+  (permiso distinto de `iam:UpdateRole`, necesario para tocar trust
+  policies vía CI/CD)
+- Apply aplicado localmente (bootstrap manual, mismo patrón que las 2
+  ocurrencias anteriores del problema huevo-gallina), verificado con
+  `terraform plan` limpio en el PR antes de mergear
+- Build de Amplify verificado exitoso tras el fix
+- Deuda técnica anotada (sin resolver hoy): drift crónico en
+  `aws_amplify_app.frontend.repository` (mayúsculas/`.git`) y hash de
+  Lambdas que cambia en cada corrida de CI por timestamps de `git checkout`
+
 ### 01 Sep — Fase 7c: Historial de quizzes + fixes críticos
 
 #### Features
