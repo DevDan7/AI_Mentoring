@@ -3,11 +3,13 @@ import os
 import boto3
 from datetime import datetime, timezone
 from botocore.exceptions import ClientError
+from boto3.dynamodb.conditions import Key
 
 # Inicialización del cliente de DynamoDB
 dynamodb = boto3.resource('dynamodb')
 students_table = dynamodb.Table(os.environ['STUDENTS_TABLE'])
 cohorts_table = dynamodb.Table(os.environ['COHORTS_TABLE'])
+quizzes_table = dynamodb.Table(os.environ['QUIZZES_TABLE'])
 
 # Encabezados CORS estándar para permitir integración con el Frontend
 HEADERS = {
@@ -44,6 +46,8 @@ def lambda_handler(event, context):
     elif route_key == 'GET /students/{studentId}':
         student_id = path_params.get('studentId')
         return get_student(student_id)
+    elif route_key == 'GET /students/me/quizzes':
+        return get_quiz_history(claims)
     else:
         return build_response(404, {'message': f'Route not found: {route_key}'})
 
@@ -157,3 +161,31 @@ def update_student_by_claims(event, claims):
 
     result = students_table.update_item(**kwargs)
     return build_response(200, result['Attributes'])
+
+
+def get_quiz_history(claims):
+    """Retorna historial de quizzes del estudiante autenticado."""
+    student_id = claims.get('sub')
+    if not student_id:
+        return build_response(401, {'message': 'Unauthorized'})
+
+    response = quizzes_table.query(
+        IndexName='StudentIndex',
+        KeyConditionExpression=Key('StudentID').eq(student_id)
+    )
+    quizzes = response.get('Items', [])
+    quizzes.sort(key=lambda q: q.get('CreatedAt', ''), reverse=True)
+
+    history = []
+    for q in quizzes:
+        history.append({
+            'quiz_id': q['QuizID'],
+            'quiz_type': q.get('QuizType', 'free'),
+            'topic': q.get('Topic', ''),
+            'status': q.get('Status', ''),
+            'created_at': q.get('CreatedAt', ''),
+            'completed_at': q.get('CompletedAt', ''),
+            'score_percentage': q.get('ScorePercentage', None)
+        })
+
+    return build_response(200, {'quizzes': history})

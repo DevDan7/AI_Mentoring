@@ -26,7 +26,6 @@
                 <div class="grid">
                     <div><strong>E-mail:</strong> <span id="userEmail">-</span></div>
                     <div><strong>Turma:</strong> <span id="userCohort">-</span></div>
-                    <div><strong>ID do Estudante:</strong> <span id="studentId">-</span></div>
                 </div>
             </article>
         </section>
@@ -89,7 +88,6 @@
                 document.getElementById("userName").innerText = data.Name || "Aluno";
                 document.getElementById("userEmail").innerText = data.Email;
                 document.getElementById("userCohort").innerText = data.CohortID || data.Cohort || "Sem turma";
-                document.getElementById("studentId").innerText = data.StudentID;
             } catch (err) {
                 console.error(err);
                 document.getElementById("userName").innerText = "Erro ao carregar perfil";
