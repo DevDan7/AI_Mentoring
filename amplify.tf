@@ -2,8 +2,8 @@
 # AWS Amplify Hosting — Frontend Estático
 # =============================================================
 resource "aws_amplify_app" "frontend" {
-  name       = "${var.project_name}-frontend-${var.environment}"
-  repository = var.gh_repository
+  name                 = "${var.project_name}-frontend-${var.environment}"
+  repository           = var.gh_repository
   access_token         = var.github_access_token
   iam_service_role_arn = aws_iam_role.amplify_role.arn
 
