@@ -3,6 +3,7 @@ import uuid
 import os
 import boto3
 from datetime import datetime, timezone
+from decimal import Decimal
 from boto3.dynamodb.conditions import Key, Attr
 
 # Configuración de Entorno
@@ -255,7 +256,7 @@ def complete_quiz(quiz_id, student_id):
     total_questions = len(quiz.get('Questions', []))
     answered_questions = len(results)
     correct_answers = sum(1 for r in results if r.get('IsCorrect', False))
-    score_percentage = round((correct_answers / total_questions) * 100, 1) if total_questions > 0 else 0
+    score_percentage = Decimal(str(round((correct_answers / total_questions) * 100, 1))) if total_questions > 0 else Decimal('0')
 
     # Guardar status, fecha y score en el quiz
     quizzes_table.update_item(
