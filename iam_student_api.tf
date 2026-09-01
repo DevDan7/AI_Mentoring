@@ -56,6 +56,17 @@ resource "aws_iam_policy" "student_api_policy" {
         Resource = aws_dynamodb_table.cohorts.arn
       },
       {
+        Sid    = "AllowReadQuizzes"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:Query"
+        ]
+        Resource = [
+          aws_dynamodb_table.quizzes.arn,
+          "${aws_dynamodb_table.quizzes.arn}/index/*"
+        ]
+      },
+      {
         Sid    = "AllowLambdaLogs"
         Effect = "Allow"
         Action = [

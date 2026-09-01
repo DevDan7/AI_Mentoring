@@ -52,6 +52,14 @@ resource "aws_apigatewayv2_route" "students_get_by_id" {
   authorization_type = "JWT"
 }
 
+resource "aws_apigatewayv2_route" "students_me_quizzes_get" {
+  api_id             = aws_apigatewayv2_api.mentoring_api.id
+  route_key          = "GET /students/me/quizzes"
+  target             = "integrations/${aws_apigatewayv2_integration.student.id}"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+  authorization_type = "JWT"
+}
+
 # =============================================================================
 # Quiz Engine Routes
 # =============================================================================
