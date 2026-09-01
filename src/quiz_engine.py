@@ -234,7 +234,7 @@ def get_quiz(quiz_id, student_id):
 
 
 def complete_quiz(quiz_id, student_id):
-    """Marca un quiz como completado. Si es initial, actualiza el student."""
+    """Marca un quiz como completado, calcula score y actualiza student si es initial."""
     quiz_response = quizzes_table.get_item(Key={'QuizID': quiz_id})
     quiz = quiz_response.get('Item')
 
@@ -246,13 +246,26 @@ def complete_quiz(quiz_id, student_id):
 
     completed_at = datetime.now(timezone.utc).isoformat()
 
+    # Calcular score desde quiz_results
+    results_response = quiz_results_table.query(
+        IndexName='QuizIndex',
+        KeyConditionExpression=Key('QuizID').eq(quiz_id)
+    )
+    results = results_response.get('Items', [])
+    total_questions = len(quiz.get('Questions', []))
+    answered_questions = len(results)
+    correct_answers = sum(1 for r in results if r.get('IsCorrect', False))
+    score_percentage = round((correct_answers / total_questions) * 100, 1) if total_questions > 0 else 0
+
+    # Guardar status, fecha y score en el quiz
     quizzes_table.update_item(
         Key={'QuizID': quiz_id},
-        UpdateExpression='SET #s = :status, CompletedAt = :completed_at',
+        UpdateExpression='SET #s = :status, CompletedAt = :completed_at, ScorePercentage = :score',
         ExpressionAttributeNames={'#s': 'Status'},
         ExpressionAttributeValues={
             ':status': 'completed',
-            ':completed_at': completed_at
+            ':completed_at': completed_at,
+            ':score': score_percentage
         }
     )
 
@@ -270,7 +283,8 @@ def complete_quiz(quiz_id, student_id):
     return build_response(200, {
         'message': 'Quiz completed',
         'quiz_id': quiz_id,
-        'completed_at': completed_at
+        'completed_at': completed_at,
+        'score_percentage': score_percentage
     })
 
 
