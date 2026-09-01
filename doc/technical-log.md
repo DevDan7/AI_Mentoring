@@ -282,6 +282,60 @@ question_074, 077, 084, 087, 088, 090, 094, 098, 104
 
 ---
 
+## Fase 7c — Historial de Quizzes (2026-09-01)
+
+### Implementación
+
+| Componente | Archivo | Descripción |
+|------------|---------|-------------|
+| IAM | `iam_student_api.tf` | Permiso `dynamodb:Query` sobre tabla Quizzes |
+| Backend | `student_api.py` | Endpoint `GET /students/me/quizzes` |
+| API Gateway | `api_gateway_routes.tf` | Ruta JWT para historial |
+| Frontend | `api.js` + `dashboard.html` | Sección "Histórico de Simulados" con tabla |
+
+### Problemas Detectados y Solucionados
+
+#### Bug 1: Lambda `student_api` falla al iniciar
+- **Síntoma**: `GET /students/me` retorna 500, perfil no carga
+- **Causa**: `QUIZZES_TABLE` no estaba en variables de entorno de Lambda
+- **Solución**: Agregar `QUIZZES_TABLE = aws_dynamodb_table.quizzes.name` en `lambda_student_api.tf`
+- **Lección**: Variables de entorno nuevas deben agregarse en Terraform antes de usar en código
+
+#### Bug 2: Score no aparece en historial
+- **Síntoma**: Columna Score muestra `-` para todos los quizzes
+- **Causa**: `complete_quiz()` no calculaba ni guardaba `ScorePercentage`
+- **Solución**: Modificar `complete_quiz()` para calcular score desde `quiz_results` y guardarlo en el quiz
+
+#### Bug 3: `TypeError: Float types are not supported`
+- **Síntoma**: Internal Server Error al completar quiz
+- **Causa**: Python `round()` retorna `float`, DynamoDB solo acepta `Decimal`
+- **Solución**: `from decimal import Decimal` + `Decimal(str(round(...)))` 
+- **Ubicación**: `quiz_engine.py:259`
+
+#### Bug 4: `TypeError: Object of type Decimal is not JSON serializable`
+- **Síntoma**: Internal Server Error persiste después del fix anterior
+- **Causa**: `Decimal` es necesario para DynamoDB pero `json.dumps()` no lo serializa
+- **Solución**: Convertir a `float()` antes de retornar en respuesta JSON
+- **Ubicación**: `quiz_engine.py:288` + `student_api.py:188`
+
+#### Bug 5: Amplify build falla (Job #19)
+- **Síntoma**: `Unable to assume specified IAM Role`
+- **Causa**: `Condition` con `ArnLike` sobre `aws:SourceArn` demasiado restrictiva en trust policy de Amplify
+- **Solución**: Eliminar bloque `Condition` de `aws_iam_role.amplify_role`
+- **Ubicación**: `iam.tf:262-266`
+
+### Resultado del Test
+
+Sección "Histórico de Simulados" muestra correctamente:
+
+| Tipo | Tema | Status | Score | Fecha |
+|------|------|--------|-------|-------|
+| Simulado Livre | Cloud Concepts | completed | 66.7% | 01/09/2026 |
+| Simulado Livre | General / Otros | completed | 100% | 01/09/2026 |
+| Diagnóstico | initial | completed | 75.0% | 31/08/2026 |
+
+---
+
 ## Acciones Correctivas Pendientes
 
 | Prioridad | Acción | Impacto Esperado |
