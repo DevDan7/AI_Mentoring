@@ -258,12 +258,7 @@ resource "aws_iam_role" "amplify_role" {
       Effect = "Allow"
       Principal = {
         Service = "amplify.amazonaws.com"
-      }
-      Condition = {
-        ArnLike = {
-          "aws:SourceArn" = "arn:aws:amplify:${var.aws_region}:${data.aws_caller_identity.current.account_id}:apps/*"
-        }
-      }
+      },
     }]
   })
 
