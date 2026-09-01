@@ -185,7 +185,7 @@ def get_quiz_history(claims):
             'status': q.get('Status', ''),
             'created_at': q.get('CreatedAt', ''),
             'completed_at': q.get('CompletedAt', ''),
-            'score_percentage': q.get('ScorePercentage', None)
+            'score_percentage': float(q['ScorePercentage']) if q.get('ScorePercentage') is not None else None
         })
 
     return build_response(200, {'quizzes': history})
