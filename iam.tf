@@ -220,6 +220,7 @@ resource "aws_iam_policy" "quiz_engine_policy" {
         Sid    = "AllowUpdateStudentsInitialTest"
         Effect = "Allow"
         Action = [
+          "dynamodb:GetItem",
           "dynamodb:UpdateItem"
         ]
         Resource = aws_dynamodb_table.students.arn

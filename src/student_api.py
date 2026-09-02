@@ -1,7 +1,7 @@
 import json
 import os
 import boto3
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key
 
@@ -69,15 +69,33 @@ def create_student(event, claims):
         cohort_item = cohorts_table.get_item(Key={'CohortID': cohort_id})
         if 'Item' not in cohort_item:
             return build_response(400, {'message': f'Cohort not found: {cohort_id}'})
+        
+        # Validar cupo máximo de la turma
+        cohort = cohort_item['Item']
+        max_students = cohort.get('MaxStudents')
+        if max_students is not None:
+            # Contar alumnos actuales en la turma
+            count_response = students_table.query(
+                IndexName='CohortIndex',
+                KeyConditionExpression=Key('CohortID').eq(cohort_id),
+                Select='COUNT'
+            )
+            current_count = count_response.get('Count', 0)
+            if current_count >= max_students:
+                return build_response(403, {'message': f'Cohort is full: {current_count}/{max_students} students'})
 
     try:
+        # AccessExpiresAt = CreatedAt + 30 días por defecto
+        access_expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+        
         item = {
             'StudentID': student_id,
             'Email': email,
             'Name': name,
             'Cohort': data.get('cohort', ''),
             'CreatedAt': created_at,
-            'UpdatedAt': created_at
+            'UpdatedAt': created_at,
+            'AccessExpiresAt': access_expires_at
         }
         if cohort_id:
             item['CohortID'] = cohort_id
@@ -114,6 +132,13 @@ def get_student(student_id):
 
     if not student:
         return build_response(404, {'message': f'Student not found: {student_id}'})
+
+    # Verificar si el acceso expiró
+    access_expires_at = student.get('AccessExpiresAt')
+    if access_expires_at:
+        expires_dt = datetime.fromisoformat(access_expires_at.replace('Z', '+00:00'))
+        if datetime.now(timezone.utc) > expires_dt:
+            return build_response(403, {'message': 'Access expired. Contact your instructor to renew access.'})
 
     return build_response(200, student)
 
