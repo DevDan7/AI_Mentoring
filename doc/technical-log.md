@@ -336,6 +336,70 @@ Sección "Histórico de Simulados" muestra correctamente:
 
 ---
 
+## Bloque 1 — Protecciones Básicas (2026-09-01)
+
+### Implementación
+
+| Componente | Archivo | Descripción |
+|------------|---------|-------------|
+| Backend | `student_api.py` | Validación MaxStudents + AccessExpiresAt |
+| Backend | `quiz_engine.py` | Función `check_student_access()` + checks en generate/submit |
+| IAM | `iam.tf` | `dynamodb:GetItem` sobre Students para quiz_engine |
+
+### Cambios Detallados
+
+#### `student_api.py`
+- Importación de `timedelta` para cálculo de expiración
+- `create_student()`: Valida `MaxStudents` antes de insertar nuevo alumno
+  - Cuenta alumnos actuales por `CohortIndex`
+  - Si `current_count >= MaxStudents`, retorna 403
+- `create_student()`: Agrega `AccessExpiresAt` = `CreatedAt + 30 días`
+- `get_student()`: Verifica `AccessExpiresAt` antes de retornar perfil
+  - Si expiró, retorna 403 con mensaje de contacto al profesor
+
+#### `quiz_engine.py`
+- Nueva función `check_student_access(student_id)`:
+  - Obtiene `AccessExpiresAt` desde Students
+  - Si expiró, retorna dict con `'error'`
+- `generate_quiz()`: Llama `check_student_access()` antes de generar
+- `submit_answer()`: Llama `check_student_access()` antes de procesar
+
+#### `iam.tf`
+- `quiz_engine_policy`: Agregado `dynamodb:GetItem` sobre Students
+  - Necesario para `check_student_access()` en quiz_engine
+
+### Decisiones Técnicas
+
+#### MaxStudents — Sin bloqueo optimista
+- Dos registros simultáneos podrían pasar la validación
+- Aceptado para volumen actual (< 100 alumnos/turma)
+- Futura mejora: `ConditionExpression` con contador atómico
+
+#### AccessExpiresAt — 30 días por defecto
+- Renovación manual vía CLI por ahora
+- Futura interfaz de admin para profesor
+
+### Turma Real Creada
+
+| Campo | Valor |
+|-------|-------|
+| CohortID | `BRSAO251/G3` |
+| Name | `BRSAO 251 - Maio 2026 - Grupo 3` |
+| MaxStudents | 7 |
+| PeriodStart | 2026-09-01 |
+| PeriodEnd | 2026-09-29 |
+| Link | `https://main.d1jhem8rxt5h6t.amplifyapp.com/?turma=BRSAO251/G3` |
+
+### Pruebas Pendientes
+
+| # | Prueba | Estado |
+|---|--------|--------|
+| 1 | Alumno nuevo puede registrarse en turma | Pendiente |
+| 2 | 8vo alumno es rechazado (MaxStudents) | Pendiente |
+| 3 | Alumno con AccessExpiresAt vencido recibe 403 | Pendiente |
+
+---
+
 ## Acciones Correctivas Pendientes
 
 | Prioridad | Acción | Impacto Esperado |
