@@ -49,6 +49,25 @@
 - #57: fix: convert score_percentage to Decimal for DynamoDB compatibility
 - #58: fix: remove SourceArn condition from Amplify IAM trust policy
 
+### 01 Sep — Bloque 1: Protecciones básicas para Beta
+
+#### Features
+- Validación de `MaxStudents` en `create_student()` — rechaza si turma está llena
+- Campo `AccessExpiresAt` en Students (CreatedAt + 30 días por defecto)
+- Check de expiración en `get_student()`, `generate_quiz()` y `submit_answer()`
+- `iam.tf`: Agregado `dynamodb:GetItem` sobre Students para `quiz_engine`
+
+#### Archivos modificados
+- `src/student_api.py`: MaxStudents validation, AccessExpiresAt creation + check
+- `src/quiz_engine.py`: Función `check_student_access()`, checks en generate/submit
+- `iam.tf`: GetItem sobre Students en quiz_engine_policy
+
+#### Turma Real Creada
+- CohortID: `BRSAO251/G3`
+- MaxStudents: 7
+- Período: 01/09/2026 - 29/09/2026
+- Link: `https://main.d1jhem8rxt5h6t.amplifyapp.com/?turma=BRSAO251/G3`
+
 ---
 
 ## 2026-08
