@@ -445,15 +445,15 @@
             <h2 class="section-title">Estado Actual del Proyecto</h2>
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-value">39</div>
+                    <div class="stat-value">41</div>
                     <div class="stat-label">Días de desarrollo</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">34</div>
+                    <div class="stat-value">58</div>
                     <div class="stat-label">PRs mergeados</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">7</div>
+                    <div class="stat-value">8</div>
                     <div class="stat-label">Endpoints activos</div>
                 </div>
                 <div class="stat-card">
@@ -645,26 +645,82 @@
                         <td class="priority-high">Alta</td>
                         <td>4-6 horas</td>
                         <td>Ninguna</td>
-                        <td><span class="phase-badge badge-done">✅ Completada</span></td>
+                        <td><span class="phase-badge badge-done">✅ Completada (27 Ago)</span></td>
                     </tr>
                     <tr>
                         <td>2</td>
-                        <td><strong>Auto-registro de alumnos</strong><br><small>SignUp Cognito + trigger Sincronización DynamoDB</small></td>
+                        <td><strong>Auto-registro de alumnos</strong><br><small>SignUp Cognito + auto-creación de perfil DynamoDB</small></td>
                         <td class="priority-high">Alta</td>
                         <td>4-6 horas</td>
                         <td>Cognito, API Gateway</td>
-                        <td><span class="phase-badge badge-done">✅ Completada</span></td>
+                        <td><span class="phase-badge badge-done">✅ Completada (28 Ago)</span></td>
                     </tr>
                     <tr>
                         <td>3</td>
-                        <td><strong>Generador de Reportes</strong><br><small>report_generator.py — métricas por alumno y clase</small></td>
+                        <td><strong>Gestión de cohortes</strong><br><small>Tabla Cohorts, enrollment vía URL ?turma=</small></td>
+                        <td class="priority-high">Alta</td>
+                        <td>4-6 horas</td>
+                        <td>Students, API Gateway</td>
+                        <td><span class="phase-badge badge-done">✅ Completada (29 Ago)</span></td>
+                    </tr>
+                    <tr>
+                        <td>4</td>
+                        <td><strong>Historial de quizzes</strong><br><small>Endpoint GET /students/me/quizzes + ScorePercentage</small></td>
+                        <td class="priority-high">Alta</td>
+                        <td>3-4 horas</td>
+                        <td>Quizzes, Dashboard</td>
+                        <td><span class="phase-badge badge-done">✅ Completada (01 Sep)</span></td>
+                    </tr>
+                    <tr>
+                        <td>5</td>
+                        <td><strong>Fix trust policy Amplify</strong><br><small>ArnLike → ArnLikeIfExists + iam:UpdateAssumeRolePolicy</small></td>
+                        <td class="priority-high">Alta</td>
+                        <td>1 hora</td>
+                        <td>IAM</td>
+                        <td><span class="phase-badge badge-done">✅ Completada (01 Sep)</span></td>
+                    </tr>
+                    <tr>
+                        <td>6</td>
+                        <td><strong>Bloque 1: Protecciones básicas</strong><br><small>MaxStudents, AccessExpiresAt, GetItem IAM</small></td>
+                        <td class="priority-high">Alta</td>
+                        <td>2-3 horas</td>
+                        <td>Cohorts, Students</td>
+                        <td><span class="phase-badge badge-done">✅ Completada (01 Sep)</span></td>
+                    </tr>
+                    <tr>
+                        <td>7</td>
+                        <td><strong>Rol de Profesor (Fase 7b)</strong><br><small>teacher-dashboard, list_students, get_student_results</small></td>
+                        <td class="priority-high">Alta</td>
+                        <td>6-8 horas</td>
+                        <td>Students, API Gateway</td>
+                        <td><span class="phase-badge badge-progress">⏳ En progreso</span></td>
+                    </tr>
+                    <tr>
+                        <td>8</td>
+                        <td><strong>Sistema de Fases (Fase 7e)</strong><br><small>Diag(20q) → F1(20q,prof) → F2(20q,prof) → Final(65q) → Práctica</small></td>
+                        <td class="priority-high">Alta</td>
+                        <td>8-12 horas</td>
+                        <td>quiz_engine, teacher-dashboard</td>
+                        <td><span class="phase-badge badge-progress">⏳ En progreso</span></td>
+                    </tr>
+                    <tr>
+                        <td>9</td>
+                        <td><strong>Links externos (Fase 7d)</strong><br><small>Anki flashcards + próximos simulados de turma</small></td>
+                        <td class="priority-medium">Media</td>
+                        <td>2-3 horas</td>
+                        <td>Dashboard</td>
+                        <td><span class="phase-badge badge-future">Pendiente</span></td>
+                    </tr>
+                    <tr>
+                        <td>10</td>
+                        <td><strong>Generador de Reportes</strong><br><small>Métricas por alumno y clase con narrativa Bedrock</small></td>
                         <td class="priority-medium">Media</td>
                         <td>4-6 horas</td>
                         <td>QuizResults, Bedrock</td>
                         <td><span class="phase-badge badge-future">Pendiente</span></td>
                     </tr>
                     <tr>
-                        <td>4</td>
+                        <td>11</td>
                         <td><strong>Refactor: AWS Step Functions</strong><br><small>Orquestación asíncrona del pipeline (processor.py)</small></td>
                         <td class="priority-medium">Media</td>
                         <td>8-12 horas</td>
@@ -672,16 +728,8 @@
                         <td><span class="phase-badge badge-future">Pendiente</span></td>
                     </tr>
                     <tr>
-                        <td>5</td>
-                        <td><strong>Fix drift IAM</strong><br><small>Reflejar `aws_iam_role_policy_attachment` de ReadOnlyAccess en `iam.tf`</small></td>
-                        <td class="priority-medium">Media</td>
-                        <td>0.5 horas</td>
-                        <td>Ninguna</td>
-                        <td><span class="phase-badge badge-done">✅ Completada</span></td>
-                    </tr>
-                    <tr>
-                        <td>6</td>
-                        <td><strong>Cleanup: key_schema vs hash_key</strong><br><small>Evaluado (2026-08-24): mantenido deliberadamente — bugs activos del proveedor AWS</small></td>
+                        <td>12</td>
+                        <td><strong>Cleanup: key_schema vs hash_key</strong><br><small>Evaluado: mantenido — bugs activos del proveedor AWS</small></td>
                         <td class="priority-low">Baja</td>
                         <td>2-3 horas</td>
                         <td>Fix de upstream</td>
@@ -905,10 +953,20 @@
                     <div class="timeline-title">Auto-registro de Alumnos</div>
                     <div class="timeline-desc">Registro vía Cognito, confirmación por email, auto-creación de perfil en DynamoDB, traducción a PT-BR.</div>
                 </div>
+                <div class="timeline-item done">
+                    <div class="timeline-date">29 agosto 2026</div>
+                    <div class="timeline-title">Gestión de Cohortes</div>
+                    <div class="timeline-desc">Tabla Cohorts, enrollment vía URL ?turma=, reorganización de documentación en 4 archivos temáticos.</div>
+                </div>
+                <div class="timeline-item done">
+                    <div class="timeline-date">1 septiembre 2026</div>
+                    <div class="timeline-title">Historial de Quizzes + Protecciones</div>
+                    <div class="timeline-desc">Endpoint historial, ScorePercentage, MaxStudents, AccessExpiresAt, fix Amplify trust policy (huevo-gallina #3).</div>
+                </div>
                 <div class="timeline-item next">
-                    <div class="timeline-date">Próximas semanas</div>
-                    <div class="timeline-title">Generador de Reportes</div>
-                    <div class="timeline-desc">Generador de reportes (report_generator.py) — métricas por alumno y clase</div>
+                    <div class="timeline-date">Semana 1-7 Sep 2026</div>
+                    <div class="timeline-title">Beta — Turma Real (7 alumnos)</div>
+                    <div class="timeline-desc">Rol de Profesor, Sistema de Fases (Diag→F1→F2→Final→Práctica), Links externos, primer cohort activo.</div>
                 </div>
             </div>
         </section>

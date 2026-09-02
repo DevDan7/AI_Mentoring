@@ -1,0 +1,180 @@
+{
+  "total_items": 110,
+  "groups": 11,
+  "candidates_to_remove": 13,
+  "duplicates": [
+    {
+      "group": 1,
+      "count": 3,
+      "topic": "Cloud Concepts & Well-Architected",
+      "keep": {
+        "QuestionID": "0f5bdb5c0b9df0a1114423a6ce48261c",
+        "FileName": "question_031.png"
+      },
+      "remove": [
+        {
+          "QuestionID": "6eb26c2dee9dceb2fe95f36f95715a10",
+          "FileName": "question_001.png"
+        },
+        {
+          "QuestionID": "ec372cbc1bdd6bd21b348b53fa9e01d9",
+          "FileName": "Captura de pantalla_2026-08-22_12-45-07.png"
+        }
+      ]
+    },
+    {
+      "group": 2,
+      "count": 3,
+      "topic": "Cloud Concepts & Well-Architected",
+      "keep": {
+        "QuestionID": "a2f18d43986d3e241b8e39815f7d6b7e",
+        "FileName": "question_029.png"
+      },
+      "remove": [
+        {
+          "QuestionID": "037d6c3dd6963f947c0f4f9d0428943d",
+          "FileName": "question_085.png"
+        },
+        {
+          "QuestionID": "e5cb191532c7d095b58e3857ca6f146b",
+          "FileName": "question_006.png"
+        }
+      ]
+    },
+    {
+      "group": 3,
+      "count": 2,
+      "topic": "Compute & Containers",
+      "keep": {
+        "QuestionID": "340d382edacca102ca295bd867d6699a",
+        "FileName": "question_027.png"
+      },
+      "remove": [
+        {
+          "QuestionID": "8cc75c28b8f177eb230a36122179bb0d",
+          "FileName": "question_088.png"
+        }
+      ]
+    },
+    {
+      "group": 4,
+      "count": 2,
+      "topic": "Security, Identity & Compliance",
+      "keep": {
+        "QuestionID": "fe51ec1b0818d6b88290c370e4245973",
+        "FileName": "question_095.png"
+      },
+      "remove": [
+        {
+          "QuestionID": "a68291b259cfe25ed0002b180468a502",
+          "FileName": "question_094.png"
+        }
+      ]
+    },
+    {
+      "group": 5,
+      "count": 2,
+      "topic": "Cloud Concepts & Well-Architected",
+      "keep": {
+        "QuestionID": "fa09d3c82e459e0ae71cd5d8b1fddaa3",
+        "FileName": "question_034.png"
+      },
+      "remove": [
+        {
+          "QuestionID": "4d500624433e5406bbefce13a7982dac",
+          "FileName": "question_051.png"
+        }
+      ]
+    },
+    {
+      "group": 6,
+      "count": 2,
+      "topic": "Storage & Database",
+      "keep": {
+        "QuestionID": "278cd383f9002b71c08d95f3cf6261da",
+        "FileName": "question_068.png"
+      },
+      "remove": [
+        {
+          "QuestionID": "9a6a727132b32777d3f44a232981c0d5",
+          "FileName": "question_046.png"
+        }
+      ]
+    },
+    {
+      "group": 7,
+      "count": 2,
+      "topic": "Compute & Containers",
+      "keep": {
+        "QuestionID": "7ca15acda5a342cae5d95f7c1b7e79b6",
+        "FileName": "question_020.png"
+      },
+      "remove": [
+        {
+          "QuestionID": "dffef34199063d9019b89d5151b4df50",
+          "FileName": "question_090.png"
+        }
+      ]
+    },
+    {
+      "group": 8,
+      "count": 2,
+      "topic": "Cloud Concepts & Well-Architected",
+      "keep": {
+        "QuestionID": "bc5e5d89dc3bdb85d351a62c6f42cbd0",
+        "FileName": "question_084.png"
+      },
+      "remove": [
+        {
+          "QuestionID": "163e7dba68e2260d29f9b3bea544ae4d",
+          "FileName": "question_039.png"
+        }
+      ]
+    },
+    {
+      "group": 9,
+      "count": 2,
+      "topic": "Cloud Concepts & Well-Architected",
+      "keep": {
+        "QuestionID": "021638d8ed929ef9fd2ec20965a1bb6a",
+        "FileName": "question_102.png"
+      },
+      "remove": [
+        {
+          "QuestionID": "ba7e10be8a2a7e7a310c775076c00726",
+          "FileName": "question_061.png"
+        }
+      ]
+    },
+    {
+      "group": 10,
+      "count": 2,
+      "topic": "Cloud Concepts & Well-Architected",
+      "keep": {
+        "QuestionID": "541b303ce44a5289a98d0e8636565cef",
+        "FileName": "question_004.png"
+      },
+      "remove": [
+        {
+          "QuestionID": "123fce79683808e14f8be2ee04fddec9",
+          "FileName": "question_011.png"
+        }
+      ]
+    },
+    {
+      "group": 11,
+      "count": 2,
+      "topic": "Billing, Cost Management & Support",
+      "keep": {
+        "QuestionID": "113eebfcde5e67bcbba1d9297068e11b",
+        "FileName": "question_018.png"
+      },
+      "remove": [
+        {
+          "QuestionID": "e634f57df4954e8d681453dc0d0f3122",
+          "FileName": "question_091.png"
+        }
+      ]
+    }
+  ]
+}
