@@ -6,6 +6,21 @@
 
 ## 2026-09
 
+### 02 Sep — Deduplicación por contenido + limpieza de duplicados
+- Auditoría directa sobre tabla `MentoringQuestions` (`scripts/detectar_duplicados_contenido.py`):
+  comparación por contenido (`QuestionText` normalizado: minúsculas, sin acentos,
+  sin puntuación) → criterio "solo idénticas exactas"
+- Resultado: 110 ítems, 11 grupos duplicados, 13 candidatos a eliminar, 97 únicos
+- Verificado que la deduplicación por eTag (archivo) no detecta duplicados de contenido:
+  misma pregunta en fotos distintas entraba por separado
+- Limpieza aplicada (`scripts/limpiar_duplicados_contenido.py --apply`): 13 eliminados, 0 errores
+- Backups previos: `scripts/backup_pre_limpieza_20260902_130900.json` (110 ítems)
+- Validación final: 97 ítems, 0 grupos duplicados por contenido
+- Nota: 2 de los 13 eliminados estaban referenciados en quizzes de un alumno de TEST
+  (a eliminar); por decisión se limpiaron igualmente
+- Pendiente (Fase 3): deduplicación preventiva por contenido en `processor.py` (hash
+  del enunciado de Bedrock) para que las próximas fotos no reintroduzcan duplicados
+
 ### 01 Sep — Fix trust policy de Amplify (huevo-gallina IAM #3)
 - `iam.tf`: `amplify_role` — condición `ArnLike` reemplazada por
   `ArnLikeIfExists` sobre `aws:SourceArn` (Amplify no siempre envía esa
