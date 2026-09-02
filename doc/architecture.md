@@ -104,6 +104,7 @@ S3 (foto examen) → S3 Event → SNS (notificaciones + email)
 | GET | `/students/me` | student_api | Obtener perfil propio |
 | PUT | `/students/me` | student_api | Actualizar perfil propio |
 | GET | `/students/{studentId}` | student_api | Obtener alumno por ID |
+| GET | `/students/me/quizzes` | student_api | Historial de simulados |
 | POST | `/quizzes/generate` | quiz_engine | Generar simulado |
 | POST | `/quizzes/submit` | quiz_engine | Registrar respuesta |
 | GET | `/quizzes/{quizId}/results` | quiz_engine | Obtener resultados |
@@ -129,7 +130,7 @@ S3 (foto examen) → S3 Event → SNS (notificaciones + email)
 |-----|-----------|----------|
 | `mentoring-lambda-processor` | Ejecutar `processor.py` | Rekognition, Bedrock, DynamoDB, SNS, SQS, CloudWatch |
 | `mentoring-lambda-student-api` | Ejecutar `student_api.py` | DynamoDB (Students, Cohorts), Cognito GetUser |
-| `mentoring-lambda-quiz-engine` | Ejecutar `quiz_engine.py` | DynamoDB (todas las tablas), Cognito GetUser |
+| `mentoring-lambda-quiz-engine` | Ejecutar `quiz_engine.py` | DynamoDB (todas las tablas + GetItem sobre Students), Cognito GetUser |
 | `ai-mentoring-github-actions` | CI/CD con OIDC | `ReadOnlyAccess` + `terraform-cicd-policy` |
 | `mentoring-amplify-role` | Amplify Hosting | Logs (CloudWatch) |
 
@@ -156,12 +157,15 @@ QuestionID (PK)    | Topic | QuestionText | QuestionType | CorrectCount | Option
 ### Students
 
 ```
-StudentID (PK) | Email | Name | CreatedAt | SessionExpiresAt | CohortID | TopicsWeak[] | TotalQuizzes | AvgScore
+StudentID (PK) | Email | Name | CreatedAt | UpdatedAt | AccessExpiresAt | CohortID | Role | CurrentPhase | InitialTestQuizID | HasTakenInitialTest
 ```
 
 - **GSI EmailIndex**: Permite buscar por email
 - **GSI CohortIndex**: Permite buscar alumnos por cohorte
 - **CohortID**: Referencia a tabla `Cohorts` (enrollment vía URL `?turma=<id>`)
+- **AccessExpiresAt**: Fecha de expiración del acceso (CreatedAt + 30 días por defecto)
+- **Role**: `"student"` por defecto; `"teacher"` para profesores (asignado vía CLI)
+- **CurrentPhase**: Fase actual del alumno (`initial`, `phase_1`, `phase_2`, `final_exam`, `free_practice`)
 
 ### Quizzes
 
@@ -184,12 +188,14 @@ ResultID (PK) | QuizID | StudentID | QuestionID | GivenAnswer | IsCorrect | Time
 ### Cohorts
 
 ```
-CohortID (PK) | Name | CreatedAt | MaxStudents | Active
+CohortID (PK) | Name | CreatedAt | MaxStudents | Active | PeriodStart | PeriodEnd
 ```
 
 - **Propósito**: Gestión de cohortes para mentoría grupal
 - **Enrollment**: Estudiantes se unen vía URL con parámetro `?turma=<cohort_id>`
 - **Validación**: `student_api.py` verifica existencia de cohorte antes de crear/actualizar perfil
+- **MaxStudents**: Límite de alumnos por turma (validado en `create_student()`)
+- **Validación de cupo**: `student_api.py` cuenta alumnos actuales por CohortIndex y rechaza si llega al tope
 
 ---
 
@@ -352,9 +358,14 @@ El objetivo del proyecto tiene 3 piezas:
 | 5 | ~~Migración Frontend a Amplify~~ | ✅ Hecho (2026-08-27) |
 | 6 | ~~Auto-registro de alumnos~~ | ✅ Hecho (2026-08-28) |
 | 7 | ~~Gestión de cohortes~~ | ✅ Hecho (2026-08-29) |
-| 8 | Refactor: AWS Step Functions para orquestación asíncrona | ⏳ Pendiente |
-| 9 | Cleanup: avisos de depreciación (`key_schema` vs `hash_key`) | ⏳ Evaluado, mantenido (bug del proveedor AWS) |
-| 10 | Generación automatizada de relatorios | ⏳ Pendiente |
+| 7b | Rol de Profesor (teacher dashboard) | ⏳ En progreso |
+| 7c | ~~Historial de quizzes~~ | ✅ Hecho (2026-09-01) |
+| 7d | Links externos (Anki, próximos simulados) | ⏳ Pendiente |
+| 7e | Sistema de Fases (Phase 1 → Phase 2 → Final Exam) | ⏳ En progreso |
+| 11 | ~~Bloque 1: Protecciones básicas~~ | ✅ Hecho (2026-09-01) |
+| 12 | Refactor: AWS Step Functions para orquestación asíncrona | ⏳ Pendiente |
+| 13 | Cleanup: avisos de depreciación (`key_schema` vs `hash_key`) | ⏳ Evaluado, mantenido (bug del proveedor AWS) |
+| 14 | Generación automatizada de relatorios | ⏳ Pendiente |
 
 ---
 
@@ -386,6 +397,28 @@ Terraform solo declara atributos que son PK, SK o están en un GSI. Los demás c
 - Valores sensibles (email, tokens) en `terraform.tfvars` (excluido de git)
 - `notification_email` marcada como `sensitive = true` en `variables.tf`
 - Configuración no sensible puede tener `default` en `variables.tf`
+
+### Validación de Cupo en Cohorts
+
+**Problema**: Sin límite, una turma podía aceptar alumnos ilimitados.
+
+**Solución**: 
+- Campo `MaxStudents` en Cohorts (creado dinámicamente)
+- `create_student()` cuenta alumnos actuales por `CohortIndex` antes de insertar
+- Si `current_count >= MaxStudents`, retorna 403
+
+**Limitación**: Sin bloqueo optimista, dos registros simultáneos podrían pasar. Aceptado para volumen actual (< 100 alumnos/turma).
+
+### Control de Acceso Temporal
+
+**Problema**: Alumnos podían acceder indefinidamente después de finalizar el período de mentoria.
+
+**Solución**:
+- Campo `AccessExpiresAt` en Students (= CreatedAt + 30 días por defecto)
+- `get_student()` y `quiz_engine.py` verifican la fecha antes de servir
+- Si expiró, retornan 403 con mensaje de contacto al profesor
+
+**Renovación**: Profesor debe actualizar `AccessExpiresAt` manualmente vía CLI o futura interfaz admin.
 
 ---
 

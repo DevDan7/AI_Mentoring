@@ -16,9 +16,9 @@ Event-driven serverless platform that converts photos of exam questions into a s
 - **S3** — Bucket `daniel-mentoring-exam-photos-edn-dev` receives incoming photos. Frontend bucket `ai-mentoring-frontend-*` for static hosting.
 - **SNS** — Email notifications (`notification_email`) on new photos; SQS subscription for pipeline ingestion. Access policy restricted by `SourceArn`.
 - **SQS** — Decouples ingestion from processing; DLQ with `maxReceiveCount=4`. ESM `maximum_concurrency=3` for Bedrock rate-limit protection.
-- **Lambda** — 3 handlers: `processor.py` (OCR pipeline, 256 MB, 30s, botocore adaptive retry), `student_api.py` (student CRUD, Cognito JWT validation, API Gateway v2.0), `quiz_engine.py` (quiz generation, answer submission, results).
+- **Lambda** — 3 handlers: `processor.py` (OCR pipeline, 256 MB, 30s, botocore adaptive retry), `student_api.py` (student CRUD, Cognito JWT validation, API Gateway v2.0, MaxStudents validation, AccessExpiresAt check), `quiz_engine.py` (quiz generation, answer submission, results, AccessExpiresAt check).
 - **Bedrock** — Claude Haiku 4.5 structures response as JSON. Canonical taxonomy enforced via `CANONICAL_TOPICS` (10 categories).
-- **DynamoDB** — 4 tables: `MentoringQuestions` (QuestionID PK, TopicIndex GSI), `Students` (StudentID PK, EmailIndex GSI), `Quizzes` (QuizID PK, StudentIndex GSI), `QuizResults` (ResultID PK, QuizIndex + StudentIndex GSIs). All `PAY_PER_REQUEST`.
+- **DynamoDB** — 4 tables: `MentoringQuestions` (QuestionID PK, TopicIndex GSI), `Students` (StudentID PK, EmailIndex GSI, CohortIndex GSI), `Quizzes` (QuizID PK, StudentIndex GSI), `QuizResults` (ResultID PK, QuizIndex + StudentIndex GSIs). All `PAY_PER_REQUEST`. New fields: `AccessExpiresAt`, `Role`, `CurrentPhase`.
 - **API Gateway** — HTTP API with JWT Authorizer (Cognito), 7 routes, throttling 50 rps / burst 100.
 - **Cognito** — User Pool + App Client for student authentication (SRP, refresh tokens).
 - **CloudFront** — CDN with OAC, HTTPS redirect, S3 origin.
@@ -35,11 +35,16 @@ Event-driven serverless platform that converts photos of exam questions into a s
 
 1. ✅ Data model for students and mock exam results (3 DynamoDB tables created 2026-08-18).
 2. ✅ Lambda/endpoint to log student answers (`student_api.py`, `quiz_engine.py` created 2026-08-21).
-3. CI/CD with `terraform apply` on main (GitHub Environments with required reviewers).
-4. Migrate frontend to AWS Amplify.
-5. Auto-registration via Cognito + DynamoDB sync.
-6. Refactor to AWS Step Functions for async orchestration.
-7. Resolve duplicate handling; evaluate remote backend (S3 + DynamoDB lock).
+3. ✅ CI/CD with `terraform apply` on main (GitHub Environments with required reviewers).
+4. ✅ Migrate frontend to AWS Amplify (2026-08-27).
+5. ✅ Auto-registration via Cognito + DynamoDB sync (2026-08-28).
+6. ✅ Cohort management with MaxStudents validation (2026-09-01).
+7. ✅ Access control with AccessExpiresAt (2026-09-01).
+8. ✅ Quiz history for students (2026-09-01).
+9. Teacher role + teacher dashboard (Fase 7b, in progress).
+10. Phase system (Phase 1 → Phase 2 → Final Exam) (Fase 7e, in progress).
+11. External resources (Anki, upcoming quizzes) (Fase 7d, pending).
+12. Refactor to AWS Step Functions for async orchestration (pending).
 
 ## Sources
 
