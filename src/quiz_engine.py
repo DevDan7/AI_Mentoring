@@ -80,6 +80,23 @@ def build_response(status_code, body):
     }
 
 
+def check_student_access(student_id):
+    """Verifica si el estudiante tiene acceso vigente. Retorna error 403 si expiró."""
+    student_response = students_table.get_item(Key={'StudentID': student_id})
+    student = student_response.get('Item')
+    
+    if not student:
+        return {'error': 'Student not found'}
+    
+    access_expires_at = student.get('AccessExpiresAt')
+    if access_expires_at:
+        expires_dt = datetime.fromisoformat(access_expires_at.replace('Z', '+00:00'))
+        if datetime.now(timezone.utc) > expires_dt:
+            return {'error': 'Access expired. Contact your instructor to renew access.'}
+    
+    return None
+
+
 def clean_question(q):
     """Limpia una pregunta de DynamoDB ocultando is_correct y explanation."""
     raw_options = q.get('Options', {})
@@ -99,6 +116,11 @@ def clean_question(q):
 
 
 def generate_quiz(student_id, body):
+    # Verificar acceso del estudiante
+    access_error = check_student_access(student_id)
+    if access_error:
+        return build_response(403, access_error)
+    
     quiz_type = body.get('quiz_type', 'free')
 
     if quiz_type == 'initial':
@@ -293,6 +315,11 @@ def submit_answer(student_id, body):
     """Verifica la respuesta soportando single y multiple choice.
     given_answers es una lista de letras (ej: ["A"] o ["A", "C"]).
     La calificación es correcta solo si el set de respuestas coincide exactamente con las opciones correctas."""
+    # Verificar acceso del estudiante
+    access_error = check_student_access(student_id)
+    if access_error:
+        return build_response(403, access_error)
+    
     quiz_id = body.get('quiz_id')
     question_id = body.get('question_id')
     given_answers = body.get('given_answers', [])
