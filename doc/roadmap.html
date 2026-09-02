@@ -783,9 +783,9 @@
                         </div>
                     </div>
                     <div class="infra-details">
-                        <strong>processor.py:</strong> OCR + Bedrock (256 MB)<br>
-                        <strong>quiz_engine.py:</strong> Simulados (128 MB)<br>
-                        <strong>student_api.py:</strong> CRUD alumnos (128 MB)
+                        <strong>processor.py:</strong> OCR + Bedrock (256 MB, 30s)<br>
+                        <strong>quiz_engine.py:</strong> Simulados (256 MB, 30s)<br>
+                        <strong>student_api.py:</strong> CRUD alumnos (256 MB, 30s)
                     </div>
                 </div>
 
@@ -793,15 +793,16 @@
                     <div class="infra-card-header">
                         <span class="infra-icon">🗄️</span>
                         <div>
-                            <div class="infra-name">DynamoDB</div>
-                            <span class="infra-status badge-done">4 Tablas</span>
+                            <div class="infra-name">DynamoDB (5)</div>
+                            <span class="infra-status badge-done">5 Tablas</span>
                         </div>
                     </div>
                     <div class="infra-details">
-                        <strong>MentoringQuestions:</strong> 109 items<br>
-                        <strong>Students:</strong> Perfiles de alumnos<br>
+                        <strong>MentoringQuestions:</strong> ~300+ items (en progreso)<br>
+                        <strong>Students:</strong> Perfiles + AccessExpiresAt + Role<br>
                         <strong>Quizzes:</strong> Simulados generados<br>
-                        <strong>QuizResults:</strong> Respuestas y métricas
+                        <strong>QuizResults:</strong> Respuestas y métricas<br>
+                        <strong>Cohorts:</strong> Turmas con MaxStudents
                     </div>
                 </div>
 
@@ -977,26 +978,26 @@
             
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-value">22.5-33.5h</div>
+                    <div class="stat-value">20-30h</div>
                     <div class="stat-label">Tiempo total restante</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">8-12h</div>
-                    <div class="stat-label">Amplify + Auto-registro</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">4-6h</div>
-                    <div class="stat-label">Generador de Reportes</div>
+                    <div class="stat-value">6-8h</div>
+                    <div class="stat-label">Rol de Profesor (7b)</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value">8-12h</div>
-                    <div class="stat-label">Step Functions</div>
+                    <div class="stat-label">Sistema de Fases (7e)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">6-10h</div>
+                    <div class="stat-label">Links + Reportes</div>
                 </div>
             </div>
         </section>
 
         <footer style="text-align: center; padding: 40px 0; color: #64748b; font-size: 0.9rem;">
-            <p>AI Mentoring — Roadmap actualizado el 28 de agosto de 2026</p>
+            <p>AI Mentoring — Roadmap actualizado el 1 de septiembre de 2026</p>
             <p>Plataforma serverless para mentorías de certificación AWS</p>
         </footer>
     </div>
