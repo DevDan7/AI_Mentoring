@@ -4,6 +4,7 @@ Usa unicamente la stdlib (unittest.mock), sin dependencias adicionales.
 No ejecuta llamadas reales a AWS: todos los clientes Boto3 se mockean.
 """
 import base64
+import hashlib
 import json
 import unittest
 from unittest import mock
@@ -11,7 +12,9 @@ from unittest import mock
 import processor
 
 
-def make_event(key="pregunta.png"):
+def make_event(key="pregunta.png", etag=None):
+    if etag is None:
+        etag = hashlib.sha256(key.encode()).hexdigest()[:16]
     return {
         "Records": [
             {
@@ -21,7 +24,7 @@ def make_event(key="pregunta.png"):
                             {
                                 "s3": {
                                     "bucket": {"name": "fotos"},
-                                    "object": {"key": key, "eTag": "abc123"},
+                                    "object": {"key": key, "eTag": etag},
                                 }
                             }
                         ]
@@ -77,7 +80,7 @@ class TestProcessorMultimodal(unittest.TestCase):
         table = mock.MagicMock()
         dynamodb.Table.return_value = table
 
-        result = processor.lambda_handler(make_event("pregunta.png"), None)
+        result = processor.lambda_handler(make_event("pregunta.png", etag="abc123"), None)
 
         self.assertEqual(result["statusCode"], 200)
         # No debe usarse Rekognition
@@ -103,9 +106,10 @@ class TestProcessorMultimodal(unittest.TestCase):
         self.assertEqual(item["Topic"], "Compute & Containers")
         self.assertEqual(item["QuestionText"], "Which AWS service runs containers?")
         self.assertEqual(item["CorrectCount"], 1)
+        self.assertIn("ContentHash", item)
         self.assertEqual(
             table.put_item.call_args.kwargs.get("ConditionExpression"),
-            "attribute_not_exists(QuestionID)",
+            "attribute_not_exists(QuestionID) AND attribute_not_exists(ContentHash)",
         )
 
     @mock.patch("processor.dynamodb")
@@ -169,6 +173,75 @@ class TestProcessorMultimodal(unittest.TestCase):
 
         item = table.put_item.call_args.kwargs["Item"]
         self.assertEqual(item["Topic"], "General / Otros Servicios")
+
+    def test_content_hash_estable_para_mismo_texto(self):
+        h1 = processor.content_hash("Which AWS service runs containers?")
+        h2 = processor.content_hash("Which AWS service runs containers?")
+        self.assertEqual(h1, h2)
+        self.assertEqual(len(h1), 64)  # sha256 hexdigest
+
+    def test_content_hash_ignora_mayusculas_acentos_y_puntuacion(self):
+        h1 = processor.content_hash("Cuál servicio ejecuta contenedores?")
+        h2 = processor.content_hash("Cual servicio ejecuta contenedores")
+        self.assertEqual(h1, h2)
+
+    @mock.patch("processor.SNS_TOPIC_ARN", "arn:aws:sns:us-east-1:123:topic")
+    @mock.patch("processor.sns_client")
+    @mock.patch("processor.dynamodb")
+    @mock.patch("processor.bedrock_runtime")
+    @mock.patch("processor.s3_client")
+    def test_imagen_no_procesable_publica_sns(
+        self, s3_client, bedrock_runtime, dynamodb, sns_client
+    ):
+        s3_client.get_object.return_value = {"Body": FakeBody(b"pngdata")}
+        bedrock_runtime.invoke_model.return_value = make_bedrock_response("no es json")
+        dynamodb.Table.return_value = mock.MagicMock()
+
+        result = processor.lambda_handler(make_event("pregunta.png"), None)
+
+        self.assertEqual(result["statusCode"], 200)
+        sns_client.publish.assert_called_once()
+        kwargs = sns_client.publish.call_args.kwargs
+        self.assertEqual(kwargs["TopicArn"], "arn:aws:sns:us-east-1:123:topic")
+        self.assertIn("pregunta.png", kwargs["Message"])
+
+    @mock.patch("processor.SNS_TOPIC_ARN", "")
+    @mock.patch("processor.sns_client")
+    @mock.patch("processor.dynamodb")
+    @mock.patch("processor.bedrock_runtime")
+    @mock.patch("processor.s3_client")
+    def test_sin_sns_topic_arn_no_publica(
+        self, s3_client, bedrock_runtime, dynamodb, sns_client
+    ):
+        s3_client.get_object.return_value = {"Body": FakeBody(b"pngdata")}
+        bedrock_runtime.invoke_model.return_value = make_bedrock_response("no es json")
+        dynamodb.Table.return_value = mock.MagicMock()
+
+        processor.lambda_handler(make_event("pregunta.png"), None)
+
+        sns_client.publish.assert_not_called()
+
+    @mock.patch("processor.dynamodb")
+    @mock.patch("processor.bedrock_runtime")
+    @mock.patch("processor.s3_client")
+    def test_mismo_contenido_da_mismo_content_hash(
+        self, s3_client, bedrock_runtime, dynamodb
+    ):
+        s3_client.get_object.return_value = {"Body": FakeBody(b"pngdata")}
+        bedrock_runtime.invoke_model.return_value = make_bedrock_response(make_valid_json())
+        table = mock.MagicMock()
+        dynamodb.Table.return_value = table
+
+        processor.lambda_handler(make_event("foto1.png"), None)
+        first_item = table.put_item.call_args.kwargs["Item"]
+
+        table.put_item.reset_mock()
+        processor.lambda_handler(make_event("foto2.png"), None)
+        second_item = table.put_item.call_args.kwargs["Item"]
+
+        # Distinto archivo => distinto QuestionID, pero mismo ContentHash (misma pregunta)
+        self.assertNotEqual(first_item["QuestionID"], second_item["QuestionID"])
+        self.assertEqual(first_item["ContentHash"], second_item["ContentHash"])
 
 
 if __name__ == "__main__":

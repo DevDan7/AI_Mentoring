@@ -1,6 +1,9 @@
 import base64
+import hashlib
 import json
 import os
+import re
+import unicodedata
 import urllib.parse
 import uuid
 from datetime import datetime
@@ -10,6 +13,7 @@ from botocore.config import Config
 from botocore.exceptions import ClientError
 
 TABLE_NAME = os.environ.get("TABLE_NAME", "MentoringQuestions")
+SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN", "")
 
 # Taxonomía canónica de categorías (debe coincidir con dashboard.html <select> y mapa_temas.json)
 CANONICAL_TOPICS = [
@@ -35,6 +39,36 @@ bedrock_config = Config(
 )
 bedrock_runtime = boto3.client('bedrock-runtime', config=bedrock_config)
 dynamodb = boto3.resource("dynamodb")
+sns_client = boto3.client("sns")
+
+
+def content_hash(text):
+    """Huella digital del enunciado normalizado para deduplicar por contenido.
+
+    Mismo enunciado (ignorando mayúsculas, tildes, espacios y puntuación) => mismo hash.
+    """
+    normalized = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    normalized = re.sub(r"[^a-z0-9]", "", normalized.lower())
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def notify_unprocessable(file_key, bucket_name, reason):
+    """Publica una alerta SNS cuando una imagen no se pudo procesar."""
+    if not SNS_TOPIC_ARN:
+        print(f"Sin SNS_TOPIC_ARN configurado, omitiendo notificación para: {file_key}")
+        return
+    try:
+        sns_client.publish(
+            TopicArn=SNS_TOPIC_ARN,
+            Subject="Imagen no procesable - AI Mentoring",
+            Message=(
+                f"La imagen '{file_key}' (bucket '{bucket_name}') no se pudo procesar. "
+                f"Motivo: {reason}. Revisión manual requerida."
+            ),
+        )
+        print(f"Notificación SNS enviada para: {file_key}")
+    except ClientError as e:
+        print(f"Error al notificar por SNS: {e}")
 
 
 def lambda_handler(event, context):
@@ -167,12 +201,16 @@ Do not include any text outside the JSON. Do not use markdown or code blocks.
             try:
                 ai_data = json.loads(clean_json)
             except ValueError:
-                print(f"No se pudo analizar la respuesta para: {file_key}")
+                notify_unprocessable(file_key, bucket_name, "respuesta no JSON válida")
                 continue
 
             # Validación de contenido utilizable: sin enunciado o sin opciones => descartar
             if not ai_data.get("question_text") or not ai_data.get("options"):
-                print(f"Imagen no procesable (sin pregunta/opciones válidas): {file_key}")
+                notify_unprocessable(
+                    file_key,
+                    bucket_name,
+                    "sin pregunta/opciones válidas en la respuesta",
+                )
                 continue
             # -------------------------------
 
@@ -197,14 +235,20 @@ Do not include any text outside the JSON. Do not use markdown or code blocks.
                         "QuestionType": ai_data["question_type"],
                         "CorrectCount": int(ai_data["correct_count"]),
                         "Options": ai_data["options"],
+                        "ContentHash": content_hash(ai_data["question_text"]),
                         "CreatedAt": datetime.now().isoformat(),
                     },
-                    ConditionExpression="attribute_not_exists(QuestionID)",
+                    ConditionExpression=(
+                        "attribute_not_exists(QuestionID) AND "
+                        "attribute_not_exists(ContentHash)"
+                    ),
                 )
                 print(f"Éxito total para: {file_key}")
             except ClientError as e:
                 if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-                    print(f"Duplicado detectado, omitiendo: {file_key}")
+                    print(
+                        f"Duplicado detectado (mismo archivo o mismo contenido), omitiendo: {file_key}"
+                    )
                     continue
                 raise
 
