@@ -396,7 +396,7 @@ Sección "Histórico de Simulados" muestra correctamente:
 |---|--------|--------|-------|
 | 1 | Alumno nuevo puede registrarse en turma | ✅ Completada | Registro exitoso con `?turma=BRSAO251/G3` |
 | 2 | Alumno es rechazado cuando turma está llena | ✅ Completada | Mensaje "Turma lotada" funciona correctamente |
-| 3 | Alumno con AccessExpiresAt vencido recibe 403 | ❌ Pendiente | Prueba pendiente |
+| 3 | Alumno con AccessExpiresAt vencido recibe 403 | ✅ Completada | Todos los endpoints retornan 403 correctamente |
 
 #### Bugs Encontrados y Corregidos
 
