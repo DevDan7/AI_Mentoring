@@ -56,6 +56,14 @@ resource "aws_iam_policy" "lambda_policy" {
         Resource = aws_dynamodb_table.mentoring_questions_table.arn
       },
       {
+        Sid    = "AllowPublishNotifications"
+        Effect = "Allow"
+        Action = [
+          "sns:Publish"
+        ]
+        Resource = aws_sns_topic.AI_Mentoring_notifications.arn
+      },
+      {
         Sid    = "AllowWriteLambdaLogs"
         Effect = "Allow"
         Action = [
