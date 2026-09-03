@@ -21,8 +21,8 @@ S3 (foto examen) → S3 Event → SNS (notificaciones + email)
    - **S3** lee los bytes de la imagen y la codifica en base64
    - **Bedrock Claude Haiku 4.5** analiza la imagen directamente (multimodal): enunciado, opciones, diagramas y tablas; estructura la pregunta en JSON
    - Validación de taxonomía canónica (10 categorías)
-   - **DynamoDB** almacena el registro (`PutItem` con idempotencia)
-   - Si la imagen no es procesable (respuesta no JSON o sin pregunta/opciones), se descarta con log en CloudWatch (sin DLQ)
+   - **DynamoDB** almacena el registro (`PutItem` con doble condición de idempotencia: por archivo `QuestionID` y por contenido `ContentHash`)
+   - Si la imagen no es procesable (respuesta no JSON o sin pregunta/opciones), se **publica una alerta SNS** (email) y el mensaje se descarta (sin DLQ, sin reintentos)
 
 ---
 
@@ -47,6 +47,8 @@ S3 (foto examen) → S3 Event → SNS (notificaciones + email)
 - **Tópico**: `AI-Mentoring-notifications-dev-daniel`
 - **Suscripción**: Email (variable `notification_email`)
 - **Política**: Restringida por `aws:SourceArn` al bucket S3
+- **Uso adicional**: la Lambda `processor` publica alertas a este topic cuando una imagen
+  no es procesable (permiso `sns:Publish` añadido en `iam.tf`)
 
 ### Lambda — Functions
 
@@ -66,7 +68,7 @@ S3 (foto examen) → S3 Event → SNS (notificaciones + email)
 
 | Tabla | PK | GSIs | Propósito |
 |-------|-----|------|-----------|
-| `MentoringQuestions` | `QuestionID` | `TopicIndex` (Topic) | Banco de preguntas |
+| `MentoringQuestions` | `QuestionID` | `TopicIndex` (Topic) | Banco de preguntas (campos: `ContentHash` para dedupe por contenido) |
 | `Students` | `StudentID` | `EmailIndex` (Email), `CohortIndex` (CohortID) | Perfiles de alumnos |
 | `Quizzes` | `QuizID` | `StudentIndex` (StudentID) | Simulados generados |
 | `QuizResults` | `ResultID` | `QuizIndex` (QuizID), `StudentIndex` (StudentID + Timestamp) | Respuestas y resultados |
@@ -241,8 +243,29 @@ junto a un prompt de texto que pide estructurar la pregunta y describir diagrama
 - Límite de ~3.75 MB por imagen; fotos típicas muy por debajo.
 
 **Manejo de fallos**: si la respuesta no es JSON parseable o no trae pregunta/opciones,
-el mensaje se descarta con log en CloudWatch (`continue`, sin excepción) — evita reintentos
-inútiles y DLQ con falsos positivos. No se usa SNS como alerta (decisión de diseño).
+el mensaje se descarta (`continue`, sin excepción, sin DLQ) pero se **publica una alerta SNS**
+(email) con la clave del archivo y el motivo — la imagen no se pierde silenciosamente.
+
+### ¿Cómo se evitan preguntas duplicadas por contenido? (2026-09-02)
+
+**Problema**: La limpieza manual (2026-09-02) borró 13 duplicados existentes, pero el código
+solo evitaba duplicar por archivo (`attribute_not_exists(QuestionID)`). Una misma pregunta
+subida en 2+ fotos con distinto nombre volvía a crear duplicados por contenido.
+
+**Decisión**: `processor.py` calcula un `ContentHash` (SHA-256) del enunciado normalizado
+(minúsculas, sin tildes, espacios ni puntuación) y lo guarda en cada registro. La condición
+de escritura pasa a ser doble:
+
+```
+attribute_not_exists(QuestionID) AND attribute_not_exists(ContentHash)
+```
+
+- `QuestionID` → no duplica si vuelve la misma foto (mismo eTag).
+- `ContentHash` → no duplica si otra foto trae la **misma pregunta** (mismo contenido).
+
+El mismo enunciado (tras normalizar) siempre produce el mismo hash; preguntas distintas
+no colisionan. Sin GSI: la condición `attribute_not_exists(ContentHash)` se evalúa sobre la
+tabla directamente, no requiere índice (menor costo y complejidad).
 
 ### ¿Por qué 10 categorías canónicas?
 

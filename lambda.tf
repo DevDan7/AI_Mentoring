@@ -21,7 +21,8 @@ resource "aws_lambda_function" "processor" {
   # Variables de entorno para que el código sepa a dónde escribir
   environment {
     variables = {
-      TABLE_NAME = aws_dynamodb_table.mentoring_questions_table.name
+      TABLE_NAME   = aws_dynamodb_table.mentoring_questions_table.name
+      SNS_TOPIC_ARN = aws_sns_topic.AI_Mentoring_notifications.arn
     }
   }
 }
