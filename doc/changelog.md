@@ -6,6 +6,16 @@
 
 ## 2026-09
 
+### 02 Sep — Poblar ContentHash en el banco existente (98 preguntas)
+- Nuevo `scripts/poblar_content_hash.py`: calcula el `ContentHash` con la MISMA funcion
+  `content_hash()` de `src/processor.py` y lo anade a los items de `MentoringQuestions`
+- Ejecutado contra las preguntas existentes: 98 actualizados, 0 errores, backup previo en
+  `scripts/backup_pre_hash_20260903_100917.json`
+- Tras el update: 0 items sin hash, 98 hashes unicos, 0 colisiones (preguntas todas distintas)
+- Auditoria de duplicados por contenido re-ejecutada: 0 grupos
+- Resultado: la dedupe por contenido queda activa contra TODO el banco (existente + futuras),
+  de modo que las ~200 fotos nuevas que se suban no duplicaran las preguntas ya existentes
+
 ### 02 Sep — Dedupe por contenido + alerta SNS para imágenes no procesables
 - `processor.py`: nuevo campo `ContentHash` (SHA-256 del enunciado normalizado: minúsculas,
   sin tildes, espacios ni puntuación) en cada registro de `MentoringQuestions`
