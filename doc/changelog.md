@@ -18,11 +18,12 @@
 - **apiCall() redirige durante registro**: `checkCohortCapacity()` usaba `apiCall()` que requería token. Usuario sin token → `logout()` → redirigía a index.html. Corregido con endpoint público sin auth
 - **Formulario de confirmación no aparecía**: Debido al bug anterior, `signUp()` se ejecutaba pero `confirmForm` no se mostraba
 
-#### Limpieza
-- Eliminados 4 usuarios de prueba de Cognito (cupo1, cupo4, cupo5, cupo6)
-- Eliminados 3 perfiles de prueba de DynamoDB
-- Eliminada turma de prueba `TEST-CUPO-01`
-- Recreada turma real `BRSAO251/G3` con MaxStudents=7
+#### Prueba 3 completada
+- AccessExpiresAt validation funciona correctamente
+- GET /students/me retorna 403 cuando expiró
+- POST /quizzes/generate retorna 403 cuando expiró
+- POST /quizzes/submit retorna 403 cuando expiró
+- **Block 1 completado al 100%**
 
 #### Archivos Modificados
 - `src/student_api.py`: Ruta pública + fix Decimal
