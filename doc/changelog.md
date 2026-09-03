@@ -6,6 +6,24 @@
 
 ## 2026-09
 
+### 02 Sep — Dedupe por contenido + alerta SNS para imágenes no procesables
+- `processor.py`: nuevo campo `ContentHash` (SHA-256 del enunciado normalizado: minúsculas,
+  sin tildes, espacios ni puntuación) en cada registro de `MentoringQuestions`
+- `ConditionExpression` ampliada a doble condición:
+  `attribute_not_exists(QuestionID) AND attribute_not_exists(ContentHash)`
+  - `QuestionID` → evita duplicar si vuelve la misma foto (eTag)
+  - `ContentHash` → evita duplicar si otra foto trae la misma pregunta (contenido)
+- Tras este cambio, una misma pregunta subida en 2+ fotos distintas solo se guarda una vez
+  (la primera); las siguientes se omiten como "Duplicado detectado"
+- Imágenes no procesables (respuesta no JSON o sin pregunta/opciones): ya no se pierden en
+  silencio — se publica una alerta SNS (email) con la clave del archivo y el motivo
+- `iam.tf`: nuevo statement `AllowPublishNotifications` (`sns:Publish`) scoped al ARN del topic
+- `lambda.tf`: nueva variable de entorno `SNS_TOPIC_ARN` en el processor
+- Tests ampliados a 10 casos (`tests/test_processor_multimodal.py`): hash estable, hash que
+  ignora mayúsculas/tildes, publicación SNS, no-publicación sin ARN, dedupe por contenido
+- Sin GSI: la condición `attribute_not_exists(ContentHash)` funciona sin índice (menor costo,
+  sin infraestructura adicional)
+
 ### 02 Sep — Migración a Bedrock multimodal (sin Rekognition)
 - `processor.py`: eliminada la dependencia de Rekognition `DetectText` (OCR)
 - La Lambda ahora lee la imagen de S3 (`s3:get_object`), la codifica en base64 y
