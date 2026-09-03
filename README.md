@@ -33,8 +33,7 @@ S3 (exam question photo)
    → S3 Event Notification
    → SQS (main queue, with DLQ)
    → Lambda (processor.py)
-        → Amazon Rekognition (OCR)
-        → Amazon Bedrock — Claude (structures topic, explanation, difficulty)
+        → Amazon Bedrock — Claude (multimodal: structures topic, explanation, difficulty)
    → DynamoDB (MentoringQuestions)
 ```
 
@@ -42,7 +41,7 @@ S3 (exam question photo)
 - **Amazon CloudFront** — CDN with HTTPS for the Landing Page; default CloudFront domain.
 - **Amazon API Gateway** (HTTP API) — entry point for all student-facing API calls; JWT Authorizer validates Cognito tokens before reaching Lambda.
 - **Amazon SQS** — decouples ingestion from processing; includes a Dead Letter Queue (`maxReceiveCount=4`) so a failed message doesn't get lost or block the queue.
-- **AWS Lambda** (`processor.py`) — runs OCR via Rekognition, then prompts Amazon Bedrock (Claude) to return structured JSON (`topic`, `explanation`, `difficulty`), and writes the result to DynamoDB.
+- **AWS Lambda** (`processor.py`) — reads the exam photo from S3 and sends it to Amazon Bedrock (Claude, multimodal) to return structured JSON (`topic`, `explanation`, `difficulty`), and writes the result to DynamoDB.
 - **AWS Lambda** (`student_api.py`) — CRUD operations for student profiles; reads JWT claims from API Gateway for authentication.
 - **AWS Lambda** (`quiz_engine.py`) — generates quizzes from the question bank, records student responses, and calculates metrics.
 - **Amazon DynamoDB** (`MentoringQuestions`) — `QuestionID` as partition key, with a GSI on `Topic` for querying the question bank by subject.
@@ -54,7 +53,7 @@ S3 (exam question photo)
 
 ## Tech stack
 
-AWS Lambda · Amazon API Gateway · Amazon SQS · Amazon DynamoDB · Amazon Rekognition · Amazon Bedrock · Amazon S3 · Amazon CloudFront · Amazon Cognito · IAM · Terraform · Python (Boto3) · HTML · CSS (Pico.css) · JavaScript
+AWS Lambda · Amazon API Gateway · Amazon SQS · Amazon DynamoDB · Amazon Bedrock · Amazon S3 · Amazon CloudFront · Amazon Cognito · IAM · Terraform · Python (Boto3) · HTML · CSS (Pico.css) · JavaScript
 
 ## Project structure
 
@@ -68,7 +67,7 @@ AWS Lambda · Amazon API Gateway · Amazon SQS · Amazon DynamoDB · Amazon Reko
 ├── landing.tf                                              # S3 + CloudFront for frontend
 ├── requirements.txt        # Python dependencies packaged with the Lambda
 ├── src/
-│   ├── processor.py        # Lambda: OCR + Bedrock + DynamoDB
+│   ├── processor.py        # Lambda: Bedrock multimodal + DynamoDB
 │   ├── quiz_engine.py      # Lambda: generación de quizzes y registro de respuestas
 │   ├── student_api.py      # Lambda: CRUD de alumnos con validación Cognito
 │   └── frontend/           # Landing Page (HTML/CSS/JS)
