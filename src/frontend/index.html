@@ -251,6 +251,22 @@
                 return;
             }
 
+            // Validar cupo da turma ANTES de registrar em Cognito
+            const pendingCohortId = sessionStorage.getItem('pending_cohort_id');
+            if (pendingCohortId) {
+                try {
+                    const capacity = await checkCohortCapacity(pendingCohortId);
+                    if (capacity.is_full) {
+                        errorDiv.innerText = "Turma lotada. Entre em contato com o professor para verificar vagas.";
+                        errorDiv.style.display = "block";
+                        return;
+                    }
+                } catch (err) {
+                    // Si hay error al verificar, permitir registro (fail-open)
+                    console.warn("Could not verify cohort capacity:", err);
+                }
+            }
+
             registerBtn.ariaBusy = "true";
             registerBtn.disabled = true;
             errorDiv.style.display = "none";

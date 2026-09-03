@@ -61,6 +61,18 @@ resource "aws_apigatewayv2_route" "students_me_quizzes_get" {
 }
 
 # =============================================================================
+# Cohorts Routes
+# =============================================================================
+
+resource "aws_apigatewayv2_route" "cohorts_capacity_get" {
+  api_id             = aws_apigatewayv2_api.mentoring_api.id
+  route_key          = "GET /cohorts/{cohortId}/capacity"
+  target             = "integrations/${aws_apigatewayv2_integration.student.id}"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+  authorization_type = "JWT"
+}
+
+# =============================================================================
 # Quiz Engine Routes
 # =============================================================================
 

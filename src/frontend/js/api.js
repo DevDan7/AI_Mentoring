@@ -78,6 +78,12 @@ async function getQuizHistory() {
     return apiCall("GET", "/students/me/quizzes");
 }
 
+// ========== VALIDACIÓN DE CUPO ==========
+
+async function checkCohortCapacity(cohortId) {
+    return apiCall("GET", `/cohorts/${cohortId}/capacity`);
+}
+
 // ========== AUTO-CREACIÓN DE PERFIL ==========
 
 async function ensureStudentProfile() {
