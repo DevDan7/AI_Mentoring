@@ -84,6 +84,14 @@ async function checkCohortCapacity(cohortId) {
     return apiCall("GET", `/cohorts/${cohortId}/capacity`);
 }
 
+async function checkCohortCapacityPublic(cohortId) {
+    const response = await fetch(`${CONFIG.apiUrl}/public/cohorts/${cohortId}/capacity`);
+    if (!response.ok) {
+        throw new Error(`Error ${response.status}`);
+    }
+    return response.json();
+}
+
 // ========== AUTO-CREACIÓN DE PERFIL ==========
 
 async function ensureStudentProfile() {
