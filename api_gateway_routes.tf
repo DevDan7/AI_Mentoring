@@ -72,6 +72,13 @@ resource "aws_apigatewayv2_route" "cohorts_capacity_get" {
   authorization_type = "JWT"
 }
 
+resource "aws_apigatewayv2_route" "cohorts_capacity_public" {
+  api_id             = aws_apigatewayv2_api.mentoring_api.id
+  route_key          = "GET /public/cohorts/{cohortId}/capacity"
+  target             = "integrations/${aws_apigatewayv2_integration.student.id}"
+  authorization_type = "NONE"
+}
+
 # =============================================================================
 # Quiz Engine Routes
 # =============================================================================

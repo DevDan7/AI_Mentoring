@@ -51,6 +51,9 @@ def lambda_handler(event, context):
     elif route_key == 'GET /cohorts/{cohortId}/capacity':
         cohort_id = path_params.get('cohortId')
         return get_cohort_capacity(cohort_id)
+    elif route_key == 'GET /public/cohorts/{cohortId}/capacity':
+        cohort_id = path_params.get('cohortId')
+        return get_cohort_capacity(cohort_id)
     else:
         return build_response(404, {'message': f'Route not found: {route_key}'})
 
