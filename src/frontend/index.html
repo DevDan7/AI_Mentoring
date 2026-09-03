@@ -255,7 +255,7 @@
             const pendingCohortId = sessionStorage.getItem('pending_cohort_id');
             if (pendingCohortId) {
                 try {
-                    const capacity = await checkCohortCapacity(pendingCohortId);
+                    const capacity = await checkCohortCapacityPublic(pendingCohortId);
                     if (capacity.is_full) {
                         errorDiv.innerText = "Turma lotada. Entre em contato com o professor para verificar vagas.";
                         errorDiv.style.display = "block";
