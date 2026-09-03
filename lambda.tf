@@ -13,7 +13,7 @@ resource "aws_lambda_function" "processor" {
   role          = aws_iam_role.lambda_role.arn
   handler       = "processor.lambda_handler" # Archivo.Función
   runtime       = "python3.12"
-  timeout       = 30 # La IA puede tardar, le damos tiempo
+  timeout       = 60 # La IA multimodal puede tardar, le damos margen
   memory_size   = 256
 
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256

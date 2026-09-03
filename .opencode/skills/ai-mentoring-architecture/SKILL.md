@@ -9,15 +9,15 @@ Event-driven serverless platform that converts photos of exam questions into a s
 
 ## Current Pipeline (Functional)
 
-`S3 (exam photo) -> S3 Event -> SNS (notifications + email) -> SQS (main_queue + DLQ, max_concurrency=3) -> Lambda -> Rekognition (OCR) -> Bedrock Claude Haiku 4.5 -> DynamoDB`
+`S3 (exam photo) -> S3 Event -> SNS (notifications + email) -> SQS (main_queue + DLQ, max_concurrency=3) -> Lambda -> Bedrock Claude Haiku 4.5 (multimodal) -> DynamoDB`
 
 ## Services and Roles
 
 - **S3** — Bucket `daniel-mentoring-exam-photos-edn-dev` receives incoming photos. Frontend bucket `ai-mentoring-frontend-*` for static hosting.
 - **SNS** — Email notifications (`notification_email`) on new photos; SQS subscription for pipeline ingestion. Access policy restricted by `SourceArn`.
 - **SQS** — Decouples ingestion from processing; DLQ with `maxReceiveCount=4`. ESM `maximum_concurrency=3` for Bedrock rate-limit protection.
-- **Lambda** — 3 handlers: `processor.py` (OCR pipeline, 256 MB, 30s, botocore adaptive retry), `student_api.py` (student CRUD, Cognito JWT validation, API Gateway v2.0, MaxStudents validation, AccessExpiresAt check), `quiz_engine.py` (quiz generation, answer submission, results, AccessExpiresAt check).
-- **Bedrock** — Claude Haiku 4.5 structures response as JSON. Canonical taxonomy enforced via `CANONICAL_TOPICS` (10 categories).
+- **Lambda** — 3 handlers: `processor.py` (Bedrock multimodal pipeline - reads image from S3 as base64, 256 MB, 60s, botocore adaptive retry), `student_api.py` (student CRUD, Cognito JWT validation, API Gateway v2.0, MaxStudents validation, AccessExpiresAt check), `quiz_engine.py` (quiz generation, answer submission, results, AccessExpiresAt check).
+- **Bedrock** — Claude Haiku 4.5 analyzes the exam-photo image directly (multimodal: statement, options, diagrams/tables) and structures the response as JSON. Canonical taxonomy enforced via `CANONICAL_TOPICS` (10 categories). Unprocessable images are discarded with a CloudWatch log (no DLQ).
 - **DynamoDB** — 4 tables: `MentoringQuestions` (QuestionID PK, TopicIndex GSI), `Students` (StudentID PK, EmailIndex GSI, CohortIndex GSI), `Quizzes` (QuizID PK, StudentIndex GSI), `QuizResults` (ResultID PK, QuizIndex + StudentIndex GSIs). All `PAY_PER_REQUEST`. New fields: `AccessExpiresAt`, `Role`, `CurrentPhase`.
 - **API Gateway** — HTTP API with JWT Authorizer (Cognito), 7 routes, throttling 50 rps / burst 100.
 - **Cognito** — User Pool + App Client for student authentication (SRP, refresh tokens).

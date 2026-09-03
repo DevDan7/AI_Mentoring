@@ -10,13 +10,12 @@ description: AWS serverless architecture patterns and best practices for this re
 - **Amazon S3**: Object storage for exam photos (`s3:ObjectCreated:*` events) and frontend static hosting.
 - **Amazon SNS**: Event routing (S3 → SNS → SQS) and email notifications.
 - **Amazon SQS**: Main queue + DLQ to decouple ingestion from processing. ESM `maximum_concurrency=3`.
-- **AWS Lambda**: Python 3.12 handlers — `processor.py` (SQS-triggered OCR), `student_api.py` (API GW-triggered CRUD), `quiz_engine.py` (API GW-triggered quiz engine).
+- **AWS Lambda**: Python 3.12 handlers — `processor.py` (SQS-triggered Bedrock multimodal processor), `student_api.py` (API GW-triggered CRUD), `quiz_engine.py` (API GW-triggered quiz engine).
 - **Amazon DynamoDB**: 4 tables (`PAY_PER_REQUEST`), GSIs for topic/email/quiz/student queries.
 - **Amazon API Gateway**: HTTP API, JWT Authorizer (Cognito), 7 routes, payload format v2.0.
 - **Amazon Cognito**: User Pool + App Client for student authentication (SRP, refresh tokens).
 - **Amazon CloudFront**: CDN with OAC, HTTPS redirect, S3 origin.
-- **Amazon Rekognition**: OCR (`DetectText`).
-- **Amazon Bedrock**: Claude Haiku 4.5 for structured JSON responses.
+- **Amazon Bedrock**: Claude Haiku 4.5 multimodal — reads exam-photo image as base64 and structures the JSON response.
 - **IAM**: Least-privilege roles; OIDC for GitHub Actions.
 
 ## Infrastructure Rules (Terraform)
@@ -35,7 +34,7 @@ description: AWS serverless architecture patterns and best practices for this re
 
 - SQS/SNS policies missing `aws:SourceArn` condition → allows unauthorized resources to publish messages.
 - Renaming a bucket in state without updating literal references.
-- Lambda timeouts set too short for AI/OCR calls (Bedrock/Rekognition).
+- Lambda timeouts set too short for AI/multimodal calls (Bedrock).
 - Deploying services/resources outside the target region (`us-east-1`).
 - API Gateway route added without corresponding Lambda `aws_lambda_permission` → Integration fails with 503.
 - Cognito token expiry (1h access token) causing infinite redirect loops in frontend if refresh fails.

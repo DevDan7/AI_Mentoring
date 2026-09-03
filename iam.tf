@@ -43,7 +43,6 @@ resource "aws_iam_policy" "lambda_policy" {
         Sid    = "AllowIAAnalysis"
         Effect = "Allow"
         Action = [
-          "rekognition:DetectText",
           "bedrock:InvokeModel"
         ]
         Resource = "*"
