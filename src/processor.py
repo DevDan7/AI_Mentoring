@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import urllib.parse
@@ -26,7 +27,6 @@ CANONICAL_TOPICS = [
 
 # 1. Inicializar clientes de AWS
 s3_client = boto3.client("s3")
-rekognition_client = boto3.client("rekognition")  # <--- CAMBIO AQUÍ
 bedrock_config = Config(
     retries={
         'max_attempts': 6,
@@ -54,39 +54,34 @@ def lambda_handler(event, context):
             etag = s3_event["s3"]["object"].get("eTag", "").strip('"')
             question_id = etag if etag else str(uuid.uuid4())
 
-            print(f"Procesando con Rekognition: {file_key}")
+            print(f"Procesando imagen con Bedrock multimodal: {file_key}")
 
-            # 2. Llamar a Amazon Rekognition (Fallback de Textract)
-            response_rekognition = rekognition_client.detect_text(
-                Image={"S3Object": {"Bucket": bucket_name, "Name": file_key}}
-            )
+            # 2. Leer la imagen directamente desde S3 y codificarla en base64
+            image_response = s3_client.get_object(Bucket=bucket_name, Key=file_key)
+            image_bytes = image_response["Body"].read()
 
-            # Extraer el texto detectado (Rekognition usa 'TextDetections')
-            full_text = ""
-            for item in response_rekognition["TextDetections"]:
-                if (
-                    item["Type"] == "LINE"
-                ):  # Solo tomamos líneas completas para no repetir palabras
-                    full_text += item["DetectedText"] + " "
+            extension = file_key.lower().rsplit(".", 1)[-1] if "." in file_key else ""
+            media_type = "image/png" if extension == "png" else "image/jpeg"
+            image_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
-            if not full_text:
-                print("No se detectó texto en la imagen.")
-                continue
+            print(f"Imagen cargada: {len(image_bytes)} bytes ({media_type})")
 
-            # 3. El Cerebro sigue siendo Bedrock
-            print("Enviando texto a Amazon Bedrock...")
+            # 3. El Cerebro sigue siendo Bedrock (multimodal)
+            print("Enviando imagen a Amazon Bedrock...")
             prompt = f"""
 You are an expert AWS Solutions Architect and mentor.
-Analyze the following text extracted from an AWS certification exam question.
+Analyze the attached image of an AWS certification exam question.
+Look at the whole image: the question statement, its answer options, and any
+diagram, table, or figure included.
 The original text may be in Portuguese, Spanish, or English — regardless of the
 source language, you must translate and structure your entire response in English.
 
-Original text:
-"{full_text}"
-
 Identify the question statement and its answer options. The question may have
 between 4 and 6 options (label them A, B, C, D, and E/F if present — use only
-the letters that actually appear in the text, do not invent extra options).
+the letters that actually appear in the image, do not invent extra options).
+
+If the image contains a diagram, table, or figure that is relevant to answering
+the question, describe it within the explanation of the associated option(s).
 
 Determine how many correct answers this question requires. Look for phrases like
 "Choose TWO", "Select THREE", "(Choose two.)" — if no such phrase appears, assume
@@ -132,9 +127,22 @@ Do not include any text outside the JSON. Do not use markdown or code blocks.
 
             native_request = {
                 "anthropic_version": "bedrock-2023-05-31",
-                "max_tokens": 1000,
+                "max_tokens": 1500,
                 "messages": [
-                    {"role": "user", "content": [{"type": "text", "text": prompt}]}
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": media_type,
+                                    "data": image_base64,
+                                },
+                            },
+                            {"type": "text", "text": prompt},
+                        ],
+                    }
                 ],
             }
 
@@ -149,14 +157,23 @@ Do not include any text outside the JSON. Do not use markdown or code blocks.
 
             print(f"RESPUESTA CRUDA DE LA IA: {ai_response_text}")
 
-            # --- NUEVA LÓGICA DE LIMPIEZA ---
+            # --- LÓGICA DE LIMPIEZA ---
             # Esto quita los ```json del principio y los ``` del final
             clean_json = (
                 ai_response_text.replace("```json", "").replace("```", "").strip()
             )
 
             # Ahora intentamos cargar el JSON limpio
-            ai_data = json.loads(clean_json)
+            try:
+                ai_data = json.loads(clean_json)
+            except ValueError:
+                print(f"No se pudo analizar la respuesta para: {file_key}")
+                continue
+
+            # Validación de contenido utilizable: sin enunciado o sin opciones => descartar
+            if not ai_data.get("question_text") or not ai_data.get("options"):
+                print(f"Imagen no procesable (sin pregunta/opciones válidas): {file_key}")
+                continue
             # -------------------------------
 
             # Validación defensiva: asegurar que el topic esté en la taxonomía canónica
@@ -195,4 +212,4 @@ Do not include any text outside the JSON. Do not use markdown or code blocks.
             print(f"Error: {str(e)}")
             raise
 
-    return {"statusCode": 200, "body": json.dumps("Procesado con Rekognition")}
+    return {"statusCode": 200, "body": json.dumps("Procesado con Bedrock multimodal")}

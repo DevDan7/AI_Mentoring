@@ -84,7 +84,7 @@ Por qué se implementó así y no de otra manera.
 ```
 AI_Mentoring/
 ├── src/
-│   ├── processor.py              # Lambda: OCR + Bedrock + DynamoDB
+│   ├── processor.py              # Lambda: Bedrock multimodal + DynamoDB
 │   ├── student_api.py            # Lambda: CRUD de estudiantes + cohortes
 │   ├── quiz_engine.py            # Lambda: quizzes y resultados
 │   └── frontend/                 # Frontend (HTML/JS)
@@ -112,8 +112,7 @@ AI_Mentoring/
 | SNS | Notificaciones por email | `main.tf` |
 | Lambda | 3 handlers (processor, student_api, quiz_engine) | `lambda.tf`, `lambda_student_api.tf`, `lambda_quiz_engine.tf` |
 | DynamoDB | 5 tablas (MentoringQuestions, Students, Quizzes, QuizResults, Cohorts) | `dynamodb*.tf` |
-| Bedrock | Claude Haiku 4.5 para clasificación | (invocado desde `processor.py`) |
-| Rekognition | OCR de fotos | (invocado desde `processor.py`) |
+| Bedrock | Claude Haiku 4.5 multimodal (analiza la imagen de la pregunta) | (invocado desde `processor.py`) |
 | API Gateway | HTTP API con JWT Authorizer | `api_gateway*.tf` |
 | Cognito | Autenticación de alumnos | `cognito.tf` |
 | Amplify | Hosting del frontend | `amplify.tf` |
