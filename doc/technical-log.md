@@ -390,13 +390,27 @@ Sección "Histórico de Simulados" muestra correctamente:
 | PeriodEnd | 2026-09-29 |
 | Link | `https://main.d1jhem8rxt5h6t.amplifyapp.com/?turma=BRSAO251/G3` |
 
-### Pruebas Pendientes
+### Pruebas de Validación de Cupo (03 Sep 2026)
 
-| # | Prueba | Estado |
-|---|--------|--------|
-| 1 | Alumno nuevo puede registrarse en turma | Pendiente |
-| 2 | 8vo alumno es rechazado (MaxStudents) | Pendiente |
-| 3 | Alumno con AccessExpiresAt vencido recibe 403 | Pendiente |
+| # | Prueba | Estado | Notas |
+|---|--------|--------|-------|
+| 1 | Alumno nuevo puede registrarse en turma | ✅ Completada | Registro exitoso con `?turma=BRSAO251/G3` |
+| 2 | Alumno es rechazado cuando turma está llena | ✅ Completada | Mensaje "Turma lotada" funciona correctamente |
+| 3 | Alumno con AccessExpiresAt vencido recibe 403 | ❌ Pendiente | Prueba pendiente |
+
+#### Bugs Encontrados y Corregidos
+
+1. **Decimal is not JSON serializable**: `MaxStudents` de DynamoDB viene como `Decimal`, no se podía serializar a JSON. Corregido con `int()`.
+
+2. **apiCall() redirige durante registro**: `checkCohortCapacity()` usaba `apiCall()` que requería token. El usuario no tiene token durante registro, entonces `logout()` redirigía a index.html. Corregido con endpoint público sin auth.
+
+3. **Formulario de confirmación no aparecía**: Debido al bug anterior, `signUp()` se ejecutaba pero `confirmForm` no se mostraba.
+
+#### Endpoint Público Agregado
+
+- `GET /public/cohorts/{cohortId}/capacity` — Consulta de cupo sin autenticación
+- Retorna: `{ cohort_id, current_count, max_students, is_full }`
+- Usado por frontend antes de registrar en Cognito
 
 ---
 

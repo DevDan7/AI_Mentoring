@@ -16,10 +16,10 @@ Event-driven serverless platform that converts photos of exam questions into a s
 - **S3** — Bucket `daniel-mentoring-exam-photos-edn-dev` receives incoming photos. Frontend bucket `ai-mentoring-frontend-*` for static hosting.
 - **SNS** — Email notifications (`notification_email`) on new photos; SQS subscription for pipeline ingestion; alert published by the processor when an image is unprocessable. Access policy restricted by `SourceArn`.
 - **SQS** — Decouples ingestion from processing; DLQ with `maxReceiveCount=4`. ESM `maximum_concurrency=3` for Bedrock rate-limit protection.
-- **Lambda** — 3 handlers: `processor.py` (Bedrock multimodal pipeline - reads image from S3 as base64, 256 MB, 60s, botocore adaptive retry), `student_api.py` (student CRUD, Cognito JWT validation, API Gateway v2.0, MaxStudents validation, AccessExpiresAt check), `quiz_engine.py` (quiz generation, answer submission, results, AccessExpiresAt check).
+- **Lambda** — 3 handlers: `processor.py` (Bedrock multimodal pipeline - reads image from S3 as base64, 256 MB, 60s, botocore adaptive retry), `student_api.py` (student CRUD, Cognito JWT validation, API Gateway v2.0, MaxStudents validation, AccessExpiresAt check, public cohort capacity endpoint), `quiz_engine.py` (quiz generation, answer submission, results, AccessExpiresAt check).
 - **Bedrock** — Claude Haiku 4.5 analyzes the exam-photo image directly (multimodal: statement, options, diagrams/tables) and structures the response as JSON. Canonical taxonomy enforced via `CANONICAL_TOPICS` (10 categories). Unprocessable images are discarded (no DLQ) but publish an SNS alert.
 - **DynamoDB** — 4 tables: `MentoringQuestions` (QuestionID PK, TopicIndex GSI, `ContentHash` column for content-based dedup), `Students` (StudentID PK, EmailIndex GSI, CohortIndex GSI), `Quizzes` (QuizID PK, StudentIndex GSI), `QuizResults` (ResultID PK, QuizIndex + StudentIndex GSIs). All `PAY_PER_REQUEST`. New fields: `AccessExpiresAt`, `Role`, `CurrentPhase`. Dedup by content uses a double `ConditionExpression`: `attribute_not_exists(QuestionID) AND attribute_not_exists(ContentHash)` (no GSI needed).
-- **API Gateway** — HTTP API with JWT Authorizer (Cognito), 7 routes, throttling 50 rps / burst 100.
+- **API Gateway** — HTTP API with JWT Authorizer (Cognito), 9 routes (1 public), throttling 50 rps / burst 100.
 - **Cognito** — User Pool + App Client for student authentication (SRP, refresh tokens).
 - **CloudFront** — CDN with OAC, HTTPS redirect, S3 origin.
 - **IAM** — Least-privilege roles; OIDC for GitHub Actions (read-only CI).

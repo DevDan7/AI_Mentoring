@@ -6,6 +6,30 @@
 
 ## 2026-09
 
+### 03 Sep — Validación de Cupo + Bug Fix + Limpieza
+
+#### Agregado
+- Endpoint público `GET /public/cohorts/{cohortId}/capacity` para validar cupo antes del registro
+- Frontend valida cupo ANTES de registrar en Cognito (muestra "Turma lotada" si está llena)
+- Turma real `BRSAO251/G3` recreada en DynamoDB (7 cupos)
+
+#### Corregido
+- **Decimal is not JSON serializable**: `MaxStudents` de DynamoDB viene como `Decimal`, corregido con `int()` en `get_cohort_capacity()`
+- **apiCall() redirige durante registro**: `checkCohortCapacity()` usaba `apiCall()` que requería token. Usuario sin token → `logout()` → redirigía a index.html. Corregido con endpoint público sin auth
+- **Formulario de confirmación no aparecía**: Debido al bug anterior, `signUp()` se ejecutaba pero `confirmForm` no se mostraba
+
+#### Limpieza
+- Eliminados 4 usuarios de prueba de Cognito (cupo1, cupo4, cupo5, cupo6)
+- Eliminados 3 perfiles de prueba de DynamoDB
+- Eliminada turma de prueba `TEST-CUPO-01`
+- Recreada turma real `BRSAO251/G3` con MaxStudents=7
+
+#### Archivos Modificados
+- `src/student_api.py`: Ruta pública + fix Decimal
+- `api_gateway_routes.tf`: Ruta `GET /public/cohorts/{cohortId}/capacity`
+- `src/frontend/js/api.js`: Función `checkCohortCapacityPublic()`
+- `src/frontend/index.html`: Usa función pública para validar cupo
+
 ### 02 Sep — Poblar ContentHash en el banco existente (98 preguntas)
 - Nuevo `scripts/poblar_content_hash.py`: calcula el `ContentHash` con la MISMA funcion
   `content_hash()` de `src/processor.py` y lo anade a los items de `MentoringQuestions`
