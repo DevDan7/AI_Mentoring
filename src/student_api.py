@@ -48,8 +48,38 @@ def lambda_handler(event, context):
         return get_student(student_id)
     elif route_key == 'GET /students/me/quizzes':
         return get_quiz_history(claims)
+    elif route_key == 'GET /cohorts/{cohortId}/capacity':
+        cohort_id = path_params.get('cohortId')
+        return get_cohort_capacity(cohort_id)
     else:
         return build_response(404, {'message': f'Route not found: {route_key}'})
+
+
+def get_cohort_capacity(cohort_id):
+    """Retorna el cupo disponible de una turma para validación previa al registro."""
+    if not cohort_id:
+        return build_response(400, {'message': 'cohort_id is required'})
+
+    cohort_item = cohorts_table.get_item(Key={'CohortID': cohort_id})
+    if 'Item' not in cohort_item:
+        return build_response(404, {'message': f'Cohort not found: {cohort_id}'})
+
+    cohort = cohort_item['Item']
+    max_students = cohort.get('MaxStudents', 0)
+
+    count_response = students_table.query(
+        IndexName='CohortIndex',
+        KeyConditionExpression=Key('CohortID').eq(cohort_id),
+        Select='COUNT'
+    )
+    current_count = count_response.get('Count', 0)
+
+    return build_response(200, {
+        'cohort_id': cohort_id,
+        'current_count': current_count,
+        'max_students': max_students,
+        'is_full': current_count >= max_students
+    })
 
 
 def create_student(event, claims):
