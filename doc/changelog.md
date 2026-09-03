@@ -6,6 +6,23 @@
 
 ## 2026-09
 
+### 02 Sep — Migración a Bedrock multimodal (sin Rekognition)
+- `processor.py`: eliminada la dependencia de Rekognition `DetectText` (OCR)
+- La Lambda ahora lee la imagen de S3 (`s3:get_object`), la codifica en base64 y
+  la envía a Bedrock como bloque de imagen multimodal junto al prompt de texto
+- Prompt reescrito para modo imagen: analiza enunciado, opciones A–F y
+  diagramas/tablas; mantiene el mapeo a las 10 categorías canónicas
+- `media_type` inferido de la extensión del archivo (PNG → `image/png`, resto → `image/jpeg`)
+- Manejo de fallos: respuesta no JSON o sin pregunta/opciones → se descarta con log
+  en CloudWatch (`continue`, sin excepción, sin DLQ)
+- `iam.tf`: retirado `rekognition:DetectText` del rol de la Lambda
+  (`s3:GetObject` ya existía y cubre la lectura de imagen)
+- `lambda.tf`: timeout del processor de 30s → 60s (margen para inferencia multimodal);
+  `max_tokens` de Bedrock subido de 1000 → 1500
+- Tests creados: `tests/test_processor_multimodal.py` (5 casos, stdlib `unittest.mock`)
+- Documentación: `doc/architecture.md` actualizada (pipeline, servicios, decisión de diseño)
+- Eliminado un componente del pipeline (costo y dependencia menos)
+
 ### 02 Sep — Deduplicación por contenido + limpieza de duplicados
 - Auditoría directa sobre tabla `MentoringQuestions` (`scripts/detectar_duplicados_contenido.py`):
   comparación por contenido (`QuestionText` normalizado: minúsculas, sin acentos,

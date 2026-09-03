@@ -9,7 +9,7 @@
 ```
 S3 (foto examen) → S3 Event → SNS (notificaciones + email)
    └──→ SQS (main_queue, max_concurrency=3) → Lambda (processor.py)
-           → Rekognition (OCR) → Bedrock (Claude Haiku 4.5) → DynamoDB
+           → Bedrock (Claude Haiku 4.5 multimodal) → DynamoDB
 ```
 
 ### Flujo Detallado
@@ -18,10 +18,11 @@ S3 (foto examen) → S3 Event → SNS (notificaciones + email)
 2. **S3 Event** dispara notificación a **SQS** (vía SNS para notificación por email)
 3. **SQS** encola el mensaje con DLQ (`maxReceiveCount=4`) y control de concurrencia (`maximum_concurrency=3`)
 4. **Lambda `processor.py`** procesa la foto:
-   - **Rekognition** extrae texto (OCR)
-   - **Bedrock Claude Haiku 4.5** clasifica y estructura la pregunta en JSON
+   - **S3** lee los bytes de la imagen y la codifica en base64
+   - **Bedrock Claude Haiku 4.5** analiza la imagen directamente (multimodal): enunciado, opciones, diagramas y tablas; estructura la pregunta en JSON
    - Validación de taxonomía canónica (10 categorías)
    - **DynamoDB** almacena el registro (`PutItem` con idempotencia)
+   - Si la imagen no es procesable (respuesta no JSON o sin pregunta/opciones), se descarta con log en CloudWatch (sin DLQ)
 
 ---
 
@@ -51,7 +52,7 @@ S3 (foto examen) → S3 Event → SNS (notificaciones + email)
 
 | Lambda | Archivo | Propósito | Memoria | Timeout |
 |--------|---------|-----------|---------|---------|
-| `mentoring-exam-processor` | `processor.py` | OCR + Bedrock + DynamoDB | 256 MB | 30s |
+| `mentoring-exam-processor` | `processor.py` | Bedrock multimodal + DynamoDB | 256 MB | 60s |
 | `student-api` | `student_api.py` | CRUD de estudiantes | 256 MB | 30s |
 | `quiz-engine` | `quiz_engine.py` | Quizzes y resultados | 256 MB | 30s |
 
@@ -79,15 +80,19 @@ S3 (foto examen) → S3 Event → SNS (notificaciones + email)
 ### Bedrock — Claude Haiku 4.5
 
 - **Modelo**: `us.anthropic.claude-haiku-4-5-20251001-v1:0`
-- **Propósito**: Clasificar y estructurar preguntas de examen
+- **Propósito**: Analiza la imagen directamente (multimodal) y estructura la pregunta de examen
+- **Entrada**: Imagen base64 + prompt de texto
 - **Prompt**: Instrucciones en inglés para mapear a 10 categorías canónicas
 - **Respuesta**: JSON estructurado con `topic`, `question_text`, `question_type`, `correct_count`, `options`
+- **Límite de imagen**: ~3.75 MB por imagen (fotos típicas muy por debajo)
 
-### Rekognition — OCR
+### Rekognition — OCR (eliminado)
 
-- **Operación**: `DetectText`
-- **Propósito**: Extraer texto de fotos de preguntas
-- **Alternativa evaluada**: Textract (descartada, ver Conocimiento del Proyecto)
+- **Operación anterior**: `DetectText`
+- **Estado**: Reemplazado por el análisis multimodal de Bedrock (2026-09-02)
+- **Motivo**: Bedrock interpreta el layout completo (enunciado, opciones, diagramas, tablas)
+  que el OCR plano pierde; elimina un componente y su costo del pipeline
+- **Permiso IAM**: `rekognition:DetectText` retirado del rol de la Lambda
 
 ### API Gateway — HTTP API
 
@@ -212,6 +217,32 @@ CohortID (PK) | Name | CreatedAt | MaxStudents | Active | PeriodStart | PeriodEn
 4. **Suficiencia**: Rekognition cumple con los requisitos actuales del proyecto
 
 **Conclusión**: La refactorización de `processor.py` que exigiría Textract no se justifica sin un problema real de calidad de OCR. Textract queda evaluado y descartado; se reconsiderará si se necesita procesar documentos complejos (tablas, formularios, multi-columna).
+
+### ¿Por qué Bedrock multimodal en vez de Rekognition? (2026-09-02)
+
+**Contexto**: El pipeline original dependía de Rekognition `DetectText` para extraer texto plano
+y solo ese texto era enviado a Bedrock. La imagen en sí nunca llegaba al modelo.
+
+**Problema**: El OCR plano pierde el layout (enunciado, opciones A–F), diagramas, tablas, gráficos
+y marcas de respuesta (✓/●). Si el OCR fallaba en una línea, esa información se perdía.
+
+**Decisión**: Claude Haiku 4.5 es multimodal; el `processor.py` ahora lee los bytes de la imagen
+desde S3 (`s3:GetObject`, ya disponible en el IAM de la Lambda) y los envía como imagen base64,
+junto a un prompt de texto que pide estructurar la pregunta y describir diagramas/tablas.
+
+**Beneficios:**
+1. **Mayor fidelidad**: el modelo interpreta el layout completo y el contexto visual real.
+2. **Menos componentes**: se elimina Rekognition del pipeline (una dependencia y su costo menos).
+3. **Mejor estructura**: las opciones se leen por posición visual, no por heurística de texto.
+
+**Costos / consideraciones:**
+- Imagen típica ≈ 1.6k tokens (~$0.001/pregunta con Haiku), equiparable al costo previo.
+- Timeout del Lambda subió de 30s a 60s para dar margen a la inferencia multimodal.
+- Límite de ~3.75 MB por imagen; fotos típicas muy por debajo.
+
+**Manejo de fallos**: si la respuesta no es JSON parseable o no trae pregunta/opciones,
+el mensaje se descarta con log en CloudWatch (`continue`, sin excepción) — evita reintentos
+inútiles y DLQ con falsos positivos. No se usa SNS como alerta (decisión de diseño).
 
 ### ¿Por qué 10 categorías canónicas?
 
