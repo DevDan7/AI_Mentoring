@@ -112,6 +112,8 @@ S3 (foto examen) → S3 Event → SNS (notificaciones + email)
 | PUT | `/students/me` | student_api | Actualizar perfil propio |
 | GET | `/students/{studentId}` | student_api | Obtener alumno por ID |
 | GET | `/students/me/quizzes` | student_api | Historial de simulados |
+| GET | `/cohorts/{cohortId}/capacity` | student_api | Consulta de cupo (requiere auth) |
+| GET | `/public/cohorts/{cohortId}/capacity` | student_api | Consulta de cupo (público, sin auth) |
 | POST | `/quizzes/generate` | quiz_engine | Generar simulado |
 | POST | `/quizzes/submit` | quiz_engine | Registrar respuesta |
 | GET | `/quizzes/{quizId}/results` | quiz_engine | Obtener resultados |

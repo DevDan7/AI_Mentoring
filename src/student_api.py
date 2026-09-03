@@ -68,7 +68,7 @@ def get_cohort_capacity(cohort_id):
         return build_response(404, {'message': f'Cohort not found: {cohort_id}'})
 
     cohort = cohort_item['Item']
-    max_students = cohort.get('MaxStudents', 0)
+    max_students = int(cohort.get('MaxStudents', 0))
 
     count_response = students_table.query(
         IndexName='CohortIndex',
