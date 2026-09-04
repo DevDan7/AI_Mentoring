@@ -435,3 +435,267 @@ Se generaron dashboards HTML interactivos para análisis de lotes:
 - `doc/quiz-results-dashboard.html` — Resultados de quizzes (temporal, eliminado)
 
 Los dashboards fueron creados temporalmente para análisis puntual y posteriormente eliminados.
+
+---
+
+## Incidente IAM — Límite de Versiones de Política (2026-09-03)
+
+### Resumen
+
+| Campo | Valor |
+|-------|-------|
+| **Fecha** | 2026-09-03 |
+| **Recurso afectado** | `arn:aws:iam::853106001369:policy/terraform-cicd-policy` |
+| **Recurso dependiente** | `arn:aws:iam::853106001369:policy/mentoring-processor-policy` |
+| **Herramientas** | Terraform v1.15.8, AWS CLI, Python 3.12 |
+| **Impacto** | `terraform apply` bloqueado en CI/CD (GitHub Actions) |
+| **Causa** | Falta de `iam:DeletePolicyVersion` + límite de 5 versiones alcanzado |
+| **Resolución** | Bypass manual vía AWS CLI |
+| **Ocurrencia #** | 4ta vez del patrón "Huevo y Gallina" en IAM |
+
+### Diagnóstico
+
+#### Error original
+
+```
+Error: deleting IAM Policy (arn:aws:iam::853106001369:policy/mentoring-processor-policy)
+version (v1): operation error IAM: DeletePolicyVersion, https response error
+StatusCode: 403, RequestID: 3161dd04-f13c-4d9a-91ee-3f81f43529db,
+api error AccessDenied: User: arn:aws:sts::853106001369:assumed-role/
+ai-mentoring-github-actions/GitHubActions is not authorized to perform:
+iam:DeletePolicyVersion on resource: policy
+arn:aws:iam::853106001369:policy/mentoring-processor-policy
+because no identity-based policy allows the iam:DeletePolicyVersion action
+```
+
+#### Causa raíz
+
+Terraform gestiona políticas IAM como recursos con versiones. Para actualizar
+una política existente, necesita crear una nueva versión y eliminar la más
+antigua (máximo 5 versiones). Si la política no tiene `iam:DeletePolicyVersion`,
+Terraform no puede auto-limpiar versiones viejas. Al acumularse 5 versiones,
+se bloquea la creación de nuevas (`LimitExceeded`).
+
+```
+terraform-cicd-policy (sin DeletePolicyVersion)
+    └── Terraform intenta actualizar mentoring-processor-policy
+        └── Necesita crear v7 + eliminar v2
+            └── iam:DeletePolicyVersion no existe
+                └── Error: AccessDenied
+                    └── terraform apply bloqueado
+```
+
+#### Límite de 5 versiones
+
+AWS IAM permite un máximo de 5 versiones por política. Al llegar al límite,
+no se pueden crear nuevas versiones hasta eliminar una existente.
+
+```
+terraform-cicd-policy: v2, v3, v4, v5, v6 (5/5 — LLENO)
+    └── Terraform intenta crear v7
+        └── Error: LimitExceeded
+            └── Necesita eliminar v2 primero
+                └── Pero no tiene iam:DeletePolicyVersion
+                    └── BLOQUEO TOTAL
+```
+
+#### Permisos faltantes en `terraform-cicd-policy`
+
+| Permiso | Estado | Función |
+|---------|--------|---------|
+| `iam:CreatePolicyVersion` | ✅ Presente | Crear nuevas versiones |
+| `iam:DeletePolicy` | ✅ Presente | Eliminar políticas completas |
+| `iam:DeletePolicyVersion` | ❌ **Faltante** | Eliminar versiones individuales |
+| `iam:GetPolicyVersion` | ❌ Faltante | Leer versiones existentes |
+| `iam:SetDefaultPolicyVersion` | ❌ Faltante | Cambiar versión activa |
+
+### Solución Aplicada
+
+#### Paso 1: Identificar el estado real
+
+```bash
+aws iam list-policy-versions \
+  --policy-arn arn:aws:iam::853106001369:policy/terraform-cicd-policy \
+  --output table
+```
+
+Resultado: 5 versiones (v2-v6), todas con `IsDefaultVersion: false` excepto v6.
+
+#### Paso 2: Liberar espacio eliminando v2
+
+```bash
+aws iam delete-policy-version \
+  --policy-arn arn:aws:iam::853106001369:policy/terraform-cicd-policy \
+  --version-id v2
+```
+
+#### Paso 3: Extraer el documento JSON de v6
+
+```bash
+aws iam get-policy-version \
+  --policy-arn arn:aws:iam::853106001369:policy/terraform-cicd-policy \
+  --version-id v6 \
+  --query 'PolicyVersion.Document' \
+  --output json > /tmp/policy.json
+```
+
+#### Paso 4: Inyectar permisos faltantes
+
+```bash
+python3 -c "
+import json
+with open('/tmp/policy.json') as f:
+    p = json.load(f)
+for s in p['Statement']:
+    if 'iam:CreatePolicyVersion' in s.get('Action', []):
+        for perm in [
+            'iam:DeletePolicyVersion',
+            'iam:GetPolicyVersion',
+            'iam:SetDefaultPolicyVersion'
+        ]:
+            if perm not in s['Action']:
+                s['Action'].append(perm)
+        break
+with open('/tmp/policy-updated.json', 'w') as f:
+    json.dump(p, f, indent=2)
+print('Permisos inyectados: DeletePolicyVersion, GetPolicyVersion, SetDefaultPolicyVersion')
+"
+```
+
+#### Paso 5: Publicar v7 y activarla
+
+```bash
+aws iam create-policy-version \
+  --policy-arn arn:aws:iam::853106001369:policy/terraform-cicd-policy \
+  --policy-document file:///tmp/policy-updated.json \
+  --set-as-default
+```
+
+#### Paso 6: Verificar
+
+```bash
+aws iam get-policy-version \
+  --policy-arn arn:aws:iam::853106001369:policy/terraform-cicd-policy \
+  --version-id v7 \
+  --query 'PolicyVersion.Document.Action' \
+  --output table | grep -E "Delete|Get.*Policy|SetDefault"
+```
+
+#### Paso 7: Reanudar CI/CD
+
+```bash
+terraform validate
+terraform plan
+terraform apply -auto-approve
+```
+
+### Prevención a Futuro
+
+#### Regla #1: Ciclo de vida completo en políticas de CI/CD
+
+Toda política IAM gestionada por Terraform que el CI/CD necesita actualizar
+**debe incluir estos 4 permisos desde el inicio**:
+
+```json
+{
+  "Sid": "AllowPolicyLifecycle",
+  "Effect": "Allow",
+  "Action": [
+    "iam:CreatePolicyVersion",
+    "iam:DeletePolicyVersion",
+    "iam:GetPolicyVersion",
+    "iam:SetDefaultPolicyVersion"
+  ],
+  "Resource": "*"
+}
+```
+
+#### Regla #2: Limpieza periódica de versiones
+
+Mantener solo las 2 últimas versiones de cada política:
+
+```bash
+#!/bin/bash
+# scripts/limpiar_versiones_iam.sh
+POLICY_ARN="arn:aws:iam::853106001369:policy/terraform-cicd-policy"
+
+# Obtener versión default
+DEFAULT=$(aws iam get-policy --policy-arn $POLICY_ARN \
+  --query 'Policy.DefaultVersionId' --output text)
+
+# Obtener todas las versiones
+ALL_VERSIONS=$(aws iam list-policy-versions --policy-arn $POLICY_ARN \
+  --query 'Versions[].VersionId' --output text)
+
+# Contar versiones
+COUNT=$(echo $ALL_VERSIONS | wc -w)
+echo "Versiones actuales: $COUNT (límite: 5)"
+
+if [ "$COUNT" -ge 4 ]; then
+  echo "WARNING: Limpiando versiones antiguas..."
+  KEEP=$DEFAULT
+  for v in $ALL_VERSIONS; do
+    if [ "$v" != "$DEFAULT" ] && [ "$KEEP" = "$DEFAULT" ]; then
+      KEEP=$v  # Conservar una versión adicional
+    elif [ "$v" != "$DEFAULT" ] && [ "$v" != "$KEEP" ]; then
+      echo "Eliminando versión $v"
+      aws iam delete-policy-version --policy-arn $POLICY_ARN --version-id $v
+    fi
+  done
+  echo "Limpieza completada"
+fi
+```
+
+#### Regla #3: Check de drift en CI/CD
+
+Añadir un paso en `.github/workflows/terraform-plan.yml`:
+
+```yaml
+- name: Check IAM policy versions
+  run: |
+    VERSIONS=$(aws iam list-policy-versions \
+      --policy-arn arn:aws:iam::853106001369:policy/terraform-cicd-policy \
+      --query 'length(Versions)' --output text)
+    if [ "$VERSIONS" -ge 4 ]; then
+      echo "WARNING: Policy has $VERSIONS versions (limit: 5)"
+      echo "Consider cleaning up old versions before next apply"
+    fi
+```
+
+### Referencia Rápida de Comandos
+
+#### Diagnóstico
+
+```bash
+# Ver todas las versiones de una política
+aws iam list-policy-versions \
+  --policy-arn <POLICY_ARN> --output table
+
+# Ver permisos de la versión activa
+aws iam get-policy-version \
+  --policy-arn <POLICY_ARN> \
+  --version-id $(aws iam get-policy --policy-arn <POLICY_ARN> \
+    --query 'Policy.DefaultVersionId' --output text) \
+  --query 'PolicyVersion.Document.Statement[*].Action' --output table
+```
+
+#### Fix rápido (una línea)
+
+```bash
+POLICY_ARN="arn:aws:iam::853106001369:policy/terraform-cicd-policy"
+aws iam get-policy-version --policy-arn $POLICY_ARN \
+  --version-id $(aws iam get-policy --policy-arn $POLICY_ARN \
+    --query 'Policy.DefaultVersionId' --output text) \
+  --query 'PolicyVersion.Document' --output json | \
+  python3 -c "
+import json,sys
+p=json.load(sys.stdin)
+for s in p['Statement']:
+    if 'iam:CreatePolicyVersion' in s.get('Action',[]):
+        for x in ['iam:DeletePolicyVersion','iam:GetPolicyVersion','iam:SetDefaultPolicyVersion']:
+            if x not in s['Action']: s['Action'].append(x)
+json.dump(p,open('/tmp/p.json','w'),indent=2)
+" && \
+aws iam create-policy-version --policy-arn $POLICY_ARN \
+  --policy-document file:///tmp/p.json --set-as-default
+```

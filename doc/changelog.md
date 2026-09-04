@@ -23,6 +23,23 @@
 - **Lección aprendida**: `ConditionExpression` no es suficiente para dedup por atributo
   entre ítems distintos; se necesita un query previo vía GSI.
 
+### 03 Sep — Fix IAM: DeletePolicyVersion + límite de versiones
+- **Problema**: `terraform apply` bloqueado en CI/CD al intentar actualizar
+  `mentoring-processor-policy` (añadir `dynamodb:Query` + GSI ARN para
+  la dedupe por contenido). Causa: `terraform-cicd-policy` no tenía
+  `iam:DeletePolicyVersion` y ya tenía 5 versiones (v2-v6), bloqueando
+  la creación de v7 por `LimitExceeded`. 4ta ocurrencia del patrón
+  "Huevo y Gallina" en IAM.
+- **Solución**: Bypass manual vía AWS CLI — eliminar v2 (liberar espacio),
+  inyectar permisos faltantes (`DeletePolicyVersion`, `GetPolicyVersion`,
+  `SetDefaultPolicyVersion`) en v6, publicar v7 como default.
+- **Prevención actualizada**: ciclo de vida completo de IAM policies
+  (`CreatePolicyVersion` + `DeletePolicyVersion` + `GetPolicyVersion` +
+  `SetDefaultPolicyVersion`) + limpieza periódica de versiones (máx. 3)
+  + check de drift en CI/CD.
+- Referencia: sección "Patrón recurrente: Huevo y Gallina en IAM" en
+  `architecture.md` + sección "Incidente IAM" en `technical-log.md`
+
 ### 03 Sep — Validación de Cupo + Bug Fix + Limpieza
 
 #### Agregado
