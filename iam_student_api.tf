@@ -43,7 +43,8 @@ resource "aws_iam_policy" "student_api_policy" {
         Sid    = "AllowCognitoRead"
         Effect = "Allow"
         Action = [
-          "cognito-idp:GetUser"
+          "cognito-idp:GetUser",
+          "cognito-idp:AdminListGroupsForUser"
         ]
         Resource = aws_cognito_user_pool.students.arn
       },
