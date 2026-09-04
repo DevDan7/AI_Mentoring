@@ -112,6 +112,7 @@ S3 (foto examen) → S3 Event → SNS (notificaciones + email)
 | PUT | `/students/me` | student_api | Actualizar perfil propio |
 | GET | `/students/{studentId}` | student_api | Obtener alumno por ID |
 | GET | `/students/me/quizzes` | student_api | Historial de simulados |
+| PUT | `/students/{studentId}/phase` | student_api | Cambiar fase de alumno (solo teacher) |
 | GET | `/cohorts/{cohortId}/capacity` | student_api | Consulta de cupo (requiere auth) |
 | GET | `/public/cohorts/{cohortId}/capacity` | student_api | Consulta de cupo (público, sin auth) |
 | POST | `/quizzes/generate` | quiz_engine | Generar simulado |
@@ -166,7 +167,7 @@ QuestionID (PK)    | Topic | QuestionText | QuestionType | CorrectCount | Option
 ### Students
 
 ```
-StudentID (PK) | Email | Name | CreatedAt | UpdatedAt | AccessExpiresAt | CohortID | Role | CurrentPhase | InitialTestQuizID | HasTakenInitialTest
+StudentID (PK) | Email | Name | CreatedAt | UpdatedAt | AccessExpiresAt | CohortID | Role | CurrentPhase | PhaseHistory | FailedAttempts | MaxAttemptsAlert | InitialTestQuizID | HasTakenInitialTest
 ```
 
 - **GSI EmailIndex**: Permite buscar por email
@@ -175,6 +176,9 @@ StudentID (PK) | Email | Name | CreatedAt | UpdatedAt | AccessExpiresAt | Cohort
 - **AccessExpiresAt**: Fecha de expiración del acceso (CreatedAt + 30 días por defecto)
 - **Role**: `"student"` por defecto; `"teacher"` para profesores (asignado vía CLI)
 - **CurrentPhase**: Fase actual del alumno (`initial`, `phase_1`, `phase_2`, `final_exam`, `free_practice`)
+- **PhaseHistory**: Array de objetos `{Phase, UnlockedAt, UnlockedBy}` que registra cada cambio de fase
+- **FailedAttempts**: Objeto con contadores por fase: `{phase_1: N, phase_2: N, final_exam: N}`
+- **MaxAttemptsAlert**: Alerta cuando el alumno falla 3 veces en una fase: `{Phase, AlertType, OccurredAt, Score}`
 
 ### Quizzes
 
@@ -438,7 +442,7 @@ El objetivo del proyecto tiene 3 piezas:
 | 7b | Rol de Profesor (teacher dashboard) | ⏳ En progreso |
 | 7c | ~~Historial de quizzes~~ | ✅ Hecho (2026-09-01) |
 | 7d | Links externos (Anki, próximos simulados) | ⏳ Pendiente |
-| 7e | Sistema de Fases (Phase 1 → Phase 2 → Final Exam) | ⏳ En progreso |
+| 7e | ~~Sistema de Fases (Phase 1 → Phase 2 → Final Exam)~~ | ✅ Hecho |
 | 11 | ~~Bloque 1: Protecciones básicas~~ | ✅ Hecho (2026-09-01) |
 | 12 | Refactor: AWS Step Functions para orquestación asíncrona | ⏳ Pendiente |
 | 13 | Cleanup: avisos de depreciación (`key_schema` vs `hash_key`) | ⏳ Evaluado, mantenido (bug del proveedor AWS) |
@@ -496,6 +500,48 @@ Terraform solo declara atributos que son PK, SK o están en un GSI. Los demás c
 - Si expiró, retornan 403 con mensaje de contacto al profesor
 
 **Renovación**: Profesor debe actualizar `AccessExpiresAt` manualmente vía CLI o futura interfaz admin.
+
+### Sistema de Fases Adaptativo
+
+#### Flujo de Progresión
+
+```
+initial (Diagnóstico 20q)
+    ↓ Score ≥ 70%
+phase_1 (20q, distribución uniforme)
+    ↓ Score ≥ 70%
+phase_2 (20q, adaptativo: 70% temas débiles + 30% refuerzo)
+    ↓ Score ≥ 70%
+final_exam (65q, matriz AWS Cloud Practitioner)
+    ↓ Score ≥ 70%
+free_practice (práctica libre ilimitada)
+```
+
+#### Reglas de Negocio
+
+1. **Progresión automática**: Al completar un quiz con score ≥ 70%, el alumno avanza a la fase siguiente
+2. **Reintentos**: Máximo 3 intentos por fase antes de registrar alerta `MAX_ATTEMPTS_EXCEEDED`
+3. **Selección adaptativa (phase_2)**: 70% preguntas de temas con más errores en phase_1, 30% refuerzo
+4. **Anti-repetición (final_exam)**: Excluye preguntas ya respondidas por el alumno en quizzes anteriores
+5. **Control del profesor**: Endpoint `PUT /students/{studentId}/phase` permite forzar cambio de fase
+6. **Simulados libres**: Disponibles en todas las fases como práctica adicional
+
+#### Matriz de Preguntas — Examen Final (65 preguntas)
+
+Basado en AWS Cloud Practitioner CLF-C02:
+
+| Domain | Tema Canonical | Preguntas | % |
+|--------|---------------|-----------|---|
+| 1. Cloud Concepts | Cloud Concepts & Well-Architected | 16 | 24.6% |
+| 2. Security & Compliance | Security, Identity & Compliance | 20 | 30.8% |
+| 3. Technology & Services | Compute & Containers | 8 | 12.3% |
+| 3. Technology & Services | Storage & Database | 6 | 9.2% |
+| 3. Technology & Services | Networking & Content Delivery | 5 | 7.7% |
+| 3. Technology & Services | Data, Analytics & Machine Learning | 3 | 4.6% |
+| 4. Billing & Support | Billing, Cost Management & Support | 7 | 10.8% |
+| Complemento | Management, Governance & DevOps | 5 | 7.7% |
+| Complemento | General / Otros Servicios | 1 | 1.5% |
+| **Total** | | **65** | **100%** |
 
 ---
 
