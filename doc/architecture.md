@@ -336,7 +336,7 @@ decreases account's UnreservedConcurrentExecution below its minimum value of [10
 
 ### Patrón recurrente: Huevo y Gallina en IAM
 
-**Problema**: El proyecto ha enfrentado **tres veces** el mismo problema de dependencia circular en permisos IAM durante la automatización CI/CD:
+**Problema**: El proyecto ha enfrentado **cuatro veces** el mismo problema de dependencia circular en permisos IAM durante la automatización CI/CD:
 
 1. **2026-08-24**: El rol `ai-mentoring-github-actions` no podía ejecutar `terraform apply` para crear `terraform-cicd-policy` porque esa política le daría permisos de escritura que no tenía aún.
 
@@ -360,14 +360,27 @@ decreases account's UnreservedConcurrentExecution below its minimum value of [10
    trust policy). Sin ese permiso puntual, ni siquiera GitHub Actions podía
    aplicar el cambio.
 
-**Causa raíz**: Terraform gestiona políticas IAM como recursos. Para actualizar una política existente, necesita `iam:CreatePolicyVersion`. Pero si la política no tiene ese permiso, Terraform no puede modificarse a sí mismo.
+4. **2026-09-03**: Al actualizar `mentoring-processor-policy` (añadir
+   `dynamodb:Query` + GSI ARN para la dedupe por contenido), Terraform
+   necesitó eliminar la versión vieja de la política (`v2`). Pero
+   `terraform-cicd-policy` no tenía `iam:DeletePolicyVersion`. Además,
+   la política ya tenía 5 versiones (v2-v6), bloqueando la creación de
+   `v7` por `LimitExceeded`. Resolución: bypass manual vía AWS CLI
+   (eliminar v2, inyectar permisos, publicar v7).
+
+**Causa raíz**: Terraform gestiona políticas IAM como recursos con versiones.
+Para actualizar una política existente, necesita crear una nueva versión y
+eliminar la más antigua (máximo 5 versiones). Si la política no tiene
+`iam:DeletePolicyVersion`, Terraform no puede auto-limpiar versiones viejas.
+Al acumularse 5 versiones, se bloquea la creación de nuevas (`LimitExceeded`).
 
 ```
-Política IAM (sin CreatePolicyVersion)
-    └── Terraform intenta actualizar
-        └── Necesita CreatePolicyVersion
-            └── No existe en la política
+terraform-cicd-policy (sin DeletePolicyVersion)
+    └── Terraform intenta actualizar mentoring-processor-policy
+        └── Necesita crear v7 + eliminar v2
+            └── iam:DeletePolicyVersion no existe
                 └── Error: AccessDenied
+                    └── terraform apply bloqueado
 ```
 
 **Solución estándar** (para cualquier cambio de permisos en `terraform-cicd-policy`):
@@ -377,9 +390,18 @@ Política IAM (sin CreatePolicyVersion)
 3. **Terraform plan local** para verificar 0 cambios (sin drift)
 4. **Commit y push** para que GitHub Actions pueda ejecutar sin errores
 
-**Prevención**: Incluir `iam:CreatePolicyVersion` y `iam:DeletePolicy` en `terraform-cicd-policy` desde el inicio (agregados 2026-08-27).
+**Si `LimitExceeded`** (5 versiones):
+5. `aws iam list-policy-versions` → identificar versiones inactivas
+6. `aws iam delete-policy-version` → liberar espacio
+7. Repetir pasos 1-4
 
-**Nota (2026-09-01)**: si el cambio de IAM es sobre un *trust policy*
+**Prevención**: Incluir el ciclo de vida completo de IAM policies en
+`terraform-cicd-policy`: `iam:CreatePolicyVersion`, `iam:DeletePolicyVersion`,
+`iam:GetPolicyVersion`, `iam:SetDefaultPolicyVersion`. Limpiar versiones
+viejas periódicamente (máximo 3 por política). Ver `technical-log.md`
+para script de limpieza y check de drift en CI/CD.
+
+**Nota**: si el cambio de IAM es sobre un *trust policy*
 (`assume_role_policy`) en vez de una política de permisos regular, el
 permiso necesario en `terraform-cicd-policy` es específicamente
 `iam:UpdateAssumeRolePolicy` — no alcanza con `iam:UpdateRole`.
