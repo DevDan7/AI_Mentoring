@@ -11,6 +11,9 @@ students_table = dynamodb.Table(os.environ['STUDENTS_TABLE'])
 cohorts_table = dynamodb.Table(os.environ['COHORTS_TABLE'])
 quizzes_table = dynamodb.Table(os.environ['QUIZZES_TABLE'])
 
+# Cliente Cognito para verificar grupos de usuarios
+cognito_idp = boto3.client('cognito-idp')
+
 # Encabezados CORS estándar para permitir integración con el Frontend
 HEADERS = {
     'Content-Type': 'application/json',
@@ -259,13 +262,27 @@ def get_quiz_history(claims):
     return build_response(200, {'quizzes': history, 'current_phase': student.get('CurrentPhase', 'initial')})
 
 
+def is_teacher(user_sub):
+    """Verifica si el usuario pertenece al grupo Teachers en Cognito."""
+    try:
+        user_pool_id = os.environ['COGNITO_USER_POOL_ID']
+        response = cognito_idp.admin_list_groups_for_user(
+            UserPoolId=user_pool_id,
+            Username=user_sub,
+            Limit=10
+        )
+        groups = [g['GroupName'] for g in response.get('Groups', [])]
+        return 'Teachers' in groups
+    except Exception as e:
+        print(f"Error checking teacher group: {e}")
+        return False
+
+
 def update_student_phase(event, claims, target_student_id):
     """Permite al profesor cambiar la fase de un alumno. Requiere grupo 'Teachers' en Cognito."""
-    # Validar que el solicitante es teacher via cognito:groups
-    groups = claims.get('cognito:groups', '')
-    if isinstance(groups, str):
-        groups = [groups] if groups else []
-    if 'Teachers' not in groups:
+    # Validar que el solicitante es teacher via Cognito API
+    teacher_id = claims.get('sub')
+    if not is_teacher(teacher_id):
         return build_response(403, {'message': 'Only teachers can modify student phases'})
 
     data = json.loads(event.get('body', '{}'))
