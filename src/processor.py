@@ -11,6 +11,7 @@ from datetime import datetime
 import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
+from boto3.dynamodb.conditions import Key
 
 TABLE_NAME = os.environ.get("TABLE_NAME", "MentoringQuestions")
 SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN", "")
@@ -222,8 +223,22 @@ Do not include any text outside the JSON. Do not use markdown or code blocks.
                 )
                 ai_data["topic"] = "General / Otros Servicios"
 
-            # 4. Guardar en DynamoDB
+            # 4. Verificar duplicados por contenido (query al GSI)
             table = dynamodb.Table(TABLE_NAME)
+            h = content_hash(ai_data["question_text"])
+
+            existing = table.query(
+                IndexName="ContentHashIndex",
+                KeyConditionExpression=Key("ContentHash").eq(h),
+                Limit=1,
+            )
+            if existing["Items"]:
+                print(
+                    f"Duplicado por contenido detectado, omitiendo: {file_key}"
+                )
+                continue
+
+            # 5. Guardar en DynamoDB
             try:
                 table.put_item(
                     Item={
@@ -235,13 +250,10 @@ Do not include any text outside the JSON. Do not use markdown or code blocks.
                         "QuestionType": ai_data["question_type"],
                         "CorrectCount": int(ai_data["correct_count"]),
                         "Options": ai_data["options"],
-                        "ContentHash": content_hash(ai_data["question_text"]),
+                        "ContentHash": h,
                         "CreatedAt": datetime.now().isoformat(),
                     },
-                    ConditionExpression=(
-                        "attribute_not_exists(QuestionID) AND "
-                        "attribute_not_exists(ContentHash)"
-                    ),
+                    ConditionExpression="attribute_not_exists(QuestionID)",
                 )
                 print(f"Éxito total para: {file_key}")
             except ClientError as e:

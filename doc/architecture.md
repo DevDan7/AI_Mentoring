@@ -68,7 +68,7 @@ S3 (foto examen) → S3 Event → SNS (notificaciones + email)
 
 | Tabla | PK | GSIs | Propósito |
 |-------|-----|------|-----------|
-| `MentoringQuestions` | `QuestionID` | `TopicIndex` (Topic) | Banco de preguntas (campos: `ContentHash` para dedupe por contenido) |
+| `MentoringQuestions` | `QuestionID` | `TopicIndex` (Topic), `ContentHashIndex` (ContentHash) | Banco de preguntas (dedupe por contenido vía GSI) |
 | `Students` | `StudentID` | `EmailIndex` (Email), `CohortIndex` (CohortID) | Perfiles de alumnos |
 | `Quizzes` | `QuizID` | `StudentIndex` (StudentID) | Simulados generados |
 | `QuizResults` | `ResultID` | `QuizIndex` (QuizID), `StudentIndex` (StudentID + Timestamp) | Respuestas y resultados |
@@ -248,26 +248,25 @@ junto a un prompt de texto que pide estructurar la pregunta y describir diagrama
 el mensaje se descarta (`continue`, sin excepción, sin DLQ) pero se **publica una alerta SNS**
 (email) con la clave del archivo y el motivo — la imagen no se pierde silenciosamente.
 
-### ¿Cómo se evitan preguntas duplicadas por contenido? (2026-09-02)
+### ¿Cómo se evitan preguntas duplicadas por contenido? (2026-09-02, corregido 2026-09-03)
 
-**Problema**: La limpieza manual (2026-09-02) borró 13 duplicados existentes, pero el código
-solo evitaba duplicar por archivo (`attribute_not_exists(QuestionID)`). Una misma pregunta
-subida en 2+ fotos con distinto nombre volvía a crear duplicados por contenido.
+**Problema original**: La dedupe solo funcionaba por archivo (`attribute_not_exists(QuestionID)`).
+Una misma pregunta subida en 2+ fotos con distinto nombre creaba duplicados.
 
-**Decisión**: `processor.py` calcula un `ContentHash` (SHA-256) del enunciado normalizado
-(minúsculas, sin tildes, espacios ni puntuación) y lo guarda en cada registro. La condición
-de escritura pasa a ser doble:
+**Primera solución (2026-09-02)**: añadir `ContentHash` y usar `ConditionExpression` doble.
+Pero DynamoDB solo evalúa `attribute_not_exists` contra el ítem que se escribe, no contra
+la tabla → no deduplica entre ítems distintos. Entraron 8 duplicados.
 
-```
-attribute_not_exists(QuestionID) AND attribute_not_exists(ContentHash)
-```
+**Solución corregida (2026-09-03)**: GSI `ContentHashIndex` + query previo.
 
-- `QuestionID` → no duplica si vuelve la misma foto (mismo eTag).
-- `ContentHash` → no duplica si otra foto trae la **misma pregunta** (mismo contenido).
+1. **GSI `ContentHashIndex`** en `dynamodb.tf`: permite buscar por `ContentHash`.
+2. **`processor.py`** hace un `query` al GSI antes de `put_item`:
+   - Si el query retorna un ítem → la pregunta ya existe → skip.
+   - Si no retorna nada → procede con `put_item`.
+3. **`ConditionExpression`** simplificada a `attribute_not_exists(QuestionID)` (red de seguridad).
 
-El mismo enunciado (tras normalizar) siempre produce el mismo hash; preguntas distintas
-no colisionan. Sin GSI: la condición `attribute_not_exists(ContentHash)` se evalúa sobre la
-tabla directamente, no requiere índice (menor costo y complejidad).
+**Lección**: `ConditionExpression` con `attribute_not_exists` no es suficiente para dedup
+por atributo entre ítems distintos; se necesita un query previo vía GSI.
 
 ### ¿Por qué 10 categorías canónicas?
 
