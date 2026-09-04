@@ -6,6 +6,19 @@
 
 ## 2026-09
 
+### 04 Sep — Fix feedback loop SNS→SQS + reducción max_attempts
+- **Problema 1**: Feedback loop entre SNS y SQS — cuando `notify_unprocessable()`
+  publicaba una alerta a SNS, el mensaje volvía a la cola SQS como si fuera una foto.
+  La Lambda intentaba parsear texto no-JSON y fallaba, generando mensajes en DLQ.
+- **Solución 1**: `try/except JSONDecodeError` en `processor.py` para ignorar
+  mensajes no-JSON (notificaciones SNS) sin fallar.
+- **Problema 2**: `max_attempts=6` en botocore causaba timeouts de 30s en Lambda
+  cuando Bedrock retornaba ThrottlingException.
+- **Solución 2**: Reducido `max_attempts` de 6 a 3 (balance entre resiliencia y timeout).
+- **Limpieza**: DLQ vaciada (1 mensaje de notificación SNS eliminado).
+- **Resultado**: 203 preguntas en DynamoDB, 0 duplicados, 0 mensajes en DLQ.
+- Referencia: sección "Feedback Loop SNS→SQS" en `technical-log.md`
+
 ### 03 Sep — Corrección dedupe por contenido: GSI ContentHashIndex + query previo
 - **Problema**: la `ConditionExpression` con `attribute_not_exists(ContentHash)` no
   deduplica entre ítems distintos (DynamoDB solo evalúa contra el ítem que se escribe).

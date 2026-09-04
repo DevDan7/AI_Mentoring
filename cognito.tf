@@ -87,3 +87,11 @@ resource "aws_cognito_user_pool_client" "student_app" {
   prevent_user_existence_errors = "ENABLED"
 
 }
+
+# 3. Grupo de profesores para control de acceso
+resource "aws_cognito_user_group" "teachers" {
+  name         = "Teachers"
+  user_pool_id = aws_cognito_user_pool.students.id
+  description  = "Teachers group for mentoring platform - controls access to phase management endpoints"
+  precedence   = 0
+}
