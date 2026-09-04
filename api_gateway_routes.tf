@@ -60,6 +60,14 @@ resource "aws_apigatewayv2_route" "students_me_quizzes_get" {
   authorization_type = "JWT"
 }
 
+resource "aws_apigatewayv2_route" "students_phase_put" {
+  api_id             = aws_apigatewayv2_api.mentoring_api.id
+  route_key          = "PUT /students/{studentId}/phase"
+  target             = "integrations/${aws_apigatewayv2_integration.student.id}"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+  authorization_type = "JWT"
+}
+
 # =============================================================================
 # Cohorts Routes
 # =============================================================================

@@ -27,6 +27,34 @@ INITIAL_TEST_DISTRIBUTION = {
     "General / Otros Servicios": 1,
 }
 
+# Distribución para Phase 1 (20 preguntas, uniforme)
+PHASE_1_DISTRIBUTION = {
+    "Cloud Concepts & Well-Architected": 4,
+    "Security, Identity & Compliance": 2,
+    "Compute & Containers": 2,
+    "Storage & Database": 2,
+    "Networking & Content Delivery": 2,
+    "Management, Governance & DevOps": 2,
+    "Data, Analytics & Machine Learning": 2,
+    "Billing, Cost Management & Support": 2,
+    "Application Integration & Serverless Architecture": 1,
+    "General / Otros Servicios": 1,
+}
+
+# Distribución para Examen Final (65 preguntas, matriz AWS Cloud Practitioner)
+FINAL_EXAM_DISTRIBUTION = {
+    "Cloud Concepts & Well-Architected": 16,
+    "Security, Identity & Compliance": 20,
+    "Compute & Containers": 8,
+    "Storage & Database": 6,
+    "Networking & Content Delivery": 5,
+    "Data, Analytics & Machine Learning": 3,
+    "Application Integration & Serverless Architecture": 0,
+    "Billing, Cost Management & Support": 7,
+    "Management, Governance & DevOps": 5,
+    "General / Otros Servicios": 1,
+}
+
 # Encabezados CORS estándar para las respuestas HTTP
 HEADERS = {
     'Content-Type': 'application/json',
@@ -123,8 +151,36 @@ def generate_quiz(student_id, body):
     
     quiz_type = body.get('quiz_type', 'free')
 
+    # Obtener fase actual del alumno
+    student_response = students_table.get_item(Key={'StudentID': student_id})
+    student = student_response.get('Item', {})
+    current_phase = student.get('CurrentPhase', 'initial')
+
+    # Restricción: solo generar el quiz si corresponde a la fase actual
+    ALLOWED_TYPES = {
+        'initial': ['initial'],
+        'phase_1': ['phase_1', 'free'],
+        'phase_2': ['phase_2', 'free'],
+        'final_exam': ['final_exam', 'free'],
+        'free_practice': ['free', 'initial', 'phase_1', 'phase_2', 'final_exam']
+    }
+
+    allowed = ALLOWED_TYPES.get(current_phase, ['free'])
+    if quiz_type not in allowed:
+        return build_response(403, {
+            'error': f'Quiz type "{quiz_type}" not allowed in current phase "{current_phase}"',
+            'current_phase': current_phase,
+            'allowed_types': allowed
+        })
+
     if quiz_type == 'initial':
         return generate_initial_quiz(student_id)
+    elif quiz_type == 'phase_1':
+        return generate_phase_1_quiz(student_id)
+    elif quiz_type == 'phase_2':
+        return generate_phase_2_quiz(student_id)
+    elif quiz_type == 'final_exam':
+        return generate_final_exam(student_id)
 
     topic = body.get('topic')
     count = body.get('count', 5)
@@ -219,6 +275,222 @@ def generate_initial_quiz(student_id):
     })
 
 
+def generate_phase_1_quiz(student_id):
+    """Genera un quiz de fase 1 con 20 preguntas distribuidas uniformemente."""
+    question_ids = []
+    cleaned_questions = []
+
+    for topic, count in PHASE_1_DISTRIBUTION.items():
+        response_query = questions_table.query(
+            IndexName='TopicIndex',
+            KeyConditionExpression=Key('Topic').eq(topic),
+            Limit=count
+        )
+        questions = response_query.get('Items', [])
+        for q in questions:
+            question_ids.append(q['QuestionID'])
+            cleaned_questions.append(clean_question(q))
+
+    if not question_ids:
+        return build_response(404, {'error': 'No questions found for phase 1'})
+
+    quiz_id = str(uuid.uuid4())
+    created_at = datetime.now(timezone.utc).isoformat()
+
+    quizzes_table.put_item(Item={
+        'QuizID': quiz_id,
+        'StudentID': student_id,
+        'QuizType': 'phase_1',
+        'Topic': 'phase_1',
+        'Questions': question_ids,
+        'Status': 'in_progress',
+        'CreatedAt': created_at
+    })
+
+    return build_response(201, {
+        'quiz_id': quiz_id,
+        'student_id': student_id,
+        'quiz_type': 'phase_1',
+        'topic': 'phase_1',
+        'questions': cleaned_questions
+    })
+
+
+def get_weak_topics(student_id):
+    """Identifica temas con más errores en quizzes phase_1 completados."""
+    quizzes_response = quizzes_table.query(
+        IndexName='StudentIndex',
+        KeyConditionExpression=Key('StudentID').eq(student_id),
+        FilterExpression=Attr('QuizType').eq('phase_1') & Attr('Status').eq('completed')
+    )
+    phase_1_quizzes = quizzes_response.get('Items', [])
+
+    if not phase_1_quizzes:
+        return None
+
+    incorrect_topics = {}
+    for quiz in phase_1_quizzes:
+        results = quiz_results_table.query(
+            IndexName='QuizIndex',
+            KeyConditionExpression=Key('QuizID').eq(quiz['QuizID']),
+            FilterExpression=Attr('IsCorrect').eq(False)
+        )
+        for result in results.get('Items', []):
+            q = questions_table.get_item(Key={'QuestionID': result['QuestionID']})
+            topic = q.get('Item', {}).get('Topic', 'General / Otros Servicios')
+            incorrect_topics[topic] = incorrect_topics.get(topic, 0) + 1
+
+    sorted_topics = sorted(incorrect_topics.items(), key=lambda x: x[1], reverse=True)
+    return [t[0] for t in sorted_topics]
+
+
+def generate_phase_2_quiz(student_id):
+    """Genera quiz adaptativo: 70% temas débiles, 30% refuerzo."""
+    weak_topics = get_weak_topics(student_id)
+
+    if not weak_topics:
+        return generate_phase_1_quiz(student_id)
+
+    question_ids = []
+    cleaned_questions = []
+
+    # 70% de las 20 preguntas = 14 preguntas de temas débiles
+    weak_count = 14
+    for topic in weak_topics[:5]:
+        count = min(3, weak_count)
+        response = questions_table.query(
+            IndexName='TopicIndex',
+            KeyConditionExpression=Key('Topic').eq(topic),
+            Limit=count
+        )
+        for q in response.get('Items', []):
+            question_ids.append(q['QuestionID'])
+            cleaned_questions.append(clean_question(q))
+            weak_count -= 1
+        if weak_count <= 0:
+            break
+
+    # 30% = 6 preguntas de refuerzo general
+    reinforcement_topics = [t for t in INITIAL_TEST_DISTRIBUTION.keys() if t not in weak_topics]
+    remaining = 20 - len(question_ids)
+    for topic in reinforcement_topics:
+        if remaining <= 0:
+            break
+        response = questions_table.query(
+            IndexName='TopicIndex',
+            KeyConditionExpression=Key('Topic').eq(topic),
+            Limit=min(2, remaining)
+        )
+        for q in response.get('Items', []):
+            question_ids.append(q['QuestionID'])
+            cleaned_questions.append(clean_question(q))
+            remaining -= 1
+
+    if not question_ids:
+        return build_response(404, {'error': 'No questions found for phase 2'})
+
+    quiz_id = str(uuid.uuid4())
+    created_at = datetime.now(timezone.utc).isoformat()
+
+    quizzes_table.put_item(Item={
+        'QuizID': quiz_id,
+        'StudentID': student_id,
+        'QuizType': 'phase_2',
+        'Topic': 'phase_2',
+        'Questions': question_ids,
+        'Status': 'in_progress',
+        'CreatedAt': created_at
+    })
+
+    return build_response(201, {
+        'quiz_id': quiz_id,
+        'student_id': student_id,
+        'quiz_type': 'phase_2',
+        'topic': 'phase_2',
+        'questions': cleaned_questions
+    })
+
+
+def get_student_answered_question_ids(student_id):
+    """Retorna IDs de preguntas que el alumno ya respondió (anti-repetición)."""
+    quizzes_response = quizzes_table.query(
+        IndexName='StudentIndex',
+        KeyConditionExpression=Key('StudentID').eq(student_id),
+        FilterExpression=Attr('Status').eq('completed')
+    )
+
+    answered_ids = set()
+    for quiz in quizzes_response.get('Items', []):
+        results = quiz_results_table.query(
+            IndexName='QuizIndex',
+            KeyConditionExpression=Key('QuizID').eq(quiz['QuizID'])
+        )
+        for r in results.get('Items', []):
+            answered_ids.add(r['QuestionID'])
+
+    return answered_ids
+
+
+def generate_final_exam(student_id):
+    """Genera examen final de 65 preguntas con anti-repetición."""
+    answered_ids = get_student_answered_question_ids(student_id)
+
+    question_ids = []
+    cleaned_questions = []
+
+    for topic, count in FINAL_EXAM_DISTRIBUTION.items():
+        if count == 0:
+            continue
+
+        response = questions_table.query(
+            IndexName='TopicIndex',
+            KeyConditionExpression=Key('Topic').eq(topic),
+            Limit=count * 2
+        )
+
+        selected = 0
+        for q in response.get('Items', []):
+            if selected >= count:
+                break
+            if q['QuestionID'] not in answered_ids and q['QuestionID'] not in question_ids:
+                question_ids.append(q['QuestionID'])
+                cleaned_questions.append(clean_question(q))
+                selected += 1
+
+        if selected < count:
+            for q in response.get('Items', []):
+                if selected >= count:
+                    break
+                if q['QuestionID'] not in question_ids:
+                    question_ids.append(q['QuestionID'])
+                    cleaned_questions.append(clean_question(q))
+                    selected += 1
+
+    if not question_ids:
+        return build_response(404, {'error': 'No questions found for final exam'})
+
+    quiz_id = str(uuid.uuid4())
+    created_at = datetime.now(timezone.utc).isoformat()
+
+    quizzes_table.put_item(Item={
+        'QuizID': quiz_id,
+        'StudentID': student_id,
+        'QuizType': 'final_exam',
+        'Topic': 'final_exam',
+        'Questions': question_ids,
+        'Status': 'in_progress',
+        'CreatedAt': created_at
+    })
+
+    return build_response(201, {
+        'quiz_id': quiz_id,
+        'student_id': student_id,
+        'quiz_type': 'final_exam',
+        'topic': 'final_exam',
+        'questions': cleaned_questions
+    })
+
+
 def get_quiz(quiz_id, student_id):
     """Obtiene un quiz con todas sus preguntas y las que ya fueron respondidas."""
     quiz_response = quizzes_table.get_item(Key={'QuizID': quiz_id})
@@ -257,7 +529,7 @@ def get_quiz(quiz_id, student_id):
 
 
 def complete_quiz(quiz_id, student_id):
-    """Marca un quiz como completado, calcula score y actualiza student si es initial."""
+    """Marca un quiz como completado, calcula score y aplica lógica de progresión de fases."""
     quiz_response = quizzes_table.get_item(Key={'QuizID': quiz_id})
     quiz = quiz_response.get('Item')
 
@@ -292,8 +564,91 @@ def complete_quiz(quiz_id, student_id):
         }
     )
 
-    # Si es el quiz inicial, marcar en el student
-    if quiz.get('QuizType') == 'initial':
+    # Lógica de progresión de fases
+    quiz_type = quiz.get('QuizType')
+    student_response = students_table.get_item(Key={'StudentID': student_id})
+    student = student_response.get('Item', {})
+    current_phase = student.get('CurrentPhase', 'initial')
+    new_phase = current_phase
+    alert = None
+
+    if quiz_type == 'initial' and current_phase == 'initial':
+        if score_percentage >= 70:
+            new_phase = 'phase_1'
+
+    elif quiz_type == 'phase_1' and current_phase == 'phase_1':
+        if score_percentage >= 70:
+            new_phase = 'phase_2'
+        else:
+            failed_attempts = student.get('FailedAttempts', {}).get('phase_1', 0) + 1
+            if failed_attempts >= 3:
+                students_table.update_item(
+                    Key={'StudentID': student_id},
+                    UpdateExpression='SET FailedAttempts.phase_1 = :attempts, MaxAttemptsAlert = :alert',
+                    ExpressionAttributeValues={
+                        ':attempts': failed_attempts,
+                        ':alert': {
+                            'Phase': 'phase_1',
+                            'AlertType': 'MAX_ATTEMPTS_EXCEEDED',
+                            'OccurredAt': completed_at,
+                            'Score': float(score_percentage)
+                        }
+                    }
+                )
+                alert = 'MAX_ATTEMPTS_EXCEEDED: Contact your instructor'
+            else:
+                students_table.update_item(
+                    Key={'StudentID': student_id},
+                    UpdateExpression='SET FailedAttempts.phase_1 = :attempts',
+                    ExpressionAttributeValues={':attempts': failed_attempts}
+                )
+
+    elif quiz_type == 'phase_2' and current_phase == 'phase_2':
+        if score_percentage >= 70:
+            new_phase = 'final_exam'
+        else:
+            failed_attempts = student.get('FailedAttempts', {}).get('phase_2', 0) + 1
+            if failed_attempts >= 3:
+                students_table.update_item(
+                    Key={'StudentID': student_id},
+                    UpdateExpression='SET FailedAttempts.phase_2 = :attempts, MaxAttemptsAlert = :alert',
+                    ExpressionAttributeValues={
+                        ':attempts': failed_attempts,
+                        ':alert': {
+                            'Phase': 'phase_2',
+                            'AlertType': 'MAX_ATTEMPTS_EXCEEDED',
+                            'OccurredAt': completed_at,
+                            'Score': float(score_percentage)
+                        }
+                    }
+                )
+                alert = 'MAX_ATTEMPTS_EXCEEDED: Contact your instructor'
+            else:
+                students_table.update_item(
+                    Key={'StudentID': student_id},
+                    UpdateExpression='SET FailedAttempts.phase_2 = :attempts',
+                    ExpressionAttributeValues={':attempts': failed_attempts}
+                )
+
+    elif quiz_type == 'final_exam' and current_phase == 'final_exam':
+        if score_percentage >= 70:
+            new_phase = 'free_practice'
+
+    # Actualizar fase si cambió
+    if new_phase != current_phase:
+        now = datetime.now(timezone.utc).isoformat()
+        students_table.update_item(
+            Key={'StudentID': student_id},
+            UpdateExpression='SET CurrentPhase = :phase, PhaseHistory = list_append(if_not_exists(PhaseHistory, :empty_list), :entry)',
+            ExpressionAttributeValues={
+                ':phase': new_phase,
+                ':entry': [{'Phase': new_phase, 'UnlockedAt': now, 'UnlockedBy': 'system'}],
+                ':empty_list': []
+            }
+        )
+
+    # Si es el quiz inicial, marcar en el student (mantener comportamiento existente)
+    if quiz_type == 'initial':
         students_table.update_item(
             Key={'StudentID': student_id},
             UpdateExpression='SET HasTakenInitialTest = :taken, InitialTestQuizID = :quiz_id',
@@ -303,12 +658,22 @@ def complete_quiz(quiz_id, student_id):
             }
         )
 
-    return build_response(200, {
+    response = {
         'message': 'Quiz completed',
         'quiz_id': quiz_id,
         'completed_at': completed_at,
         'score_percentage': float(score_percentage)
-    })
+    }
+
+    if new_phase != current_phase:
+        response['phase_advanced'] = True
+        response['previous_phase'] = current_phase
+        response['new_phase'] = new_phase
+
+    if alert:
+        response['alert'] = alert
+
+    return build_response(200, response)
 
 
 def submit_answer(student_id, body):

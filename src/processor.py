@@ -34,7 +34,7 @@ CANONICAL_TOPICS = [
 s3_client = boto3.client("s3")
 bedrock_config = Config(
     retries={
-        'max_attempts': 6,
+        'max_attempts': 3,
         'mode': 'adaptive'
     }
 )
@@ -75,7 +75,15 @@ def notify_unprocessable(file_key, bucket_name, reason):
 def lambda_handler(event, context):
     for record in event["Records"]:
         try:
-            body = json.loads(record["body"])
+            # Manejo de mensajes malformados o vacíos (feedback loop SNS→SQS)
+            try:
+                body = json.loads(record["body"])
+            except (json.JSONDecodeError, TypeError):
+                print(
+                    f"Mensaje no JSON válido, saltando: "
+                    f"{record.get('messageId', 'N/A')}"
+                )
+                continue
 
             # Validación de seguridad para TestEvents
             if "Records" not in body:
