@@ -78,6 +78,7 @@ class TestProcessorMultimodal(unittest.TestCase):
         bedrock_runtime.invoke_model.return_value = make_bedrock_response(make_valid_json())
 
         table = mock.MagicMock()
+        table.query.return_value = {"Items": []}
         dynamodb.Table.return_value = table
 
         result = processor.lambda_handler(make_event("pregunta.png", etag="abc123"), None)
@@ -109,7 +110,7 @@ class TestProcessorMultimodal(unittest.TestCase):
         self.assertIn("ContentHash", item)
         self.assertEqual(
             table.put_item.call_args.kwargs.get("ConditionExpression"),
-            "attribute_not_exists(QuestionID) AND attribute_not_exists(ContentHash)",
+            "attribute_not_exists(QuestionID)",
         )
 
     @mock.patch("processor.dynamodb")
@@ -167,6 +168,7 @@ class TestProcessorMultimodal(unittest.TestCase):
         raw = make_valid_json().replace('"Compute & Containers"', '"Inventado X"')
         bedrock_runtime.invoke_model.return_value = make_bedrock_response(raw)
         table = mock.MagicMock()
+        table.query.return_value = {"Items": []}
         dynamodb.Table.return_value = table
 
         processor.lambda_handler(make_event("pregunta.png"), None)
@@ -224,12 +226,42 @@ class TestProcessorMultimodal(unittest.TestCase):
     @mock.patch("processor.dynamodb")
     @mock.patch("processor.bedrock_runtime")
     @mock.patch("processor.s3_client")
+    def test_duplicado_por_contenido_se_omite(
+        self, s3_client, bedrock_runtime, dynamodb
+    ):
+        s3_client.get_object.return_value = {"Body": FakeBody(b"pngdata")}
+        bedrock_runtime.invoke_model.return_value = make_bedrock_response(make_valid_json())
+        table = mock.MagicMock()
+        dynamodb.Table.return_value = table
+
+        # Primera llamada: query retorna vacio (no duplicado) -> put_item se ejecuta
+        table.query.return_value = {"Items": []}
+        processor.lambda_handler(make_event("foto1.png"), None)
+        self.assertEqual(table.put_item.call_count, 1)
+        first_item = table.put_item.call_args.kwargs["Item"]
+
+        # Segunda llamada: query retorna un item (duplicado) -> put_item NO se ejecuta
+        table.query.return_value = {"Items": [{"ContentHash": first_item["ContentHash"]}]}
+        table.put_item.reset_mock()
+        processor.lambda_handler(make_event("foto2.png"), None)
+        table.put_item.assert_not_called()
+
+        # Mismo ContentHash, distinto QuestionID
+        self.assertNotEqual(
+            make_event("foto1.png")["Records"][0]["body"],
+            make_event("foto2.png")["Records"][0]["body"],
+        )
+
+    @mock.patch("processor.dynamodb")
+    @mock.patch("processor.bedrock_runtime")
+    @mock.patch("processor.s3_client")
     def test_mismo_contenido_da_mismo_content_hash(
         self, s3_client, bedrock_runtime, dynamodb
     ):
         s3_client.get_object.return_value = {"Body": FakeBody(b"pngdata")}
         bedrock_runtime.invoke_model.return_value = make_bedrock_response(make_valid_json())
         table = mock.MagicMock()
+        table.query.return_value = {"Items": []}
         dynamodb.Table.return_value = table
 
         processor.lambda_handler(make_event("foto1.png"), None)

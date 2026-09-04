@@ -13,6 +13,11 @@ resource "aws_dynamodb_table" "mentoring_questions_table" {
     type = "S"
   }
 
+  attribute {
+    name = "ContentHash"
+    type = "S"
+  }
+
   global_secondary_index {
     name            = "TopicIndex"
     projection_type = "ALL"
@@ -20,6 +25,12 @@ resource "aws_dynamodb_table" "mentoring_questions_table" {
       attribute_name = "Topic"
       key_type       = "HASH"
     }
+  }
+
+  global_secondary_index {
+    name            = "ContentHashIndex"
+    hash_key        = "ContentHash"
+    projection_type = "KEYS_ONLY"
   }
 
   tags = {

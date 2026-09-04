@@ -48,12 +48,16 @@ resource "aws_iam_policy" "lambda_policy" {
         Resource = "*"
       },
       {
-        Sid    = "AllowWriteToDynamoDB"
+        Sid    = "AllowDynamoDBAccess"
         Effect = "Allow"
         Action = [
-          "dynamodb:PutItem"
+          "dynamodb:PutItem",
+          "dynamodb:Query"
         ]
-        Resource = aws_dynamodb_table.mentoring_questions_table.arn
+        Resource = [
+          aws_dynamodb_table.mentoring_questions_table.arn,
+          "${aws_dynamodb_table.mentoring_questions_table.arn}/index/*"
+        ]
       },
       {
         Sid    = "AllowPublishNotifications"
