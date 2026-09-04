@@ -150,8 +150,15 @@ resource "aws_iam_policy" "terraform_cicd_policy" {
           "iam:GetRolePolicy",
           "iam:DetachRolePolicy",
           "iam:DeleteRolePolicy",
-          "iam:CreatePolicyVersion",
+          "iam:CreatePolicy",
           "iam:DeletePolicy",
+          "iam:GetPolicy",
+          "iam:ListPolicies",
+          "iam:CreatePolicyVersion",
+          "iam:DeletePolicyVersion",      # <-- FALTABA
+          "iam:GetPolicyVersion",         # <-- FALTABA
+          "iam:SetDefaultPolicyVersion",  # <-- FALTABA
+          "iam:ListPolicyVersions",       # <-- RECOMENDADO
           "iam:ListOpenIDConnectProviders",
           "iam:UpdateAssumeRolePolicy",
           "iam:GetOpenIDConnectProvider"
