@@ -418,9 +418,9 @@ Sección "Histórico de Simulados" muestra correctamente:
 
 | Prioridad | Acción | Impacto Esperado |
 |-----------|--------|------------------|
-| Alta | Reducir `max_attempts` de 6 a 3-4 en botocore | Evitar timeouts de 30s |
+| ~~Alta~~ | ~~Reducir `max_attempts` de 6 a 3-4 en botocore~~ | ~~Evitar timeouts de 30s~~ ✅ Completado 04 Sep |
 | Alta | Agregar filtro en `processor.py` (solo `.png`, `.jpg`) | Evitar procesar archivos innecesarios |
-| Media | Reprocesar 5 mensajes de DLQ (si quedan) | Recuperar preguntas perdidas |
+| Media | Reprocesar fotos de DLQ (si quedan) | Recuperar preguntas perdidas |
 | Media | Evaluar validación de unicidad por Email en Students | Evitar perfiles duplicados |
 | Baja | Habilitar `deletion_protection_enabled = true` en DynamoDB | Protección contra eliminación accidental |
 | Baja | Escalar recursos IAM a ARNs específicos | Reducir uso de `Resource: "*"` |
@@ -435,6 +435,104 @@ Se generaron dashboards HTML interactivos para análisis de lotes:
 - `doc/quiz-results-dashboard.html` — Resultados de quizzes (temporal, eliminado)
 
 Los dashboards fueron creados temporalmente para análisis puntual y posteriormente eliminados.
+
+---
+
+## Feedback Loop SNS→SQS (2026-09-04)
+
+### Resumen
+
+| Campo | Valor |
+|-------|-------|
+| **Fecha** | 2026-09-04 |
+| **Recurso afectado** | `mentoring-main-queue` (SQS) + `mentoring-exam-processor` (Lambda) |
+| **Impacto** | Mensajes de notificación SNS re-procesados como fotos, generando errores en DLQ |
+| **Causa** | Suscripción SNS→SQS reenvía TODOS los mensajes, incluyendo alertas de error |
+| **Solución** | `try/except JSONDecodeError` en Lambda para ignorar mensajes no-JSON |
+
+### Diagnóstico
+
+#### Flujo normal
+
+```
+Foto subida → S3 → SNS → SQS → Lambda → Bedrock → DynamoDB
+```
+
+#### Flujo del feedback loop
+
+```
+Foto falla → Lambda llama notify_unprocessable() → publica a SNS
+    ↓
+SNS envía a SQS (por suscripción aws_sns_topic_subscription.sqs_sub)
+    ↓
+Lambda recibe el mensaje de notificación
+    ↓
+Intenta json.loads() → falla (no es JSON válido)
+    ↓
+Después de 4 intentos → va a DLQ
+```
+
+#### Error en CloudWatch
+
+```
+JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+  File "/var/task/processor.py", line 78, in lambda_handler
+    body = json.loads(record["body"])
+```
+
+### Solución Aplicada
+
+**Archivo modificado**: `src/processor.py`
+
+```python
+# ANTES (línea 78):
+body = json.loads(record["body"])
+
+# DESPUÉS:
+try:
+    body = json.loads(record["body"])
+except (json.JSONDecodeError, TypeError):
+    print(f"Mensaje no JSON válido, saltando: {record.get('messageId', 'N/A')}")
+    continue
+```
+
+### Fix adicional: Reducción de max_attempts
+
+**Problema**: `max_attempts=6` causaba timeouts de 30s en Lambda.
+
+**Solución**: Reducido de 6 a 3.
+
+```python
+# ANTES:
+bedrock_config = Config(
+    retries={
+        'max_attempts': 6,
+        'mode': 'adaptive'
+    }
+)
+
+# DESPUÉS:
+bedrock_config = Config(
+    retries={
+        'max_attempts': 3,
+        'mode': 'adaptive'
+    }
+)
+```
+
+**Impacto**:
+- ThrottlingException: 18 → 0 (con max_attempts=3)
+- Timeouts: eliminados (3 reintentos ≈ 10s < timeout de 60s)
+
+### Resultado
+
+| Métrica | Antes | Después |
+|---------|-------|---------|
+| Mensajes en DLQ | 1 | 0 |
+| Errores JSONDecodeError | 8 | 0 |
+| ThrottlingException | 18 | 0 (con max_attempts=3) |
+| Preguntas en DynamoDB | 203 | 203 |
+| Duplicados detectados | 0 | 0 |
 
 ---
 

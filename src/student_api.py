@@ -54,6 +54,9 @@ def lambda_handler(event, context):
     elif route_key == 'GET /public/cohorts/{cohortId}/capacity':
         cohort_id = path_params.get('cohortId')
         return get_cohort_capacity(cohort_id)
+    elif route_key == 'PUT /students/{studentId}/phase':
+        student_id = path_params.get('studentId')
+        return update_student_phase(event, claims, student_id)
     else:
         return build_response(404, {'message': f'Route not found: {route_key}'})
 
@@ -128,7 +131,14 @@ def create_student(event, claims):
             'Cohort': data.get('cohort', ''),
             'CreatedAt': created_at,
             'UpdatedAt': created_at,
-            'AccessExpiresAt': access_expires_at
+            'AccessExpiresAt': access_expires_at,
+            'CurrentPhase': 'initial',
+            'PhaseHistory': [],
+            'FailedAttempts': {
+                'phase_1': 0,
+                'phase_2': 0,
+                'final_exam': 0
+            }
         }
         if cohort_id:
             item['CohortID'] = cohort_id
@@ -246,4 +256,49 @@ def get_quiz_history(claims):
             'score_percentage': float(q['ScorePercentage']) if q.get('ScorePercentage') is not None else None
         })
 
-    return build_response(200, {'quizzes': history})
+    return build_response(200, {'quizzes': history, 'current_phase': student.get('CurrentPhase', 'initial')})
+
+
+def update_student_phase(event, claims, target_student_id):
+    """Permite al profesor cambiar la fase de un alumno. Requiere grupo 'Teachers' en Cognito."""
+    # Validar que el solicitante es teacher via cognito:groups
+    groups = claims.get('cognito:groups', '')
+    if isinstance(groups, str):
+        groups = [groups] if groups else []
+    if 'Teachers' not in groups:
+        return build_response(403, {'message': 'Only teachers can modify student phases'})
+
+    data = json.loads(event.get('body', '{}'))
+    new_phase = data.get('phase')
+    valid_phases = ['initial', 'phase_1', 'phase_2', 'final_exam', 'free_practice']
+
+    if new_phase not in valid_phases:
+        return build_response(400, {'message': f'Invalid phase. Must be one of: {valid_phases}'})
+
+    # Obtener alumno actual
+    student_response = students_table.get_item(Key={'StudentID': target_student_id})
+    student = student_response.get('Item')
+    if not student:
+        return build_response(404, {'message': 'Student not found'})
+
+    current_phase = student.get('CurrentPhase', 'initial')
+    teacher_id = claims.get('sub')
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Actualizar fase + agregar entrada al historial
+    students_table.update_item(
+        Key={'StudentID': target_student_id},
+        UpdateExpression='SET CurrentPhase = :phase, PhaseHistory = list_append(if_not_exists(PhaseHistory, :empty_list), :entry)',
+        ExpressionAttributeValues={
+            ':phase': new_phase,
+            ':entry': [{'Phase': new_phase, 'UnlockedAt': now, 'UnlockedBy': teacher_id}],
+            ':empty_list': []
+        },
+        ReturnValues='ALL_NEW'
+    )
+
+    return build_response(200, {
+        'student_id': target_student_id,
+        'previous_phase': current_phase,
+        'new_phase': new_phase
+    })
