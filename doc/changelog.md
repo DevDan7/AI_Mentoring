@@ -6,6 +6,23 @@
 
 ## 2026-09
 
+### 03 Sep — Corrección dedupe por contenido: GSI ContentHashIndex + query previo
+- **Problema**: la `ConditionExpression` con `attribute_not_exists(ContentHash)` no
+  deduplica entre ítems distintos (DynamoDB solo evalúa contra el ítem que se escribe).
+  Resultado: 8 pares de duplicados por contenido entraron al subir 65 fotos nuevas.
+- **Solución**: crear GSI `ContentHashIndex` en `dynamodb.tf` y añadir un `query` al GSI
+  antes de `put_item` en `processor.py`. Si el query retorna un ítem → skip.
+- **Limpieza**: script `scripts/limpiar_duplicados_contenido_v2.py` eliminó los 8
+  duplicados (conservando las versiones `question_XXX.png`).
+- `dynamodb.tf`: nuevo atributo `ContentHash` + GSI `ContentHashIndex` (`KEYS_ONLY`)
+- `processor.py`: query al GSI `ContentHashIndex` antes de `put_item`; `ConditionExpression`
+  simplificada a solo `attribute_not_exists(QuestionID)` (red de seguridad).
+- `iam.tf`: añadido `dynamodb:Query` al rol de la Lambda + ARN del GSI.
+- Tests ampliados a 11 (`test_duplicado_por_contenido_se_omite`).
+- Resultado final: 155 ítems, 0 colisiones de hash.
+- **Lección aprendida**: `ConditionExpression` no es suficiente para dedup por atributo
+  entre ítems distintos; se necesita un query previo vía GSI.
+
 ### 03 Sep — Validación de Cupo + Bug Fix + Limpieza
 
 #### Agregado
