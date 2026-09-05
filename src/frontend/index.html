@@ -152,9 +152,9 @@
 
         // Redirecionar ao Painel se já houver sessão ativa
         const token = localStorage.getItem("id_token");
-        if (token && !isTokenExpired(token)) {
-            window.location.href = "dashboard.html";
-        }
+if (token && !isTokenExpired(token)) {
+        window.location.href = isTeacher() ? "teacher.html" : "dashboard.html";
+    }
 
         // Helper: ocultar todos os formulários e mensagens
         function hideAll() {

@@ -49,6 +49,12 @@ resource "aws_iam_policy" "student_api_policy" {
         Resource = aws_cognito_user_pool.students.arn
       },
       {
+        Sid    = "AllowScanStudents"
+        Effect = "Allow"
+        Action = ["dynamodb:Scan"]
+        Resource = aws_dynamodb_table.students.arn
+      },
+      {
         Sid    = "AllowReadCohorts"
         Effect = "Allow"
         Action = [
