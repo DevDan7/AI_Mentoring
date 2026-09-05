@@ -151,14 +151,14 @@ def generate_quiz(student_id, body):
     
     quiz_type = body.get('quiz_type', 'free')
 
-    # Obtener fase actual del alumno
+    # Obtener datos y fase actual del alumno
     student_response = students_table.get_item(Key={'StudentID': student_id})
     student = student_response.get('Item', {})
     current_phase = student.get('CurrentPhase', 'initial')
 
-    # Restricción: solo generar el quiz si corresponde a la fase actual
+    # 1. PRIMERO: Validar si el tipo de quiz está permitido para su fase actual
     ALLOWED_TYPES = {
-        'initial': ['initial'],
+        'initial': ['initial', 'free'],
         'phase_1': ['phase_1', 'free'],
         'phase_2': ['phase_2', 'free'],
         'final_exam': ['final_exam', 'free'],
@@ -173,6 +173,18 @@ def generate_quiz(student_id, body):
             'allowed_types': allowed
         })
 
+    # 2. SEGUNDO: Si es examen final, validar que no haya agotado su único intento (Etapa 4)
+    if quiz_type == 'final_exam':
+        failed_map = student.get('FailedAttempts') or {}
+        failed_final = failed_map.get('final_exam', 0)
+        
+        if failed_final >= 1:
+            return build_response(403, {
+                'error': 'Has alcanzado el límite máximo de 1 intento para el Examen Final.',
+                'message': 'Por favor, ponte en contacto con tu profesor para revisar tus resultados y habilitar una nueva oportunidad.'
+            })
+
+    # 3. TERCERO: Generar el quiz correspondiente según la fase
     if quiz_type == 'initial':
         return generate_initial_quiz(student_id)
     elif quiz_type == 'phase_1':
@@ -182,6 +194,7 @@ def generate_quiz(student_id, body):
     elif quiz_type == 'final_exam':
         return generate_final_exam(student_id)
 
+    # 4. Práctica Libre por Tema
     topic = body.get('topic')
     count = body.get('count', 5)
 
@@ -580,13 +593,18 @@ def complete_quiz(quiz_id, student_id):
         if score_percentage >= 70:
             new_phase = 'phase_2'
         else:
-            failed_attempts = student.get('FailedAttempts', {}).get('phase_1', 0) + 1
+            # 1. Obtenemos el mapa existente o creamos uno nuevo por defecto
+            failed_map = dict(student.get('FailedAttempts') or {'phase_1': 0, 'phase_2': 0, 'final_exam': 0})
+            failed_attempts = failed_map.get('phase_1', 0) + 1
+            failed_map['phase_1'] = failed_attempts  # Actualizamos el valor en Python
+
             if failed_attempts >= 3:
+                # 2. Actualizamos el mapa completo en lugar de una ruta anidada
                 students_table.update_item(
                     Key={'StudentID': student_id},
-                    UpdateExpression='SET FailedAttempts.phase_1 = :attempts, MaxAttemptsAlert = :alert',
+                    UpdateExpression='SET FailedAttempts = :failed_map, MaxAttemptsAlert = :alert',
                     ExpressionAttributeValues={
-                        ':attempts': failed_attempts,
+                        ':failed_map': failed_map,
                         ':alert': {
                             'Phase': 'phase_1',
                             'AlertType': 'MAX_ATTEMPTS_EXCEEDED',
@@ -599,21 +617,25 @@ def complete_quiz(quiz_id, student_id):
             else:
                 students_table.update_item(
                     Key={'StudentID': student_id},
-                    UpdateExpression='SET FailedAttempts.phase_1 = :attempts',
-                    ExpressionAttributeValues={':attempts': failed_attempts}
+                    UpdateExpression='SET FailedAttempts = :failed_map',
+                    ExpressionAttributeValues={':failed_map': failed_map}
                 )
 
     elif quiz_type == 'phase_2' and current_phase == 'phase_2':
         if score_percentage >= 70:
             new_phase = 'final_exam'
         else:
-            failed_attempts = student.get('FailedAttempts', {}).get('phase_2', 0) + 1
+            # 1. Mismo patrón defensivo para phase_2
+            failed_map = dict(student.get('FailedAttempts') or {'phase_1': 0, 'phase_2': 0, 'final_exam': 0})
+            failed_attempts = failed_map.get('phase_2', 0) + 1
+            failed_map['phase_2'] = failed_attempts
+
             if failed_attempts >= 3:
                 students_table.update_item(
                     Key={'StudentID': student_id},
-                    UpdateExpression='SET FailedAttempts.phase_2 = :attempts, MaxAttemptsAlert = :alert',
+                    UpdateExpression='SET FailedAttempts = :failed_map, MaxAttemptsAlert = :alert',
                     ExpressionAttributeValues={
-                        ':attempts': failed_attempts,
+                        ':failed_map': failed_map,
                         ':alert': {
                             'Phase': 'phase_2',
                             'AlertType': 'MAX_ATTEMPTS_EXCEEDED',
@@ -626,8 +648,8 @@ def complete_quiz(quiz_id, student_id):
             else:
                 students_table.update_item(
                     Key={'StudentID': student_id},
-                    UpdateExpression='SET FailedAttempts.phase_2 = :attempts',
-                    ExpressionAttributeValues={':attempts': failed_attempts}
+                    UpdateExpression='SET FailedAttempts = :failed_map',
+                    ExpressionAttributeValues={':failed_map': failed_map}
                 )
 
     elif quiz_type == 'final_exam' and current_phase == 'final_exam':

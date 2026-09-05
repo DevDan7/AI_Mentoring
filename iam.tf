@@ -155,10 +155,10 @@ resource "aws_iam_policy" "terraform_cicd_policy" {
           "iam:GetPolicy",
           "iam:ListPolicies",
           "iam:CreatePolicyVersion",
-          "iam:DeletePolicyVersion",      # <-- FALTABA
-          "iam:GetPolicyVersion",         # <-- FALTABA
-          "iam:SetDefaultPolicyVersion",  # <-- FALTABA
-          "iam:ListPolicyVersions",       # <-- RECOMENDADO
+          "iam:DeletePolicyVersion",     # <-- FALTABA
+          "iam:GetPolicyVersion",        # <-- FALTABA
+          "iam:SetDefaultPolicyVersion", # <-- FALTABA
+          "iam:ListPolicyVersions",      # <-- RECOMENDADO
           "iam:ListOpenIDConnectProviders",
           "iam:UpdateAssumeRolePolicy",
           "iam:GetOpenIDConnectProvider"
@@ -217,9 +217,13 @@ resource "aws_iam_policy" "quiz_engine_policy" {
         Action = [
           "dynamodb:GetItem",
           "dynamodb:PutItem",
-          "dynamodb:UpdateItem"
+          "dynamodb:UpdateItem",
+          "dynamodb:Query" # <-- Agregado
         ]
-        Resource = aws_dynamodb_table.quizzes.arn
+        Resource = [
+          aws_dynamodb_table.quizzes.arn,
+          "${aws_dynamodb_table.quizzes.arn}/index/*"
+        ]
       },
       {
         Sid    = "AllowReadWriteQuizResults"
