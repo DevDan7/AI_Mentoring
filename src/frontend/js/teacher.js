@@ -10,9 +10,9 @@ async function initTeacherDashboard() {
         window.location.href = "dashboard.html";
         return;
     }
-    await loadKPIs();
     await loadStudents();
     await loadCohorts();
+    loadKPIs();
     setupEvents();
 }
 
@@ -72,6 +72,19 @@ function setupPhaseSelects() {
     });
 }
 
+// ========== CARGA DE KPIs ==========
+
+function loadKPIs() {
+    document.getElementById('kpiTotal').textContent = totalStudents;
+    document.getElementById('kpiPhase1').textContent = allStudents.filter(s => s.current_phase === 'phase_1').length;
+    document.getElementById('kpiPhase2').textContent = allStudents.filter(s => s.current_phase === 'phase_2').length;
+    document.getElementById('kpiFinalExam').textContent = allStudents.filter(s => s.current_phase === 'final_exam').length;
+    document.getElementById('kpiBloqueados').textContent = allStudents.filter(s => {
+        const fa = s.failed_attempts || {};
+        return (fa.phase_1 || 0) >= 3 || (fa.phase_2 || 0) >= 3 || (fa.final_exam || 0) >= 1;
+    }).length;
+}
+
 // ========== FILTROS ==========
 
 function filterStudents() {
@@ -127,7 +140,7 @@ function updateStudentPhase(studentId, newPhase) {
 
 // ========== MODAL DE HISTORIAL ==========
 
-function openStudentHistoryModal(studentId) {
+async function openStudentHistoryModal(studentId) {
     const student = allStudents.find(s => s.student_id === studentId);
     if (!student) return;
 
