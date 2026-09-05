@@ -6,6 +6,32 @@
 
 ## 2026-09
 
+### 05 Sep — Estabilización pre-despliegue: 6 etapas corregidas
+- **Problema**: Análisis exhaustivo de infraestructura IaC y lógica backend para estabilizar "AI Mentoring" antes del despliegue final de la interfaz del profesor (teacher.html). Se identificaron y corrigieron 6 etapas críticas afectando IAM, Lambda y manejo NoSQL.
+
+- **Etapa 1 — Infraestructura e IAM** (`iam.tf` / `iam_student_api.tf`): `quiz_engine` realizaba queries sobre GSI `StudentIndex`, pero la política IAM solo tenía permisos sobre la tabla base → `403 AccessDeniedException`. Se agregó `"dynamodb:Query"` a `quiz_engine_policy` y ruta comodín `"${aws_dynamodb_table.quizzes.arn}/index/*"`. También se agregó `"dynamodb:Scan"` a `student_api_policy` para tabla `cohorts`.
+
+- **Etapa 2 — Manejo Defensivo de FailedAttempts** (`quiz_engine.py`): `SET FailedAttempts.phase_1 = :attempts` lanzaba `ValidationException` si el mapa padre no existía. Se implementó patrón **Overwrite Complete Map**: `failed_map = dict(student.get('FailedAttempts') or {})` + `SET FailedAttempts = failed_map`. Garantiza tolerancia a atributos nulos desde el día 1.
+
+- **Etapa 3 — Regresión en Simulados Libres** (`quiz_engine.py`): Fase `'initial'` bloqueaba generación de exámenes libres `'free'` → `403 Forbidden`. Se habilitó `'free'` dentro de `'initial'` en `ALLOWED_TYPES`. También se añadió lectura defensiva `current_phase = student.get('CurrentPhase', 'initial')`.
+
+- **Etapa 4 — Límite Estricto de 1 Intento en Examen Final** (`quiz_engine.py`): No existía bloqueo tras reprobar el Examen Final. Se implementó **Early Return** al inicio de `generate_quiz`: `if quiz_type == 'final_exam' and FailedAttempts.get('final_exam', 0) >= 1: return 403` (interrupción antes de consultar BD).
+
+- **Etapa 5 — Calibración del Examen Final a 65 Preguntas**: Verificación confirmada. La constante `FINAL_EXAM_DISTRIBUTION` suma exactamente 65 preguntas alineadas con blueprint CLF-C02: Dominio 1 (19), Dominio 2 (19), Dominio 3 (15), Dominio 4 (7), complementos (5 + 1). Diccionario mantenido sin cambios (ya estaba calibrado).
+
+- **Etapa 6 — NameError en get_quiz_history** (`student_api.py`): La función intentaba retornar `student.get('CurrentPhase')` pero `student` no estaba instanciado en el scope → error 500. Se agregó lectura previa: `student = students_table.get_item(Key={'StudentID': student_id})` antes de construir el payload.
+
+**Lecciones clave documentadas:**
+- GSI es subrecurso independiente con ARN `/index/*`; permisos tabla base no autorizan índices
+- `dict(student.get('FailedAttempts') or {...})` usa evaluación perezosa para fallback limpio
+- Manejo defensivo garantiza tolerancia a atributos nulos desde MVP v1.0 (aún sin alumnos oficiales)
+- Fase 2 usa algoritmo adaptativo `get_weak_topics()`, no distribución estática
+- Validaciones generales (`ALLOWED_TYPES`) deben ejecutarse antes que reglas de negocio específicas
+
+---
+
+
+
 ### 04 Sep — Fix feedback loop SNS→SQS + reducción max_attempts
 - **Problema 1**: Feedback loop entre SNS y SQS — cuando `notify_unprocessable()`
   publicaba una alerta a SNS, el mensaje volvía a la cola SQS como si fuera una foto.
