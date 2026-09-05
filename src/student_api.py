@@ -249,6 +249,11 @@ def get_quiz_history(claims):
     if not student_id:
         return build_response(401, {'message': 'Unauthorized'})
 
+    # 1. Obtener los datos del estudiante para conocer su fase actual
+    student_response = students_table.get_item(Key={'StudentID': student_id})
+    student = student_response.get('Item', {})
+
+    # 2. Consultar el historial de quizzes en el GSI StudentIndex
     response = quizzes_table.query(
         IndexName='StudentIndex',
         KeyConditionExpression=Key('StudentID').eq(student_id)
@@ -268,8 +273,11 @@ def get_quiz_history(claims):
             'score_percentage': float(q['ScorePercentage']) if q.get('ScorePercentage') is not None else None
         })
 
-    return build_response(200, {'quizzes': history, 'current_phase': student.get('CurrentPhase', 'initial')})
-
+    # 3. Retornar el historial junto con la fase obtenida de forma segura
+    return build_response(200, {
+        'quizzes': history, 
+        'current_phase': student.get('CurrentPhase', 'initial')
+    })
 
 def is_teacher(user_sub):
     """Verifica si el usuario pertenece al grupo Teachers en Cognito."""
