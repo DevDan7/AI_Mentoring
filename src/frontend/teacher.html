@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Mentoring - Painel do Professor</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+</head>
+<body>
+    <nav class="container">
+        <ul>
+            <li><strong>☁️ AI Mentoring Cloud</strong></li>
+            <li><span id="teacherName">Profesor</span></li>
+            <li><a href="#" id="logoutBtn" role="button">Sair</a></li>
+        </ul>
+    </nav>
+
+    <main class="container">
+        <!-- KPIs Bar -->
+        <section id="kpiSection">
+            <article>
+                <header>
+                    <h4>Indicadores</h4>
+                </header>
+                <div class="grid kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-number" id="kpiTotal">0</div>
+                        <div class="kpi-label">Total Alumnos</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-number" id="kpiPhase1">0</div>
+                        <div class="kpi-label">Phase 1</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-number" id="kpiPhase2">0</div>
+                        <div class="kpi-label">Phase 2</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-number" id="kpiFinalExam">0</div>
+                        <div class="kpi-label">Final Exam</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-number" id="kpiBloqueados">0</div>
+                        <div class="kpi-label">Bloqueados</div>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <!-- Secciones -->
+        <section id="sections">
+            <!-- Tabla de Alumnos -->
+            <section id="studentsSection" class="section active">
+                <article>
+                    <header>
+                        <h4>Alunos</h4>
+                        <div class="grid filtros">
+                            <div>
+                                <label>Cohorte</label>
+                                <select id="cohortFilter">
+                                    <option value="">Todos</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Fase</label>
+                                <select id="phaseFilter">
+                                    <option value="">Todas</option>
+                                    <option value="initial">Initial</option>
+                                    <option value="phase_1">Phase 1</option>
+                                    <option value="phase_2">Phase 2</option>
+                                    <option value="final_exam">Final Exam</option>
+                                </select>
+                            </div>
+                            <div>
+                                <input type="text" id="searchInput" placeholder="Buscar nome ou e-mail" />
+                            </div>
+                        </div>
+                    </header>
+                    <article>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Email</th>
+                                    <th>Cohorte</th>
+                                    <th>Fase Atual</th>
+                                    <th>Intentos Fallidos</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="studentTable">
+                                <!-- Dinámico -->
+                            </tbody>
+                        </table>
+                    </article>
+                </article>
+            </section>
+
+            <!-- Modal de Historial -->
+            <section id="historySection" class="section" style="display: none;">
+                <article>
+                    <header>
+                        <h4 id="historyTitle">Histórico do Aluno</h4>
+                        <button id="closeHistoryBtn" role="button">Fechar</button>
+                    </header>
+                    <div id="studentInfo"></div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Tema</th>
+                                <th>Status</th>
+                                <th>Score</th>
+                                <th>Data</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTable">
+                            <!-- Dinámico -->
+                        </tbody>
+                    </table>
+                </article>
+            </section>
+        </section>
+
+        <!-- Sección de Cohortes -->
+        <section id="cohortsSection" class="section" style="display: none;">
+            <article>
+                <header>
+                    <h4>Cohortes</h4>
+                </article>
+                <article>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Cohorte</th>
+                                <th>Alunos</th>
+                                <th>Máximo</th>
+                                <th>%</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cohortsTable">
+                            <!-- Dinámico -->
+                        </tbody>
+                    </table>
+                </article>
+            </article>
+        </section>
+    </main>
+
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/teacher.js"></script>
+</body>
+</html>

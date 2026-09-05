@@ -42,6 +42,8 @@ def lambda_handler(event, context):
     # Enrutamiento basado en el routeKey expuesto por API Gateway
     if route_key == 'POST /students':
         return create_student(event, claims)
+    elif route_key == 'GET /students':
+        return list_all_students(claims)
     elif route_key == 'GET /students/me':
         return get_student_by_claims(claims)
     elif route_key == 'PUT /students/me':
@@ -51,9 +53,16 @@ def lambda_handler(event, context):
         return get_student(student_id)
     elif route_key == 'GET /students/me/quizzes':
         return get_quiz_history(claims)
+    elif route_key == 'GET /students/{studentId}/quizzes':
+        student_id = path_params.get('studentId')
+        return get_student_quizzes(student_id, claims)
     elif route_key == 'GET /cohorts/{cohortId}/capacity':
         cohort_id = path_params.get('cohortId')
         return get_cohort_capacity(cohort_id)
+    elif route_key == 'GET /students/me/quizzes':
+        return get_quiz_history(claims)
+    elif route_key == 'GET /cohorts':
+        return list_cohorts(claims)
     elif route_key == 'GET /public/cohorts/{cohortId}/capacity':
         cohort_id = path_params.get('cohortId')
         return get_cohort_capacity(cohort_id)
@@ -319,3 +328,78 @@ def update_student_phase(event, claims, target_student_id):
         'previous_phase': current_phase,
         'new_phase': new_phase
     })
+
+def list_all_students(claims):
+    """Retorna todos los alumnos. Solo accesible por teachers."""
+    teacher_id = claims.get('sub')
+    if not is_teacher(teacher_id):
+        return build_response(403, {'message': 'Only teachers can list students'})
+
+    response = students_table.scan()
+    students = []
+    for s in response.get('Items', []):
+        students.append({
+            'student_id': s['StudentID'],
+            'name': s.get('Name', ''),
+            'email': s.get('Email', ''),
+            'cohort_id': s.get('CohortID', ''),
+            'current_phase': s.get('CurrentPhase', 'initial'),
+            'failed_attempts': s.get('FailedAttempts', {}),
+            'created_at': s.get('CreatedAt', ''),
+            'access_expires_at': s.get('AccessExpiresAt', '')
+        })
+
+    return build_response(200, {'students': students, 'total': len(students)})
+
+
+def get_student_quizzes(student_id, claims):
+    """Retorna historial de quizzes de un alumno específico. Solo teachers."""
+    teacher_id = claims.get('sub')
+    if not is_teacher(teacher_id):
+        return build_response(403, {'message': 'Only teachers can view student quizzes'})
+
+    response = quizzes_table.query(
+        IndexName='StudentIndex',
+        KeyConditionExpression=Key('StudentID').eq(student_id)
+    )
+    quizzes = response.get('Items', [])
+    quizzes.sort(key=lambda q: q.get('CreatedAt', ''), reverse=True)
+
+    history = []
+    for q in quizzes:
+        history.append({
+            'quiz_id': q['QuizID'],
+            'quiz_type': q.get('QuizType', 'free'),
+            'topic': q.get('Topic', ''),
+            'status': q.get('Status', ''),
+            'created_at': q.get('CreatedAt', ''),
+            'completed_at': q.get('CompletedAt', ''),
+            'score_percentage': float(q['ScorePercentage']) if q.get('ScorePercentage') is not None else None
+        })
+
+    return build_response(200, {'quizzes': history})
+
+
+def list_cohorts(claims):
+    """Retorna todas las cohortes con conteo de alumnos. Solo teachers."""
+    teacher_id = claims.get('sub')
+    if not is_teacher(teacher_id):
+        return build_response(403, {'message': 'Only teachers can list cohorts'})
+
+    response = cohorts_table.scan()
+    cohorts = []
+    for c in response.get('Items', []):
+        cohort_id = c['CohortID']
+        count_response = students_table.query(
+            IndexName='CohortIndex',
+            KeyConditionExpression=Key('CohortID').eq(cohort_id),
+            Select='COUNT'
+        )
+        cohorts.append({
+            'cohort_id': cohort_id,
+            'name': c.get('Name', ''),
+            'max_students': int(c.get('MaxStudents', 0)),
+            'current_count': count_response.get('Count', 0)
+        })
+
+    return build_response(200, {'cohorts': cohorts})
