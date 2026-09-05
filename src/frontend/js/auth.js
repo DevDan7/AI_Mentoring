@@ -29,7 +29,7 @@ async function login(email, password) {
     localStorage.setItem("refresh_token", result.RefreshToken);
     localStorage.setItem("user_email", email);
 
-    window.location.href = "dashboard.html";
+    window.location.href = isTeacher() ? "teacher.html" : "dashboard.html";
 }
 
 async function refreshSession() {
@@ -207,6 +207,20 @@ async function resendConfirmationCode(email) {
     }
 
     return true;
+}
+
+// ========== VERIFICACIÓN DE ROLES ==========
+
+function isTeacher() {
+    const token = localStorage.getItem("access_token");
+    if (!token) return false;
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const groups = payload['cognito:groups'] || [];
+        return groups.includes('Teachers');
+    } catch {
+        return false;
+    }
 }
 
 // ========== RECUPERAR CONTRASEÑA ==========

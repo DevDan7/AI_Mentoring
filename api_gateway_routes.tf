@@ -68,6 +68,30 @@ resource "aws_apigatewayv2_route" "students_phase_put" {
   authorization_type = "JWT"
 }
 
+resource "aws_apigatewayv2_route" "students_list" {
+  api_id             = aws_apigatewayv2_api.mentoring_api.id
+  route_key          = "GET /students"
+  target             = "integrations/${aws_apigatewayv2_integration.student.id}"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+  authorization_type = "JWT"
+}
+
+resource "aws_apigatewayv2_route" "students_quizzes_by_id" {
+  api_id             = aws_apigatewayv2_api.mentoring_api.id
+  route_key          = "GET /students/{studentId}/quizzes"
+  target             = "integrations/${aws_apigatewayv2_integration.student.id}"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+  authorization_type = "JWT"
+}
+
+resource "aws_apigatewayv2_route" "cohorts_list" {
+  api_id             = aws_apigatewayv2_api.mentoring_api.id
+  route_key          = "GET /cohorts"
+  target             = "integrations/${aws_apigatewayv2_integration.student.id}"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+  authorization_type = "JWT"
+}
+
 # =============================================================================
 # Cohorts Routes
 # =============================================================================
