@@ -1,6 +1,7 @@
 import json
 import os
 import boto3
+from decimal import Decimal
 from datetime import datetime, timezone, timedelta
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key
@@ -14,21 +15,27 @@ quizzes_table = dynamodb.Table(os.environ['QUIZZES_TABLE'])
 # Cliente Cognito para verificar grupos de usuarios
 cognito_idp = boto3.client('cognito-idp')
 
-# Encabezados CORS estándar para permitir integración con el Frontend
+# Constante de cabeceras CORS
 HEADERS = {
-    'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Authorization,Content-Type',
-    'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+    'Access-Control-Allow-Methods': 'OPTIONS,GET,POST,PUT',
+    'Content-Type': 'application/json',
 }
 
 
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return int(obj) if obj % 1 == 0 else float(obj)
+        return super(DecimalEncoder, self).default(obj)
+
+
 def build_response(status_code, body):
-    """Auxiliar para generar respuestas formateadas para API Gateway v2.0"""
     return {
         'statusCode': status_code,
         'headers': HEADERS,
-        'body': json.dumps(body)
+        'body': json.dumps(body, cls=DecimalEncoder),
     }
 
 

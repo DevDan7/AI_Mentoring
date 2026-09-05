@@ -196,7 +196,10 @@ function setupEvents() {
         });
     });
 
-    document.getElementById('logoutBtn').addEventListener('click', logout);
+    document.getElementById('logoutBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        logout();
+    });
 }
 
 // ========== HERRAMIENTAS ==========
