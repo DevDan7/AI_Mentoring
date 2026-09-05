@@ -47,7 +47,11 @@ async function updateStudent(data) {
 }
 
 async function generateQuiz(topic, count) {
-    return apiCall("POST", "/quizzes/generate", { topic, count });
+    return apiCall("POST", "/quizzes/generate", { 
+        quiz_type: "free", 
+        topic: topic, 
+        num_questions: count 
+    });
 }
 
 async function submitAnswer(quizId, questionId, givenAnswers) {
