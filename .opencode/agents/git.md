@@ -68,6 +68,13 @@ gh pr checks --watch
 # 4. Merge & Cleanup (Executes sync & local checkout to main)
 gh pr merge --merge --delete-branch
 
-# 5. Post-Merge CD Deployment Monitoring (Post-Merge Workflow)
+# 5. Local Cleanup & Sync
+# Cambia a main, descarga cambios, elimina la rama LOCAL usada y limpia referencias obsoletas
+git checkout main
+git pull origin main
+git branch -d [type]/[short-description]
+git fetch --prune
+
+# 6. Post-Merge CD Deployment Monitoring (Post-Merge Workflow)
 gh run list --workflow=terraform-apply.yml
 # gh run watch [RUN_ID]
