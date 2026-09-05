@@ -450,6 +450,8 @@ El objetivo del proyecto tiene 3 piezas:
 
 ---
 
+## 🛠️ Etapas Corregidas (Fase de Estabilización Pre-Despliegue)
+
 ## Decisiones de Diseño
 
 ### Idempotencia en `processor.py`
