@@ -6,6 +6,10 @@
 
 ## 2026-09
 
+### 05 Sep (Tarde) — Fix AWS Amplify build error "Unable to assume specified IAM Role"
+- **Problema**: Los builds #46, #47 y #48 de AWS Amplify fallaban con `Unable to assume specified IAM Role`. La causa raíz era que el workflow de CI/CD ejecutaba `terraform apply` en cada push a `main`, y como `access_token` es un atributo sensible que siempre genera diff en Terraform, Terraform intentaba actualizar el recurso `aws_amplify_app` en cada ejecución. Esta actualización en caliente invalidaba temporalmente el rol IAM asociado a Amplify.
+- **Solución**: Se agregó `lifecycle { ignore_changes = [access_token] }` al recurso `aws_amplify_app.frontend` en `amplify.tf` para evitar que Terraform modifique el recurso innecesariamente y rompa la confianza del rol IAM.
+
 ### 05 Sep — Estabilización pre-despliegue: 6 etapas corregidas
 - **Problema**: Análisis exhaustivo de infraestructura IaC y lógica backend para estabilizar "AI Mentoring" antes del despliegue final de la interfaz del profesor (teacher.html). Se identificaron y corrigieron 6 etapas críticas afectando IAM, Lambda y manejo NoSQL.
 
