@@ -122,23 +122,17 @@ async function createStudentProfile() {
     let name = "";
     let email = localStorage.getItem("user_email") || "";
 
-    try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        name = payload.name || payload.given_name || email.split("@")[0];
+    if (token) {
+        const payload = parseJwt(token) || {};
+        name = payload.name || payload.given_name || (email ? email.split("@")[0] : "");
         email = payload.email || email;
-    } catch {
-        // Si no se puede decodificar, usar lo disponible
     }
-
-    const body = {
-        name: name,
-        cohort: ""
-    };
 
     const pendingCohortId = sessionStorage.getItem('pending_cohort_id');
-    if (pendingCohortId) {
-        body.cohort_id = pendingCohortId;
-    }
+    const body = {
+        name: name || "Nuevo Usuario",
+        cohort_id: pendingCohortId || ""
+    };
 
     return apiCall("POST", "/students", body);
 }
