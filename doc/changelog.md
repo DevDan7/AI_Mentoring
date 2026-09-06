@@ -6,6 +6,10 @@
 
 ## 2026-09
 
+### 05 Sep (Noche) — Fix Teacher Dashboard initialization & Logout
+- **Problema**: El panel del profesor (`teacher.html`) no cargaba los estudiantes, los KPIs ni permitía cerrar sesión (`logoutBtn`). La causa raíz era que la función de inicialización `initTeacherDashboard()` estaba definida en `teacher.js` pero nunca se invocaba al cargar el DOM.
+- **Solución**: Se añadió el listener `document.addEventListener("DOMContentLoaded", () => { initTeacherDashboard(); });` al final de `src/frontend/js/teacher.js`, garantizando la carga automática de alumnos, cohortes, KPIs, eventos y el funcionamiento correcto del botón de cierre de sesión.
+
 ### 05 Sep (Tarde) — Fix AWS Amplify build error "Unable to assume specified IAM Role"
 - **Problema**: Los builds #46, #47 y #48 de AWS Amplify fallaban con `Unable to assume specified IAM Role`. La causa raíz era que el workflow de CI/CD ejecutaba `terraform apply` en cada push a `main`, y como `access_token` es un atributo sensible que siempre genera diff en Terraform, Terraform intentaba actualizar el recurso `aws_amplify_app` en cada ejecución. Esta actualización en caliente invalidaba temporalmente el rol IAM asociado a Amplify.
 - **Solución**: Se agregó `lifecycle { ignore_changes = [access_token] }` al recurso `aws_amplify_app.frontend` en `amplify.tf` para evitar que Terraform modifique el recurso innecesariamente y rompa la confianza del rol IAM.
