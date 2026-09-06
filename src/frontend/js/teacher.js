@@ -21,6 +21,8 @@ async function initTeacherDashboard() {
 async function loadStudents() {
     const response = await apiCall("GET", "/students");
     if (!response || !response.students) {
+        allStudents = [];
+        totalStudents = 0;
         showToast("Error al cargar alunos", "error");
         return;
     }
@@ -28,6 +30,7 @@ async function loadStudents() {
     totalStudents = response.total || allStudents.length;
     renderStudentTable(allStudents);
     renderCohortFilter();
+    loadKPIs();
 }
 
 function renderStudentTable(students) {
@@ -119,14 +122,16 @@ function updateStudentPhase(studentId, newPhase) {
     const student = allStudents.find(s => s.student_id === studentId);
     if (!student) return;
 
-    if (!confirm("Promover al aluno " + student.name + " a " + newPhase + "?")) {
+    const select = document.querySelector('.phase-select[data-student="' + studentId + '"]');
+    if (!select) return;
+    const saveBtn = select.parentElement.querySelector('.btn-save-phase');
+    const previousPhase = student.current_phase || 'initial';
+
+    if (!confirm("Promover al aluno " + student.name + " de " + previousPhase + " a " + newPhase + "?")) {
+        select.value = previousPhase;
         return;
     }
 
-    const select = document.querySelector('.phase-select[data-student="' + studentId + '"]');
-    if (!select) return;
-
-    const saveBtn = select.nextElementSibling;
     saveBtn.disabled = true;
     select.disabled = true;
 
@@ -136,9 +141,11 @@ function updateStudentPhase(studentId, newPhase) {
             loadStudents();
         } else {
             showToast("Erro na resposta", "error");
+            select.value = previousPhase;
         }
     }).catch(err => {
         showToast("Erro: " + err.message, "error");
+        select.value = previousPhase;
     }).finally(() => {
         select.disabled = false;
         saveBtn.disabled = false;
@@ -207,11 +214,7 @@ function setupEvents() {
             updateStudentPhase(e.target.dataset.student, select.value);
         }
     });
-    studentTableBody.addEventListener('change', function(e) {
-        if (e.target.classList.contains('phase-select')) {
-            updateStudentPhase(e.target.dataset.student, e.target.value);
-        }
-    });
+
 
     document.getElementById('logoutBtn').addEventListener('click', function(e) {
         e.preventDefault();
@@ -223,11 +226,6 @@ function setupEvents() {
 
 function showToast(message, type) {
     alert((type === 'success' ? 'Sucesso' : 'Erro') + ": " + message);
-}
-
-function logout() {
-    localStorage.clear();
-    window.location.href = "index.html";
 }
 
 // Estado global

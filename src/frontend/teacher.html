@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Mentoring - Painel do Professor</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <style>
+        .phase-select { width: auto !important; margin-bottom: 0 !important; display: inline-block; }
+        .btn-save-phase, .btn-history { display: inline-block; width: auto !important; margin-bottom: 0 !important; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; }
+        .kpi-card { text-align: center; padding: 1rem; }
+        .kpi-number { font-size: 2rem; font-weight: bold; }
+        .kpi-label { font-size: 0.85rem; opacity: 0.7; }
+    </style>
 </head>
 <body>
     <nav class="container">
@@ -127,7 +135,7 @@
             <article>
                 <header>
                     <h4>Cohortes</h4>
-                </article>
+                </header>
                 <article>
                     <table>
                         <thead>
