@@ -349,11 +349,8 @@ decreases account's UnreservedConcurrentExecution below its minimum value of [10
 3. **2026-09-01**: El rol `mentoring-amplify-role` empezó a fallar con
    `Unable to assume specified IAM Role` durante builds de Amplify. La causa
    NO fue el patrón del ARN en la condición `ArnLike` sobre `aws:SourceArn`
-   — fue que Amplify, en ciertos flujos (validación de la app antes de que
-   exista un branch o build job concreto), intenta asumir el rol sin enviar
-   la clave `aws:SourceArn` en absoluto. Una condición `ArnLike` estricta
-   exige que la clave esté presente para evaluar; si falta, la condición
-   falla y deniega el acceso.
+   — fue doble: por un lado, Amplify requería `ArnLikeIfExists` en el trust policy, y por otro, **Terraform recreaba/modificaba el recurso `aws_amplify_app` en cada ejecución de `apply` debido a cambios detectados en el `access_token` (sensible)**. Esta actualización constante del recurso Amplify invalidaba temporalmente el rol IAM.
+   *Solución aplicada (2026-09-05)*: Se añadió `lifecycle { ignore_changes = [access_token] }` en `amplify.tf` para evitar que Terraform modifique innecesariamente la app Amplify en cada CI/CD.
 
 
    Para aplicar el fix (cambiar `ArnLike` por `ArnLikeIfExists` en el trust
