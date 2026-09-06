@@ -229,3 +229,8 @@ function logout() {
 // Estado global
 var allStudents = [];
 var totalStudents = 0;
+
+// Inicialización automática al cargar el DOM
+document.addEventListener("DOMContentLoaded", () => {
+    initTeacherDashboard();
+});
