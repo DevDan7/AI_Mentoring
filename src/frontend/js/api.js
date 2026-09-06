@@ -1,8 +1,7 @@
 async function apiCall(method, path, body) {
-    const token = await getToken();
+    let token = await getToken();
 
     if (!token) {
-        logout();
         return null;
     }
 
@@ -26,13 +25,19 @@ async function apiCall(method, path, body) {
             logout();
             return null;
         }
-        options.headers["Authorization"] = `Bearer ${newToken}`;
+        token = newToken;
+        options.headers["Authorization"] = `Bearer ${token}`;
         response = await fetch(`${CONFIG.apiUrl}${path}`, options);
     }
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         throw new Error(error.message || `Error ${response.status}`);
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (response.status === 204 || !contentType.includes("application/json")) {
+        return null;
     }
 
     return response.json();
@@ -47,10 +52,10 @@ async function updateStudent(data) {
 }
 
 async function generateQuiz(topic, count) {
-    return apiCall("POST", "/quizzes/generate", { 
-        quiz_type: "free", 
-        topic: topic, 
-        num_questions: count 
+    return apiCall("POST", "/quizzes/generate", {
+        quiz_type: "free",
+        topic: topic,
+        num_questions: count
     });
 }
 

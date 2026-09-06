@@ -578,6 +578,8 @@ def complete_quiz(quiz_id, student_id):
     )
 
     # Lógica de progresión de fases
+    # El profesor es quien debe liberar manualmente cada avance de fase.
+    # La calificación sólo informa si el alumno aprobó o no; no cambia la fase automáticamente.
     quiz_type = quiz.get('QuizType')
     student_response = students_table.get_item(Key={'StudentID': student_id})
     student = student_response.get('Item', {})
@@ -585,21 +587,13 @@ def complete_quiz(quiz_id, student_id):
     new_phase = current_phase
     alert = None
 
-    if quiz_type == 'initial' and current_phase == 'initial':
-        if score_percentage >= 70:
-            new_phase = 'phase_1'
-
-    elif quiz_type == 'phase_1' and current_phase == 'phase_1':
-        if score_percentage >= 70:
-            new_phase = 'phase_2'
-        else:
-            # 1. Obtenemos el mapa existente o creamos uno nuevo por defecto
+    if quiz_type == 'phase_1' and current_phase == 'phase_1':
+        if score_percentage < 70:
             failed_map = dict(student.get('FailedAttempts') or {'phase_1': 0, 'phase_2': 0, 'final_exam': 0})
             failed_attempts = failed_map.get('phase_1', 0) + 1
-            failed_map['phase_1'] = failed_attempts  # Actualizamos el valor en Python
+            failed_map['phase_1'] = failed_attempts
 
             if failed_attempts >= 3:
-                # 2. Actualizamos el mapa completo en lugar de una ruta anidada
                 students_table.update_item(
                     Key={'StudentID': student_id},
                     UpdateExpression='SET FailedAttempts = :failed_map, MaxAttemptsAlert = :alert',
@@ -622,10 +616,7 @@ def complete_quiz(quiz_id, student_id):
                 )
 
     elif quiz_type == 'phase_2' and current_phase == 'phase_2':
-        if score_percentage >= 70:
-            new_phase = 'final_exam'
-        else:
-            # 1. Mismo patrón defensivo para phase_2
+        if score_percentage < 70:
             failed_map = dict(student.get('FailedAttempts') or {'phase_1': 0, 'phase_2': 0, 'final_exam': 0})
             failed_attempts = failed_map.get('phase_2', 0) + 1
             failed_map['phase_2'] = failed_attempts
@@ -652,23 +643,6 @@ def complete_quiz(quiz_id, student_id):
                     ExpressionAttributeValues={':failed_map': failed_map}
                 )
 
-    elif quiz_type == 'final_exam' and current_phase == 'final_exam':
-        if score_percentage >= 70:
-            new_phase = 'free_practice'
-
-    # Actualizar fase si cambió
-    if new_phase != current_phase:
-        now = datetime.now(timezone.utc).isoformat()
-        students_table.update_item(
-            Key={'StudentID': student_id},
-            UpdateExpression='SET CurrentPhase = :phase, PhaseHistory = list_append(if_not_exists(PhaseHistory, :empty_list), :entry)',
-            ExpressionAttributeValues={
-                ':phase': new_phase,
-                ':entry': [{'Phase': new_phase, 'UnlockedAt': now, 'UnlockedBy': 'system'}],
-                ':empty_list': []
-            }
-        )
-
     # Si es el quiz inicial, marcar en el student (mantener comportamiento existente)
     if quiz_type == 'initial':
         students_table.update_item(
@@ -684,13 +658,11 @@ def complete_quiz(quiz_id, student_id):
         'message': 'Quiz completed',
         'quiz_id': quiz_id,
         'completed_at': completed_at,
-        'score_percentage': float(score_percentage)
+        'score_percentage': float(score_percentage),
+        'current_phase': current_phase,
+        'manual_approval_required': quiz_type in {'initial', 'phase_1', 'phase_2', 'final_exam'},
+        'phase_advanced': False
     }
-
-    if new_phase != current_phase:
-        response['phase_advanced'] = True
-        response['previous_phase'] = current_phase
-        response['new_phase'] = new_phase
 
     if alert:
         response['alert'] = alert

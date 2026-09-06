@@ -286,10 +286,26 @@ def get_quiz_history(claims):
         'current_phase': student.get('CurrentPhase', 'initial')
     })
 
-def is_teacher(user_sub):
-    """Verifica si el usuario pertenece al grupo Teachers en Cognito."""
+def is_teacher(claims_or_sub):
+    """Verifica si el usuario pertenece al grupo Teachers en Cognito o en los claims del JWT."""
+    if isinstance(claims_or_sub, dict):
+        groups = claims_or_sub.get('cognito:groups') or claims_or_sub.get('groups') or []
+        if isinstance(groups, str):
+            groups = [groups]
+        if 'Teachers' in groups:
+            return True
+        user_sub = claims_or_sub.get('sub')
+    else:
+        user_sub = claims_or_sub
+        groups = []
+
+    if not user_sub:
+        return False
+
     try:
-        user_pool_id = os.environ['COGNITO_USER_POOL_ID']
+        user_pool_id = os.environ.get('COGNITO_USER_POOL_ID')
+        if not user_pool_id:
+            return False
         response = cognito_idp.admin_list_groups_for_user(
             UserPoolId=user_pool_id,
             Username=user_sub,
@@ -304,9 +320,9 @@ def is_teacher(user_sub):
 
 def update_student_phase(event, claims, target_student_id):
     """Permite al profesor cambiar la fase de un alumno. Requiere grupo 'Teachers' en Cognito."""
-    # Validar que el solicitante es teacher via Cognito API
+    # Validar que el solicitante es teacher via claims del JWT o via Cognito API
     teacher_id = claims.get('sub')
-    if not is_teacher(teacher_id):
+    if not is_teacher(claims):
         return build_response(403, {'message': 'Only teachers can modify student phases'})
 
     data = json.loads(event.get('body', '{}'))
@@ -346,8 +362,7 @@ def update_student_phase(event, claims, target_student_id):
 
 def list_all_students(claims):
     """Retorna todos los alumnos. Solo accesible por teachers."""
-    teacher_id = claims.get('sub')
-    if not is_teacher(teacher_id):
+    if not is_teacher(claims):
         return build_response(403, {'message': 'Only teachers can list students'})
 
     response = students_table.scan()
@@ -369,8 +384,7 @@ def list_all_students(claims):
 
 def get_student_quizzes(student_id, claims):
     """Retorna historial de quizzes de un alumno específico. Solo teachers."""
-    teacher_id = claims.get('sub')
-    if not is_teacher(teacher_id):
+    if not is_teacher(claims):
         return build_response(403, {'message': 'Only teachers can view student quizzes'})
 
     response = quizzes_table.query(
@@ -397,8 +411,7 @@ def get_student_quizzes(student_id, claims):
 
 def list_cohorts(claims):
     """Retorna todas las cohortes con conteo de alumnos. Solo teachers."""
-    teacher_id = claims.get('sub')
-    if not is_teacher(teacher_id):
+    if not is_teacher(claims):
         return build_response(403, {'message': 'Only teachers can list cohorts'})
 
     response = cohorts_table.scan()

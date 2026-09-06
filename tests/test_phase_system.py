@@ -227,9 +227,9 @@ class TestCompleteQuizPhaseAdvancement(unittest.TestCase):
 
         self.assertEqual(response['statusCode'], 200)
         body = json.loads(response['body'])
-        self.assertTrue(body.get('phase_advanced'))
-        self.assertEqual(body['previous_phase'], 'initial')
-        self.assertEqual(body['new_phase'], 'phase_1')
+        self.assertFalse(body.get('phase_advanced'))
+        self.assertTrue(body.get('manual_approval_required'))
+        self.assertEqual(body['current_phase'], 'initial')
 
     @mock.patch('quiz_engine.students_table')
     @mock.patch('quiz_engine.quizzes_table')
@@ -259,6 +259,8 @@ class TestCompleteQuizPhaseAdvancement(unittest.TestCase):
         self.assertEqual(response['statusCode'], 200)
         body = json.loads(response['body'])
         self.assertFalse(body.get('phase_advanced'))
+        self.assertTrue(body.get('manual_approval_required'))
+        self.assertEqual(body['current_phase'], 'initial')
 
 
 class TestFailedAttemptsIncrement(unittest.TestCase):

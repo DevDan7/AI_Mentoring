@@ -33,6 +33,8 @@ async function loadStudents() {
 
 function renderStudentTable(students) {
     const tbody = document.getElementById("studentTable");
+    if (!tbody) return;
+
     tbody.innerHTML = "";
     students.forEach(student => {
         const failed = student.failed_attempts || {};
@@ -68,42 +70,111 @@ function setupPhaseSelects() {
         select.value = currentPhase;
         select.disabled = false;
         const saveBtn = select.nextElementSibling;
-        saveBtn.disabled = false;
+        if (saveBtn) {
+            saveBtn.disabled = false;
+        }
+    });
+}
+
+function renderCohortFilter() {
+    const select = document.getElementById('cohortFilter');
+    if (!select) return;
+
+    const currentValue = select.value;
+    const cohortIds = [...new Set(allStudents.map(student => student.cohort_id).filter(Boolean))].sort();
+
+    select.innerHTML = '<option value="">Todos</option>';
+    cohortIds.forEach(cohortId => {
+        const option = document.createElement('option');
+        option.value = cohortId;
+        option.textContent = cohortId;
+        select.appendChild(option);
+    });
+
+    if (cohortIds.includes(currentValue)) {
+        select.value = currentValue;
+    } else {
+        select.value = "";
+    }
+}
+
+function setupStudentEvents() {
+    document.querySelectorAll('.btn-history').forEach(function(btn) {
+        btn.onclick = function() {
+            openStudentHistoryModal(btn.dataset.student);
+        };
+    });
+
+    document.querySelectorAll('.phase-select').forEach(function(select) {
+        select.onchange = function(e) {
+            updateStudentPhase(e.target.dataset.student, e.target.value);
+        };
+    });
+
+    document.querySelectorAll('.btn-save-phase').forEach(function(btn) {
+        btn.onclick = function(e) {
+            const select = e.target.previousElementSibling;
+            if (select) {
+                updateStudentPhase(e.target.dataset.student, select.value);
+            }
+        };
     });
 }
 
 // ========== CARGA DE KPIs ==========
 
 function loadKPIs() {
-    document.getElementById('kpiTotal').textContent = totalStudents;
-    document.getElementById('kpiPhase1').textContent = allStudents.filter(s => s.current_phase === 'phase_1').length;
-    document.getElementById('kpiPhase2').textContent = allStudents.filter(s => s.current_phase === 'phase_2').length;
-    document.getElementById('kpiFinalExam').textContent = allStudents.filter(s => s.current_phase === 'final_exam').length;
-    document.getElementById('kpiBloqueados').textContent = allStudents.filter(s => {
-        const fa = s.failed_attempts || {};
-        return (fa.phase_1 || 0) >= 3 || (fa.phase_2 || 0) >= 3 || (fa.final_exam || 0) >= 1;
-    }).length;
+    const total = document.getElementById('kpiTotal');
+    const phase1 = document.getElementById('kpiPhase1');
+    const phase2 = document.getElementById('kpiPhase2');
+    const finalExam = document.getElementById('kpiFinalExam');
+    const bloqueados = document.getElementById('kpiBloqueados');
+
+    if (total) total.textContent = totalStudents;
+    if (phase1) phase1.textContent = allStudents.filter(s => s.current_phase === 'phase_1').length;
+    if (phase2) phase2.textContent = allStudents.filter(s => s.current_phase === 'phase_2').length;
+    if (finalExam) finalExam.textContent = allStudents.filter(s => s.current_phase === 'final_exam').length;
+    if (bloqueados) {
+        bloqueados.textContent = allStudents.filter(s => {
+            const fa = s.failed_attempts || {};
+            return (fa.phase_1 || 0) >= 3 || (fa.phase_2 || 0) >= 3 || (fa.final_exam || 0) >= 1;
+        }).length;
+    }
 }
 
 // ========== FILTROS ==========
 
 function filterStudents() {
-    const cohortVal = document.getElementById('cohortFilter').value;
-    const phaseVal = document.getElementById('phaseFilter').value;
-    const searchVal = document.getElementById('searchInput').value.toLowerCase();
-    let filtered = allStudents.filter(student => {
+    const cohortFilter = document.getElementById('cohortFilter');
+    const phaseFilter = document.getElementById('phaseFilter');
+    const searchInput = document.getElementById('searchInput');
+
+    if (!cohortFilter || !phaseFilter || !searchInput) return;
+
+    const cohortVal = cohortFilter.value;
+    const phaseVal = phaseFilter.value;
+    const searchVal = searchInput.value.toLowerCase();
+
+    const filtered = allStudents.filter(student => {
+        const studentName = (student.name || '').toLowerCase();
+        const studentEmail = (student.email || '').toLowerCase();
         const matchesCohort = !cohortVal || student.cohort_id === cohortVal;
         const matchesPhase = !phaseVal || student.current_phase === phaseVal;
-        const matchesSearch = student.name.toLowerCase().includes(searchVal) || student.email.toLowerCase().includes(searchVal);
+        const matchesSearch = studentName.includes(searchVal) || studentEmail.includes(searchVal);
         return matchesCohort && matchesPhase && matchesSearch;
     });
+
     renderStudentTable(filtered);
 }
 
 function setupFilters() {
-    document.getElementById('cohortFilter').addEventListener('change', filterStudents);
-    document.getElementById('phaseFilter').addEventListener('change', filterStudents);
-    document.getElementById('searchInput').addEventListener('input', filterStudents);
+    const cohortFilter = document.getElementById('cohortFilter');
+    const phaseFilter = document.getElementById('phaseFilter');
+    const searchInput = document.getElementById('searchInput');
+
+    if (cohortFilter) cohortFilter.addEventListener('change', filterStudents);
+    if (phaseFilter) phaseFilter.addEventListener('change', filterStudents);
+    if (searchInput) searchInput.addEventListener('input', filterStudents);
 }
 
 // ========== GESTIÓN DE FASES ==========
@@ -120,7 +191,7 @@ function updateStudentPhase(studentId, newPhase) {
     if (!select) return;
 
     const saveBtn = select.nextElementSibling;
-    saveBtn.disabled = true;
+    if (saveBtn) saveBtn.disabled = true;
     select.disabled = true;
 
     apiCall("PUT", "/students/" + studentId + "/phase", { phase: newPhase }).then(response => {
@@ -134,7 +205,7 @@ function updateStudentPhase(studentId, newPhase) {
         showToast("Erro: " + err.message, "error");
     }).finally(() => {
         select.disabled = false;
-        saveBtn.disabled = false;
+        if (saveBtn) saveBtn.disabled = false;
     });
 }
 
@@ -144,14 +215,23 @@ async function openStudentHistoryModal(studentId) {
     const student = allStudents.find(s => s.student_id === studentId);
     if (!student) return;
 
+    const studentsSection = document.getElementById('studentsSection');
+    const historySection = document.getElementById('historySection');
+    if (studentsSection) studentsSection.style.display = 'none';
+    if (historySection) historySection.style.display = 'block';
+
     const title = document.getElementById('historyTitle');
-    title.textContent = "Historico de " + student.name;
+    if (title) title.textContent = "Historico de " + student.name;
 
     const studentInfo = document.getElementById('studentInfo');
-    studentInfo.innerHTML = "<p><strong>Email:</strong> " + student.email + "</p><p><strong>Cohorte:</strong> " + (student.cohort_id || 'Nenhum') + "</p><p><strong>Fase Atual:</strong> " + (student.current_phase || 'initial') + "</p>";
+    if (studentInfo) {
+        studentInfo.innerHTML = "<p><strong>Email:</strong> " + student.email + "</p><p><strong>Cohorte:</strong> " + (student.cohort_id || 'Nenhum') + "</p><p><strong>Fase Atual:</strong> " + (student.current_phase || 'initial') + "</p>";
+    }
 
     const response = await apiCall("GET", "/students/" + studentId + "/quizzes");
     const tbody = document.getElementById('historyTable');
+    if (!tbody) return;
+
     tbody.innerHTML = "";
 
     if (!response || !response.quizzes || response.quizzes.length === 0) {
@@ -168,12 +248,21 @@ async function openStudentHistoryModal(studentId) {
     });
 }
 
+function closeStudentHistory() {
+    const studentsSection = document.getElementById('studentsSection');
+    const historySection = document.getElementById('historySection');
+    if (studentsSection) studentsSection.style.display = 'block';
+    if (historySection) historySection.style.display = 'none';
+}
+
 // ========== CARGA DE COHORTES ==========
 
 async function loadCohorts() {
     const response = await apiCall("GET", "/cohorts");
     if (!response || !response.cohorts) return;
     const tbody = document.getElementById('cohortsTable');
+    if (!tbody) return;
+
     tbody.innerHTML = "";
     response.cohorts.forEach(function(cohort) {
         var percentage = cohort.max_students > 0 ? Math.round((cohort.current_count / cohort.max_students) * 100) : 0;
@@ -186,33 +275,20 @@ async function loadCohorts() {
 // ========== EVENTOS ==========
 
 function setupEvents() {
-    document.getElementById('searchInput').addEventListener('input', filterStudents);
-    document.getElementById('cohortFilter').addEventListener('change', filterStudents);
-    document.getElementById('phaseFilter').addEventListener('change', filterStudents);
+    setupFilters();
 
-    document.querySelectorAll('.btn-history').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            openStudentHistoryModal(btn.dataset.student);
+    const closeBtn = document.getElementById('closeHistoryBtn');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeStudentHistory);
+    }
+
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            logout();
         });
-    });
-
-    document.querySelectorAll('.phase-select').forEach(function(select) {
-        select.addEventListener('change', function(e) {
-            updateStudentPhase(e.target.dataset.student, e.target.value);
-        });
-    });
-
-    document.querySelectorAll('.btn-save-phase').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-            var select = e.target.previousElementSibling;
-            updateStudentPhase(e.target.dataset.student, select.value);
-        });
-    });
-
-    document.getElementById('logoutBtn').addEventListener('click', function(e) {
-        e.preventDefault();
-        logout();
-    });
+    }
 }
 
 // ========== HERRAMIENTAS ==========

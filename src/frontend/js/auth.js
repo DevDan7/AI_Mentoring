@@ -40,7 +40,7 @@ async function refreshSession() {
     }
 
     const payload = {
-        AuthFlow: "ALLOW_REFRESH_TOKEN_AUTH",
+        AuthFlow: "REFRESH_TOKEN_AUTH",
         ClientId: CONFIG.clientId,
         AuthParameters: {
             REFRESH_TOKEN: refreshToken
