@@ -1,3 +1,5 @@
+// ========== AUTENTICACIÓN Y SESIÓN ==========
+
 async function login(email, password) {
     const payload = {
         AuthFlow: "USER_PASSWORD_AUTH",
@@ -26,7 +28,9 @@ async function login(email, password) {
     const result = data.AuthenticationResult;
     localStorage.setItem("id_token", result.IdToken);
     localStorage.setItem("access_token", result.AccessToken);
-    localStorage.setItem("refresh_token", result.RefreshToken);
+    if (result.RefreshToken) {
+        localStorage.setItem("refresh_token", result.RefreshToken);
+    }
     localStorage.setItem("user_email", email);
 
     window.location.href = isTeacher() ? "teacher.html" : "dashboard.html";
@@ -40,7 +44,7 @@ async function refreshSession() {
     }
 
     const payload = {
-        AuthFlow: "ALLOW_REFRESH_TOKEN_AUTH",
+        AuthFlow: "REFRESH_TOKEN_AUTH",
         ClientId: CONFIG.clientId,
         AuthParameters: {
             REFRESH_TOKEN: refreshToken
@@ -66,19 +70,33 @@ async function refreshSession() {
     const result = data.AuthenticationResult;
     localStorage.setItem("id_token", result.IdToken);
     localStorage.setItem("access_token", result.AccessToken);
+    if (result.RefreshToken) {
+        localStorage.setItem("refresh_token", result.RefreshToken);
+    }
 
     return result.IdToken;
 }
 
+function parseJwt(token) {
+    if (!token) return null;
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        return JSON.parse(jsonPayload);
+    } catch (e) {
+        return null;
+    }
+}
+
 function isTokenExpired(token) {
     if (!token) return true;
-    try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const exp = payload.exp * 1000;
-        return Date.now() >= exp - 60000;
-    } catch {
-        return true;
-    }
+    const payload = parseJwt(token);
+    if (!payload || !payload.exp) return true;
+    const exp = payload.exp * 1000;
+    return Date.now() >= exp - 60000;
 }
 
 async function getToken() {
@@ -212,15 +230,14 @@ async function resendConfirmationCode(email) {
 // ========== VERIFICACIÓN DE ROLES ==========
 
 function isTeacher() {
-    const token = localStorage.getItem("access_token");
-    if (!token) return false;
-    try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const groups = payload['cognito:groups'] || [];
-        return groups.includes('Teachers');
-    } catch {
-        return false;
-    }
+    const idToken = localStorage.getItem("id_token");
+    const accessToken = localStorage.getItem("access_token");
+    
+    const idPayload = parseJwt(idToken) || {};
+    const accessPayload = parseJwt(accessToken) || {};
+    
+    const groups = idPayload['cognito:groups'] || accessPayload['cognito:groups'] || [];
+    return groups.includes('Teachers');
 }
 
 // ========== RECUPERAR CONTRASEÑA ==========
