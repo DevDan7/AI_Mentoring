@@ -28,7 +28,6 @@ async function loadStudents() {
     totalStudents = response.total || allStudents.length;
     renderStudentTable(allStudents);
     renderCohortFilter();
-    setupStudentEvents();
 }
 
 function renderStudentTable(students) {
@@ -87,6 +86,20 @@ function loadKPIs() {
 
 // ========== FILTROS ==========
 
+function renderCohortFilter() {
+    const cohortSelect = document.getElementById('cohortFilter');
+    if (!cohortSelect) return;
+
+    const cohorts = [...new Set(allStudents.map(s => s.cohort_id).filter(Boolean))];
+    cohortSelect.innerHTML = '<option value="">Todas as Cohortes</option>';
+    cohorts.forEach(cohort => {
+        const option = document.createElement('option');
+        option.value = cohort;
+        option.textContent = cohort;
+        cohortSelect.appendChild(option);
+    });
+}
+
 function filterStudents() {
     const cohortVal = document.getElementById('cohortFilter').value;
     const phaseVal = document.getElementById('phaseFilter').value;
@@ -94,16 +107,10 @@ function filterStudents() {
     let filtered = allStudents.filter(student => {
         const matchesCohort = !cohortVal || student.cohort_id === cohortVal;
         const matchesPhase = !phaseVal || student.current_phase === phaseVal;
-        const matchesSearch = student.name.toLowerCase().includes(searchVal) || student.email.toLowerCase().includes(searchVal);
+        const matchesSearch = (student.name || '').toLowerCase().includes(searchVal) || (student.email || '').toLowerCase().includes(searchVal);
         return matchesCohort && matchesPhase && matchesSearch;
     });
     renderStudentTable(filtered);
-}
-
-function setupFilters() {
-    document.getElementById('cohortFilter').addEventListener('change', filterStudents);
-    document.getElementById('phaseFilter').addEventListener('change', filterStudents);
-    document.getElementById('searchInput').addEventListener('input', filterStudents);
 }
 
 // ========== GESTIÓN DE FASES ==========
@@ -190,23 +197,20 @@ function setupEvents() {
     document.getElementById('cohortFilter').addEventListener('change', filterStudents);
     document.getElementById('phaseFilter').addEventListener('change', filterStudents);
 
-    document.querySelectorAll('.btn-history').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            openStudentHistoryModal(btn.dataset.student);
-        });
-    });
-
-    document.querySelectorAll('.phase-select').forEach(function(select) {
-        select.addEventListener('change', function(e) {
-            updateStudentPhase(e.target.dataset.student, e.target.value);
-        });
-    });
-
-    document.querySelectorAll('.btn-save-phase').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-            var select = e.target.previousElementSibling;
+    const studentTableBody = document.getElementById('studentTable');
+    studentTableBody.addEventListener('click', function(e) {
+        if (e.target.classList.contains('btn-history')) {
+            openStudentHistoryModal(e.target.dataset.student);
+        }
+        if (e.target.classList.contains('btn-save-phase')) {
+            const select = e.target.previousElementSibling;
             updateStudentPhase(e.target.dataset.student, select.value);
-        });
+        }
+    });
+    studentTableBody.addEventListener('change', function(e) {
+        if (e.target.classList.contains('phase-select')) {
+            updateStudentPhase(e.target.dataset.student, e.target.value);
+        }
     });
 
     document.getElementById('logoutBtn').addEventListener('click', function(e) {
