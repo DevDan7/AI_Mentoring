@@ -1,7 +1,13 @@
 // ========== INICIALIZACIÓN DEL DASHBOARD ==========
 
 async function initTeacherDashboard() {
-    const token = checkAuth();
+    try {
+        await loadConfig();
+    } catch (err) {
+        return;
+    }
+
+    const token = await checkAuth();
     if (!token) {
         window.location.href = "index.html";
         return;
@@ -19,72 +25,65 @@ async function initTeacherDashboard() {
 // ========== CARGA DE ESTUDIANTES ==========
 
 async function loadStudents() {
-    const response = await apiCall("GET", "/students");
-    if (!response || !response.students) {
-        allStudents = [];
-        totalStudents = 0;
-        showToast("Error al cargar alunos", "error");
-        return;
+    try {
+        const response = await apiCall("GET", "/students");
+        if (!response || !response.students) {
+            allStudents = [];
+            totalStudents = 0;
+            showError("Erro ao carregar alunos.");
+            return;
+        }
+        allStudents = response.students;
+        totalStudents = response.total || allStudents.length;
+        renderStudentTable(allStudents);
+        renderCohortFilter();
+        loadKPIs();
+    } catch (err) {
+        showError("Erro ao carregar alunos: " + err.message);
     }
-    allStudents = response.students;
-    totalStudents = response.total || allStudents.length;
-    renderStudentTable(allStudents);
-    renderCohortFilter();
-    loadKPIs();
 }
 
 function renderStudentTable(students) {
     const tbody = document.getElementById("studentTable");
+    if (!tbody) return;
     tbody.innerHTML = "";
     students.forEach(student => {
-        const failed = student.failed_attempts || {};
-        const failedCount = (failed.phase_1 || 0) + (failed.phase_2 || 0) + (failed.final_exam || 0);
+        const failed = (student.failed_attempts || {});
+        const failedFinalExam = failed.final_exam || 0;
+        const releaseDate = student.final_exam_release_date
+            ? new Date(student.final_exam_release_date).toLocaleDateString("pt-BR")
+            : "Não configurada";
+        const finalExamStatus = failedFinalExam > 0
+            ? `${releaseDate} · ${failedFinalExam} tentativa(s)` 
+            : releaseDate;
         const tr = document.createElement("tr");
         tr.innerHTML = `
-            <td>${student.name || '-'}</td>
-            <td>${student.email || '-'}</td>
-            <td>${student.cohort_id || '-'}</td>
-            <td><span class="phase-badge" data-phase="${student.current_phase || 'initial'}">${student.current_phase || 'initial'}</span></td>
-            <td>${failedCount}</td>
+            <td>${esc(student.name)}</td>
+            <td>${esc(student.email)}</td>
+            <td>${esc(student.cohort_id)}</td>
+            <td><span class="phase-badge" data-phase="${esc(student.current_phase || 'initial')}">${esc(student.current_phase || 'initial')}</span></td>
+            <td>${esc(finalExamStatus)}</td>
             <td>
-                <select class="phase-select" data-student="${student.student_id}" disabled>
-                    <option value="initial">Initial</option>
-                    <option value="phase_1">Phase 1</option>
-                    <option value="phase_2">Phase 2</option>
-                    <option value="final_exam">Final Exam</option>
-                    <option value="free_practice">Free Practice</option>
-                </select>
-                <button class="btn-save-phase" data-student="${student.student_id}" disabled>Guardar</button>
-                <button class="btn-history" data-student="${student.student_id}">Historial</button>
+                <button class="btn-history" data-student="${esc(student.student_id)}">Historial</button>
+                <button class="btn-set-exam" data-student="${esc(student.student_id)}">Configurar data</button>
+                <button class="btn-reset-exam" data-student="${esc(student.student_id)}">Resetar tentativa</button>
             </td>
         `;
         tbody.appendChild(tr);
     });
-    setupPhaseSelects();
 }
 
-function setupPhaseSelects() {
-    document.querySelectorAll('.phase-select').forEach(select => {
-        const studentId = select.dataset.student;
-        const currentPhase = allStudents.find(s => s.student_id === studentId)?.current_phase || 'initial';
-        select.value = currentPhase;
-        select.disabled = false;
-        const saveBtn = select.nextElementSibling;
-        saveBtn.disabled = false;
-    });
-}
-
-// ========== CARGA DE KPIs ==========
+// ========== CARGA DE KPIS ==========
 
 function loadKPIs() {
-    document.getElementById('kpiTotal').textContent = totalStudents;
-    document.getElementById('kpiPhase1').textContent = allStudents.filter(s => s.current_phase === 'phase_1').length;
-    document.getElementById('kpiPhase2').textContent = allStudents.filter(s => s.current_phase === 'phase_2').length;
-    document.getElementById('kpiFinalExam').textContent = allStudents.filter(s => s.current_phase === 'final_exam').length;
-    document.getElementById('kpiBloqueados').textContent = allStudents.filter(s => {
-        const fa = s.failed_attempts || {};
-        return (fa.phase_1 || 0) >= 3 || (fa.phase_2 || 0) >= 3 || (fa.final_exam || 0) >= 1;
-    }).length;
+    const el = (id, value) => {
+        const node = document.getElementById(id);
+        if (node) node.textContent = value;
+    };
+    el('kpiTotal', totalStudents);
+    el('kpiInitial', allStudents.filter(s => s.current_phase === 'initial').length);
+    el('kpiFreePractice', allStudents.filter(s => s.current_phase === 'free_practice').length);
+    el('kpiFinalExam', allStudents.filter(s => s.current_phase === 'final_exam').length);
 }
 
 // ========== FILTROS ==========
@@ -94,7 +93,7 @@ function renderCohortFilter() {
     if (!cohortSelect) return;
 
     const cohorts = [...new Set(allStudents.map(s => s.cohort_id).filter(Boolean))];
-    cohortSelect.innerHTML = '<option value="">Todas as Cohortes</option>';
+    cohortSelect.innerHTML = '<option value="">Todas as turmas</option>';
     cohorts.forEach(cohort => {
         const option = document.createElement('option');
         option.value = cohort;
@@ -103,133 +102,176 @@ function renderCohortFilter() {
     });
 }
 
+// Puebla el filtro de turmas con las cohortes activas (Req. 12.3).
+async function loadCohorts() {
+    try {
+        const response = await apiCall("GET", "/cohorts");
+        if (!response || !response.cohorts) {
+            allCohorts = [];
+            return;
+        }
+        allCohorts = response.cohorts;
+        renderCohortFilter();
+        const tbody = document.getElementById('cohortsTable');
+        if (!tbody) return;
+        tbody.innerHTML = "";
+        response.cohorts.forEach(cohort => {
+            const percentage = cohort.max_students > 0 ? Math.round((cohort.current_count / cohort.max_students) * 100) : 0;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${esc(cohort.cohort_id)}</td><td>${esc(cohort.name || '')}</td><td>${cohort.current_count}</td><td>${cohort.max_students}</td><td>${percentage}%</td>`;
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        showError("Erro ao carregar turmas: " + err.message);
+    }
+}
+
 function filterStudents() {
-    const cohortVal = document.getElementById('cohortFilter').value;
-    const phaseVal = document.getElementById('phaseFilter').value;
-    const searchVal = document.getElementById('searchInput').value.toLowerCase();
+    const cohortEl = document.getElementById('cohortFilter');
+    const searchEl = document.getElementById('searchInput');
+    const cohortVal = cohortEl ? cohortEl.value : '';
+    const searchVal = searchEl ? searchEl.value.toLowerCase() : '';
     let filtered = allStudents.filter(student => {
         const matchesCohort = !cohortVal || student.cohort_id === cohortVal;
-        const matchesPhase = !phaseVal || student.current_phase === phaseVal;
         const matchesSearch = (student.name || '').toLowerCase().includes(searchVal) || (student.email || '').toLowerCase().includes(searchVal);
-        return matchesCohort && matchesPhase && matchesSearch;
+        return matchesCohort && matchesSearch;
     });
     renderStudentTable(filtered);
 }
 
-// ========== GESTIÓN DE FASES ==========
+// ========== HISTORIAL DEL ALUMNO ==========
 
-function updateStudentPhase(studentId, newPhase) {
-    const student = allStudents.find(s => s.student_id === studentId);
-    if (!student) return;
-
-    const select = document.querySelector('.phase-select[data-student="' + studentId + '"]');
-    if (!select) return;
-    const saveBtn = select.parentElement.querySelector('.btn-save-phase');
-    const previousPhase = student.current_phase || 'initial';
-
-    if (!confirm("Promover al aluno " + student.name + " de " + previousPhase + " a " + newPhase + "?")) {
-        select.value = previousPhase;
-        return;
+// Muestra la sección historySection y carga los quizzes del alumno (Req. 12.6).
+async function selectStudent(studentId) {
+    const section = document.getElementById('historySection');
+    if (section) {
+        section.style.display = 'block';
     }
+    await loadStudentQuizzes(studentId);
+}
 
-    saveBtn.disabled = true;
-    select.disabled = true;
+async function loadStudentQuizzes(studentId) {
+    try {
+        const response = await apiCall("GET", "/students/" + studentId + "/quizzes");
+        const tbody = document.getElementById('historyTable');
+        if (!tbody) return;
 
-    apiCall("PUT", "/students/" + studentId + "/phase", { phase: newPhase }).then(response => {
-        if (response && response.new_phase) {
-            showToast("Fase atualizada de " + response.previous_phase + " a " + response.new_phase, "success");
-            loadStudents();
-        } else {
-            showToast("Erro na resposta", "error");
-            select.value = previousPhase;
+        tbody.innerHTML = "";
+        if (!response || !response.quizzes || response.quizzes.length === 0) {
+            tbody.innerHTML = "<tr><td colspan='5'>Nenhum quiz realizado ainda.</td></tr>";
+            return;
         }
-    }).catch(err => {
-        showToast("Erro: " + err.message, "error");
-        select.value = previousPhase;
-    }).finally(() => {
-        select.disabled = false;
-        saveBtn.disabled = false;
-    });
-}
 
-// ========== MODAL DE HISTORIAL ==========
-
-async function openStudentHistoryModal(studentId) {
-    const student = allStudents.find(s => s.student_id === studentId);
-    if (!student) return;
-
-    const title = document.getElementById('historyTitle');
-    title.textContent = "Historico de " + student.name;
-
-    const studentInfo = document.getElementById('studentInfo');
-    studentInfo.innerHTML = "<p><strong>Email:</strong> " + student.email + "</p><p><strong>Cohorte:</strong> " + (student.cohort_id || 'Nenhum') + "</p><p><strong>Fase Atual:</strong> " + (student.current_phase || 'initial') + "</p>";
-
-    const response = await apiCall("GET", "/students/" + studentId + "/quizzes");
-    const tbody = document.getElementById('historyTable');
-    tbody.innerHTML = "";
-
-    if (!response || !response.quizzes || response.quizzes.length === 0) {
-        tbody.innerHTML = "<tr><td colspan='5'>Nenhum quiz realizado ainda.</td></tr>";
-        return;
+        response.quizzes.forEach(function(q, index) {
+            const status = esc(q.status || 'completed');
+            const score = q.score_percentage !== null && q.score_percentage !== undefined ? q.score_percentage + '%' : '0%';
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${index + 1}</td>
+                <td>${esc(q.quiz_type || '')} - ${esc(q.topic || '-')}</td>
+                <td><span class="${status}">${status}</span></td>
+                <td>${esc(score)}</td>
+                <td>${esc(q.created_at ? new Date(q.created_at).toLocaleDateString('pt-BR') : '-')}</td>`;
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        showError("Erro ao carregar histórico: " + err.message);
     }
-
-    response.quizzes.forEach(function(q, index) {
-        const tr = document.createElement('tr');
-        const status = q.status || 'completed';
-        const score = q.score_percentage !== null ? q.score_percentage + '%' : '0%';
-        tr.innerHTML = "<td>" + (index + 1) + "</td><td>" + (q.topic || '-') + "</td><td><span class='" + status.toLowerCase() + "'>" + status + "</span></td><td>" + score + "</td><td>" + (q.created_at ? new Date(q.created_at).toLocaleDateString('pt-BR') : '-') + "</td>";
-        tbody.appendChild(tr);
-    });
 }
 
-// ========== CARGA DE COHORTES ==========
+// ========== GESTIÓN DEL EXAMEN FINAL ==========
 
-async function loadCohorts() {
-    const response = await apiCall("GET", "/cohorts");
-    if (!response || !response.cohorts) return;
-    const tbody = document.getElementById('cohortsTable');
-    tbody.innerHTML = "";
-    response.cohorts.forEach(function(cohort) {
-        var percentage = cohort.max_students > 0 ? Math.round((cohort.current_count / cohort.max_students) * 100) : 0;
-        var tr = document.createElement('tr');
-        tr.innerHTML = "<td>" + cohort.cohort_id + "</td><td>" + cohort.current_count + "</td><td>" + cohort.max_students + "</td><td>" + percentage + "%</td>";
-        tbody.appendChild(tr);
-    });
+async function setFinalExamRelease(studentId, date) {
+    try {
+        await apiCall("PUT", "/students/" + studentId + "/final-exam-release", { release_date: date });
+        await loadStudents();
+    } catch (err) {
+        showError("Erro ao configurar data: " + err.message);
+    }
+}
+
+async function resetFinalExamAttempt(studentId) {
+    try {
+        await apiCall("DELETE", "/students/" + studentId + "/final-exam-attempt");
+        await loadStudents();
+    } catch (err) {
+        showError("Erro ao resetar tentativa: " + err.message);
+    }
 }
 
 // ========== EVENTOS ==========
 
 function setupEvents() {
-    document.getElementById('searchInput').addEventListener('input', filterStudents);
-    document.getElementById('cohortFilter').addEventListener('change', filterStudents);
-    document.getElementById('phaseFilter').addEventListener('change', filterStudents);
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) searchInput.addEventListener('input', filterStudents);
+
+    const cohortFilter = document.getElementById('cohortFilter');
+    if (cohortFilter) cohortFilter.addEventListener('change', filterStudents);
 
     const studentTableBody = document.getElementById('studentTable');
-    studentTableBody.addEventListener('click', function(e) {
-        if (e.target.classList.contains('btn-history')) {
-            openStudentHistoryModal(e.target.dataset.student);
-        }
-        if (e.target.classList.contains('btn-save-phase')) {
-            const select = e.target.previousElementSibling;
-            updateStudentPhase(e.target.dataset.student, select.value);
-        }
-    });
+    if (studentTableBody) {
+        studentTableBody.addEventListener('click', function(e) {
+            if (e.target.classList.contains('btn-history')) {
+                selectStudent(e.target.dataset.student);
+            }
+            if (e.target.classList.contains('btn-set-exam')) {
+                const studentId = e.target.dataset.student;
+                const date = prompt("Data de liberação do exame final (formato YYYY-MM-DDTHH:MM):");
+                if (date) {
+                    setFinalExamRelease(studentId, date);
+                }
+            }
+            if (e.target.classList.contains('btn-reset-exam')) {
+                const studentId = e.target.dataset.student;
+                if (confirm("Resetar a tentativa do exame final deste aluno?")) {
+                    resetFinalExamAttempt(studentId);
+                }
+            }
+        });
+    }
 
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            logout();
+        });
+    }
 
-    document.getElementById('logoutBtn').addEventListener('click', function(e) {
-        e.preventDefault();
-        logout();
-    });
+    const closeHistoryBtn = document.getElementById('closeHistoryBtn');
+    if (closeHistoryBtn) {
+        closeHistoryBtn.addEventListener('click', function() {
+            const section = document.getElementById('historySection');
+            if (section) {
+                section.style.display = 'none';
+            }
+        });
+    }
 }
 
 // ========== HERRAMIENTAS ==========
 
-function showToast(message, type) {
-    alert((type === 'success' ? 'Sucesso' : 'Erro') + ": " + message);
+// Escribe el mensaje de error en <div id="errorMsg"> y lo hace visible.
+// Nunca usa alert() como único canal de notificación (Req. 2.7).
+function showError(message) {
+    const errorEl = document.getElementById('errorMsg');
+    if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.style.display = 'block';
+    }
+}
+
+function esc(value) {
+    return String(value === undefined || value === null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 // Estado global
 var allStudents = [];
+var allCohorts = [];
 var totalStudents = 0;
 
 // Inicialización automática al cargar el DOM

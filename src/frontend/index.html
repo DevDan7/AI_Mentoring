@@ -136,6 +136,7 @@
 
             <!-- ========== MENSAJE DE ERROR ========== -->
             <div id="errorMessage" style="display: none; color: var(--pico-color-red-500); margin-top: 1rem; text-align: center;"></div>
+            <div id="errorMsg" style="display: none; color: var(--pico-color-red-500); margin-top: 1rem; text-align: center;"></div>
         </article>
     </main>
 
@@ -143,6 +144,9 @@
     <script src="js/auth.js"></script>
     <script src="js/api.js"></script>
     <script>
+        // Cargar configuración dinámica antes de cualquier llamada a la API (Req. 1.4)
+        loadConfig();
+
         // Capturar parâmetro 'turma' da URL e salvar no sessionStorage
         const urlParams = new URLSearchParams(window.location.search);
         const pendingCohort = urlParams.get('turma');
