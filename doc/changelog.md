@@ -6,6 +6,18 @@
 
 ## 2026-09
 
+### 07 Sep — Fixes E2E: is_teacher defensivo, get_results sin HTTP 500, tarjeta Simulado Final
+- **Problemas detectados en el test E2E**:
+  1. Profesor — "Erro ao carregar turmas": `is_teacher(claims)` levantaba `AttributeError` si `claims` era `None`/no-dict, y no normalizaba `cognito:groups` con separación por comas/espacios.
+  2. Resultados — Internal Server Error: `get_results()` podía lanzar 500 si un ítem del banco tenía `Options` ausente/lista (formato legacy), si `opt` no era dict, o si un resultado no traía `QuestionID`.
+  3. Dashboard — el alumno no tenía tarjeta de "Simulado Final" (no existía tal sección).
+- **Solución**:
+  1. `is_teacher()` ahora maneja `claims=None`, grupos como string/list/tuple/set, cadenas coma-separadas y valores inválidos (nunca lanza; fail-closed). Mismo patrón aplicado al chequeo inline de teacher en `get_results()`.
+  2. Enriquecimiento defensivo en `get_results()`: `question_ids` tolera `QuestionID` ausente, `Options` validado como dict, guardas `isinstance(opt, dict)`, y `try/except` por resultado con `print()` (CloudWatch) + fallbacks (`statement:''`, `correct_answers:[]`, `explanation:''`) — la respuesta queda parcial en vez de 500.
+  3. Nueva tarjeta en `dashboard.html` (`#finalExamCard`) con estados: "Disponível" (con botón → `generateFinalExam()`), "Bloqueado pelo professor (disponível a partir de DD/MM/YYYY HH:MM)", "Bloqueado pelo professor" y "Exame final já realizado" (sin botón).
+- **Tests**: +9 casos (54 → **63 tests en verde**): `claims=None`, grupos vacíos/numéricos/coma-separados en `is_teacher`; pregunta ausente del banco, `Options` como lista legacy, teacher con claim coma-separado y bloqueo 403 con `claims=None` en `get_results`.
+- Archivos: `src/student_api.py`, `src/quiz_engine.py`, `src/frontend/dashboard.html`, `tests/test_phase_system.py`, `tests/test_quiz_engine.py`.
+
 ### 07 Sep — Fix frontend: /config devolvía 404 (ruta relativa contra Amplify)
 - **Problema**: `config.js` hacía `fetch('/config')` con ruta relativa. En hosting estático (Amplify) el navegador la resuelve contra el dominio del frontend (`main.d1jhem8rxt5h6t.amplifyapp.com/config`) en lugar del API Gateway → 404 → error "Não foi possível carregar a configuração" al entrar.
 - **Solución**: Se añadió la constante `API_GATEWAY_URL = "https://9ftb5bwpk7.execute-api.us-east-1.amazonaws.com"` en `src/frontend/js/config.js` y el fetch ahora apunta a `${API_GATEWAY_URL}/config`. El endpoint `/config` (auth `NONE`, CORS `allow_origins=["*"]` en el stage) sigue devolviendo `apiUrl`, `userPoolId` y `clientId` desde las env vars de la Lambda — el único valor fijo es la URL base (bootstrap inevitable en hosting estático).
