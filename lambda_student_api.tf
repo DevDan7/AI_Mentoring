@@ -17,6 +17,7 @@ resource "aws_lambda_function" "student_api" {
 
   environment {
     variables = {
+      API_URL              = aws_apigatewayv2_api.mentoring_api.api_endpoint
       COGNITO_USER_POOL_ID = aws_cognito_user_pool.students.id
       COGNITO_CLIENT_ID    = aws_cognito_user_pool_client.student_app.id
       STUDENTS_TABLE       = aws_dynamodb_table.students.name
