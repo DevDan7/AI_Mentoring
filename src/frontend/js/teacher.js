@@ -12,10 +12,16 @@ async function initTeacherDashboard() {
         window.location.href = "index.html";
         return;
     }
+    
+    // Check if user is teacher early and show appropriate message
     if (!isTeacher()) {
-        window.location.href = "dashboard.html";
+        showError("Esta página é apenas para professores. Você será redirecionado para o painel do aluno.");
+        setTimeout(() => {
+            window.location.href = "dashboard.html";
+        }, 3000);
         return;
     }
+    
     await loadStudents();
     await loadCohorts();
     loadKPIs();
@@ -39,7 +45,15 @@ async function loadStudents() {
         renderCohortFilter();
         loadKPIs();
     } catch (err) {
-        showError("Erro ao carregar alunos: " + err.message);
+        if (err.message.includes("403") || err.message.includes("Only teachers can list students")) {
+            showError("Acesso negado: Você precisa ser um professor para acessar esta página. Faça login com uma conta de professor.");
+            // Redirect to dashboard after 3 seconds
+            setTimeout(() => {
+                window.location.href = "dashboard.html";
+            }, 3000);
+        } else {
+            showError("Erro ao carregar alunos: " + err.message);
+        }
     }
 }
 
@@ -122,7 +136,12 @@ async function loadCohorts() {
             tbody.appendChild(tr);
         });
     } catch (err) {
-        showError("Erro ao carregar turmas: " + err.message);
+        if (err.message.includes("403") || err.message.includes("Only teachers can list cohorts")) {
+            // Don't show duplicate error message since loadStudents already showed it
+            console.log("Teacher permission required for cohorts endpoint");
+        } else {
+            showError("Erro ao carregar turmas: " + err.message);
+        }
     }
 }
 
