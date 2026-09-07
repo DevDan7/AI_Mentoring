@@ -393,6 +393,24 @@ class TestIsTeacher(unittest.TestCase):
         import student_api
         self.assertFalse(student_api.is_teacher({'cognito:groups': 123}))
 
+    def test_teacher_with_json_array_string_groups(self):
+        """API Gateway HTTP API v2 serializa el array JWT como string: '["Teachers"]'."""
+        import student_api
+        self.assertTrue(student_api.is_teacher({'cognito:groups': '["Teachers"]'}))
+
+    def test_non_teacher_with_json_array_string_groups(self):
+        import student_api
+        self.assertFalse(student_api.is_teacher({'cognito:groups': '["Students","Testers"]'}))
+
+    def test_teacher_with_json_array_multiple_groups(self):
+        import student_api
+        self.assertTrue(student_api.is_teacher({'cognito:groups': '["Students"," Teachers "]'}))
+
+    def test_json_string_not_a_list_falls_back_to_comma_split(self):
+        import student_api
+        self.assertTrue(student_api.is_teacher({'cognito:groups': 'Teachers,Admin'}))
+        self.assertFalse(student_api.is_teacher({'cognito:groups': 'not-an-array'}))
+
 
 class TestTeacherUpdatePhase(unittest.TestCase):
     """Verifica que update_student_phase valide el grupo Teachers."""
