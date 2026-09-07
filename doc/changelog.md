@@ -6,6 +6,12 @@
 
 ## 2026-09
 
+### 07 Sep — Fix frontend: /config devolvía 404 (ruta relativa contra Amplify)
+- **Problema**: `config.js` hacía `fetch('/config')` con ruta relativa. En hosting estático (Amplify) el navegador la resuelve contra el dominio del frontend (`main.d1jhem8rxt5h6t.amplifyapp.com/config`) en lugar del API Gateway → 404 → error "Não foi possível carregar a configuração" al entrar.
+- **Solución**: Se añadió la constante `API_GATEWAY_URL = "https://9ftb5bwpk7.execute-api.us-east-1.amazonaws.com"` en `src/frontend/js/config.js` y el fetch ahora apunta a `${API_GATEWAY_URL}/config`. El endpoint `/config` (auth `NONE`, CORS `allow_origins=["*"]` en el stage) sigue devolviendo `apiUrl`, `userPoolId` y `clientId` desde las env vars de la Lambda — el único valor fijo es la URL base (bootstrap inevitable en hosting estático).
+- **Verificación**: `node --check` OK; `curl https://9ftb5bwpk7.execute-api.us-east-1.amazonaws.com/config` debe responder 200 con JSON.
+- **Nota**: si el API Gateway se recrea y cambia el endpoint, actualizar `API_GATEWAY_URL`.
+
 ### 07 Sep — Fase 7: Migración de datos ejecutada (restructuración MVP completada)
 - **Ejecución**: Migración manual con credenciales AWS locales (nunca por CI/CD) usando `scripts/migrate_clean.py` (pasos: export → confirmación `SI` → batch delete → seed → verificación). Resultado real:
   - Tablas `AI_Mentoring-Students-dev`, `AI_Mentoring-Quizzes-dev`, `AI_Mentoring-QuizResults-dev` y `AI_Mentoring-Cohorts-dev` limpiadas (backups en `scripts/backup/`, gitignored).
