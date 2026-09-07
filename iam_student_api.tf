@@ -40,15 +40,6 @@ resource "aws_iam_policy" "student_api_policy" {
         Resource = aws_dynamodb_table.students.arn
       },
       {
-        Sid    = "AllowCognitoRead"
-        Effect = "Allow"
-        Action = [
-          "cognito-idp:GetUser",
-          "cognito-idp:AdminListGroupsForUser"
-        ]
-        Resource = aws_cognito_user_pool.students.arn
-      },
-      {
         Sid      = "AllowScanStudents"
         Effect   = "Allow"
         Action   = ["dynamodb:Scan"]
