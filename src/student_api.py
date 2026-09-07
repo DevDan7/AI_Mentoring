@@ -303,6 +303,11 @@ def is_teacher(claims):
     return 'Teachers' in groups
 
 
+def simulate_student_insert(initial_count):
+    """Property 6: simula el incremento del contador de alumnos al insertar uno nuevo."""
+    return initial_count + 1
+
+
 def update_student_phase(event, claims, target_student_id):
     """Permite al profesor cambiar la fase de un alumno. Requiere grupo 'Teachers' en Cognito."""
     # Validar que el solicitante es teacher leyendo el claim del JWT
@@ -360,7 +365,9 @@ def list_all_students(claims):
             'current_phase': s.get('CurrentPhase', 'initial'),
             'failed_attempts': s.get('FailedAttempts', {}),
             'created_at': s.get('CreatedAt', ''),
-            'access_expires_at': s.get('AccessExpiresAt', '')
+            'access_expires_at': s.get('AccessExpiresAt', ''),
+            'final_exam_release_date': s.get('FinalExamReleaseDate', ''),
+            'has_taken_initial_test': s.get('HasTakenInitialTest', False)
         })
 
     return build_response(200, {'students': students, 'total': len(students)})
