@@ -4,7 +4,7 @@ import boto3
 from decimal import Decimal
 from datetime import datetime, timezone, timedelta
 from botocore.exceptions import ClientError
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
 
 # Inicialización del cliente de DynamoDB
 dynamodb = boto3.resource('dynamodb')
@@ -12,14 +12,11 @@ students_table = dynamodb.Table(os.environ['STUDENTS_TABLE'])
 cohorts_table = dynamodb.Table(os.environ['COHORTS_TABLE'])
 quizzes_table = dynamodb.Table(os.environ['QUIZZES_TABLE'])
 
-# Cliente Cognito para verificar grupos de usuarios
-cognito_idp = boto3.client('cognito-idp')
-
 # Constante de cabeceras CORS
 HEADERS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    'Access-Control-Allow-Methods': 'OPTIONS,GET,POST,PUT',
+    'Access-Control-Allow-Methods': 'OPTIONS,GET,POST,PUT,DELETE',
     'Content-Type': 'application/json',
 }
 
@@ -47,7 +44,9 @@ def lambda_handler(event, context):
     claims = event.get('requestContext', {}).get('authorizer', {}).get('jwt', {}).get('claims', {})
 
     # Enrutamiento basado en el routeKey expuesto por API Gateway
-    if route_key == 'POST /students':
+    if route_key == 'GET /config':
+        return get_config()
+    elif route_key == 'POST /students':
         return create_student(event, claims)
     elif route_key == 'GET /students':
         return list_all_students(claims)
@@ -74,8 +73,23 @@ def lambda_handler(event, context):
     elif route_key == 'PUT /students/{studentId}/phase':
         student_id = path_params.get('studentId')
         return update_student_phase(event, claims, student_id)
+    elif route_key == 'PUT /students/{studentId}/final-exam-release':
+        student_id = path_params.get('studentId')
+        return set_final_exam_release(event, claims, student_id)
+    elif route_key == 'DELETE /students/{studentId}/final-exam-attempt':
+        student_id = path_params.get('studentId')
+        return reset_final_exam_attempt(claims, student_id)
     else:
         return build_response(404, {'message': f'Route not found: {route_key}'})
+
+
+def get_config():
+    """Retorna la configuración pública del frontend (sin autenticación)."""
+    return build_response(200, {
+        'apiUrl': os.environ.get('API_URL', ''),
+        'userPoolId': os.environ.get('COGNITO_USER_POOL_ID', ''),
+        'clientId': os.environ.get('COGNITO_CLIENT_ID', ''),
+    })
 
 
 def get_cohort_capacity(cohort_id):
@@ -135,7 +149,7 @@ def create_student(event, claims):
             )
             current_count = count_response.get('Count', 0)
             if current_count >= max_students:
-                return build_response(403, {'message': f'Cohort is full: {current_count}/{max_students} students'})
+                return build_response(403, {'message': 'Turma está cheia'})
 
     try:
         # AccessExpiresAt = CreatedAt + 30 días por defecto
@@ -145,15 +159,12 @@ def create_student(event, claims):
             'StudentID': student_id,
             'Email': email,
             'Name': name,
-            'Cohort': data.get('cohort', ''),
             'CreatedAt': created_at,
             'UpdatedAt': created_at,
             'AccessExpiresAt': access_expires_at,
             'CurrentPhase': 'initial',
             'PhaseHistory': [],
             'FailedAttempts': {
-                'phase_1': 0,
-                'phase_2': 0,
                 'final_exam': 0
             }
         }
@@ -198,7 +209,7 @@ def get_student(student_id):
     if access_expires_at:
         expires_dt = datetime.fromisoformat(access_expires_at.replace('Z', '+00:00'))
         if datetime.now(timezone.utc) > expires_dt:
-            return build_response(403, {'message': 'Access expired. Contact your instructor to renew access.'})
+            return build_response(403, {'message': 'Acesso expirado. Entre em contato com seu instrutor.'})
 
     return build_response(200, student)
 
@@ -284,32 +295,23 @@ def get_quiz_history(claims):
         'current_phase': student.get('CurrentPhase', 'initial')
     })
 
-def is_teacher(user_sub):
-    """Verifica si el usuario pertenece al grupo Teachers en Cognito."""
-    try:
-        user_pool_id = os.environ['COGNITO_USER_POOL_ID']
-        response = cognito_idp.admin_list_groups_for_user(
-            UserPoolId=user_pool_id,
-            Username=user_sub,
-            Limit=10
-        )
-        groups = [g['GroupName'] for g in response.get('Groups', [])]
-        return 'Teachers' in groups
-    except Exception as e:
-        print(f"Error checking teacher group: {e}")
-        return False
+def is_teacher(claims):
+    """Verifica si el usuario pertenece al grupo Teachers leyendo el claim cognito:groups del JWT."""
+    groups = claims.get('cognito:groups', [])
+    if isinstance(groups, str):
+        groups = [groups]
+    return 'Teachers' in groups
 
 
 def update_student_phase(event, claims, target_student_id):
     """Permite al profesor cambiar la fase de un alumno. Requiere grupo 'Teachers' en Cognito."""
-    # Validar que el solicitante es teacher via Cognito API
-    teacher_id = claims.get('sub')
-    if not is_teacher(teacher_id):
+    # Validar que el solicitante es teacher leyendo el claim del JWT
+    if not is_teacher(claims):
         return build_response(403, {'message': 'Only teachers can modify student phases'})
 
     data = json.loads(event.get('body', '{}'))
     new_phase = data.get('phase')
-    valid_phases = ['initial', 'phase_1', 'phase_2', 'final_exam', 'free_practice']
+    valid_phases = ['initial', 'free_practice', 'final_exam']
 
     if new_phase not in valid_phases:
         return build_response(400, {'message': f'Invalid phase. Must be one of: {valid_phases}'})
@@ -344,8 +346,7 @@ def update_student_phase(event, claims, target_student_id):
 
 def list_all_students(claims):
     """Retorna todos los alumnos. Solo accesible por teachers."""
-    teacher_id = claims.get('sub')
-    if not is_teacher(teacher_id):
+    if not is_teacher(claims):
         return build_response(403, {'message': 'Only teachers can list students'})
 
     response = students_table.scan()
@@ -367,8 +368,7 @@ def list_all_students(claims):
 
 def get_student_quizzes(student_id, claims):
     """Retorna historial de quizzes de un alumno específico. Solo teachers."""
-    teacher_id = claims.get('sub')
-    if not is_teacher(teacher_id):
+    if not is_teacher(claims):
         return build_response(403, {'message': 'Only teachers can view student quizzes'})
 
     response = quizzes_table.query(
@@ -393,26 +393,98 @@ def get_student_quizzes(student_id, claims):
     return build_response(200, {'quizzes': history})
 
 
+def set_final_exam_release(event, claims, target_student_id):
+    """Permite al profesor fijar o actualizar la fecha de habilitación del examen final."""
+    if not is_teacher(claims):
+        return build_response(403, {'message': 'Only teachers can set final exam release date'})
+
+    data = json.loads(event.get('body', '{}'))
+    release_date = data.get('release_date')
+    if not release_date:
+        return build_response(400, {'message': 'release_date is required'})
+
+    students_table.update_item(
+        Key={'StudentID': target_student_id},
+        UpdateExpression='SET FinalExamReleaseDate = :release_date, UpdatedAt = :updated_at',
+        ExpressionAttributeValues={
+            ':release_date': release_date,
+            ':updated_at': datetime.now(timezone.utc).isoformat()
+        }
+    )
+
+    return build_response(200, {
+        'student_id': target_student_id,
+        'final_exam_release_date': release_date
+    })
+
+
+def reset_final_exam_attempt(claims, target_student_id):
+    """Permite al profesor resetear el intento del examen final de un alumno."""
+    if not is_teacher(claims):
+        return build_response(403, {'message': 'Only teachers can reset final exam attempts'})
+
+    response = quizzes_table.query(
+        IndexName='StudentIndex',
+        KeyConditionExpression=Key('StudentID').eq(target_student_id),
+        FilterExpression=Attr('QuizType').eq('final_exam')
+    )
+    quizzes = response.get('Items', [])
+    quizzes.sort(key=lambda q: q.get('CreatedAt', ''), reverse=True)
+
+    active_quiz = next((q for q in quizzes if q.get('Status') != 'reset'), None)
+    if not active_quiz:
+        return build_response(404, {'message': 'El alumno no tiene examen final registrado'})
+
+    quizzes_table.update_item(
+        Key={'QuizID': active_quiz['QuizID']},
+        UpdateExpression='SET #s = :status, CompletedAt = :completed_at',
+        ExpressionAttributeNames={'#s': 'Status'},
+        ExpressionAttributeValues={
+            ':status': 'reset',
+            ':completed_at': datetime.now(timezone.utc).isoformat()
+        }
+    )
+
+    return build_response(200, {
+        'student_id': target_student_id,
+        'message': 'Final exam attempt reset'
+    })
+
+
 def list_cohorts(claims):
-    """Retorna todas las cohortes con conteo de alumnos. Solo teachers."""
-    teacher_id = claims.get('sub')
-    if not is_teacher(teacher_id):
+    """Retorna todas las turmas con conteo de alumnos. Solo teachers."""
+    if not is_teacher(claims):
         return build_response(403, {'message': 'Only teachers can list cohorts'})
 
-    response = cohorts_table.scan()
-    cohorts = []
-    for c in response.get('Items', []):
+    cohorts_response = cohorts_table.scan()
+    cohorts = cohorts_response.get('Items', [])
+
+    # Agrupar la cantidad de alumnos por CohortID con un único scan
+    count_by_cohort = {}
+    last_evaluated_key = None
+    while True:
+        scan_kwargs = {
+            'ProjectionExpression': 'CohortID'
+        }
+        if last_evaluated_key:
+            scan_kwargs['ExclusiveStartKey'] = last_evaluated_key
+        page = students_table.scan(**scan_kwargs)
+        for item in page.get('Items', []):
+            cohort_id = item.get('CohortID')
+            if cohort_id:
+                count_by_cohort[cohort_id] = count_by_cohort.get(cohort_id, 0) + 1
+        last_evaluated_key = page.get('LastEvaluatedKey')
+        if not last_evaluated_key:
+            break
+
+    result = []
+    for c in cohorts:
         cohort_id = c['CohortID']
-        count_response = students_table.query(
-            IndexName='CohortIndex',
-            KeyConditionExpression=Key('CohortID').eq(cohort_id),
-            Select='COUNT'
-        )
-        cohorts.append({
+        result.append({
             'cohort_id': cohort_id,
             'name': c.get('Name', ''),
             'max_students': int(c.get('MaxStudents', 0)),
-            'current_count': count_response.get('Count', 0)
+            'current_count': count_by_cohort.get(cohort_id, 0)
         })
 
-    return build_response(200, {'cohorts': cohorts})
+    return build_response(200, {'cohorts': result})
