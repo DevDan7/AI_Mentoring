@@ -500,15 +500,9 @@
                         </div>
                         <span class="arrow">→</span>
                         <div class="flow-box active">
-                            <div class="icon">🔍</div>
-                            <div class="label">Rekognition</div>
-                            <div class="status status-active">OCR</div>
-                        </div>
-                        <span class="arrow">→</span>
-                        <div class="flow-box active">
                             <div class="icon">🤖</div>
                             <div class="label">Bedrock</div>
-                            <div class="status status-active">Claude Haiku</div>
+                            <div class="status status-active">Claude Haiku multimodaldirecto</div>
                         </div>
                         <span class="arrow">→</span>
                         <div class="flow-box active">
@@ -693,18 +687,26 @@
                         <td class="priority-high">Alta</td>
                         <td>6-8 horas</td>
                         <td>Students, API Gateway</td>
-                        <td><span class="phase-badge badge-progress">⏳ En progreso</span></td>
+                        <td><span class="phase-badge badge-done">✅ Completada (05 Sep)</span></td>
                     </tr>
                     <tr>
                         <td>8</td>
-                        <td><strong>Sistema de Fases (Fase 7e)</strong><br><small>Diag(20q) → F1(20q,prof) → F2(20q,prof) → Final(65q) → Práctica</small></td>
+                        <td><strong>Restructuración MVP — Sistema de Fases (Fase 7e)</strong><br><small>Diag(20q) → Práctica libre → Final(65q por fecha) — sin umbral</small></td>
                         <td class="priority-high">Alta</td>
                         <td>8-12 horas</td>
                         <td>quiz_engine, teacher-dashboard</td>
-                        <td><span class="phase-badge badge-progress">⏳ En progreso</span></td>
+                        <td><span class="phase-badge badge-done">✅ Completada (06 Sep)</span></td>
                     </tr>
                     <tr>
                         <td>9</td>
+                        <td><strong>Migración de datos (Fase 7f)</strong><br><small>Limpieza Students/Quizzes/QuizResults/Cohorts + seed turma-beta-01</small></td>
+                        <td class="priority-high">Alta</td>
+                        <td>1-2 horas</td>
+                        <td>DynamoDB</td>
+                        <td><span class="phase-badge badge-done">✅ Completada (07 Sep)</span></td>
+                    </tr>
+                    <tr>
+                        <td>10</td>
                         <td><strong>Links externos (Fase 7d)</strong><br><small>Anki flashcards + próximos simulados de turma</small></td>
                         <td class="priority-medium">Media</td>
                         <td>2-3 horas</td>
@@ -712,7 +714,7 @@
                         <td><span class="phase-badge badge-future">Pendiente</span></td>
                     </tr>
                     <tr>
-                        <td>10</td>
+                        <td>11</td>
                         <td><strong>Generador de Reportes</strong><br><small>Métricas por alumno y clase con narrativa Bedrock</small></td>
                         <td class="priority-medium">Media</td>
                         <td>4-6 horas</td>
@@ -720,7 +722,7 @@
                         <td><span class="phase-badge badge-future">Pendiente</span></td>
                     </tr>
                     <tr>
-                        <td>11</td>
+                        <td>12</td>
                         <td><strong>Refactor: AWS Step Functions</strong><br><small>Orquestación asíncrona del pipeline (processor.py)</small></td>
                         <td class="priority-medium">Media</td>
                         <td>8-12 horas</td>
@@ -728,7 +730,7 @@
                         <td><span class="phase-badge badge-future">Pendiente</span></td>
                     </tr>
                     <tr>
-                        <td>12</td>
+                        <td>13</td>
                         <td><strong>Cleanup: key_schema vs hash_key</strong><br><small>Evaluado: mantenido — bugs activos del proveedor AWS</small></td>
                         <td class="priority-low">Baja</td>
                         <td>2-3 horas</td>
@@ -798,11 +800,11 @@
                         </div>
                     </div>
                     <div class="infra-details">
-                        <strong>MentoringQuestions:</strong> ~300+ items (en progreso)<br>
-                        <strong>Students:</strong> Perfiles + AccessExpiresAt + Role<br>
-                        <strong>Quizzes:</strong> Simulados generados<br>
+                        <strong>MentoringQuestions:</strong> 203 preguntas (intactas tras migración 07 Sep)<br>
+                        <strong>Students:</strong> Perfiles + AccessExpiresAt + Role + CurrentPhase<br>
+                        <strong>Quizzes:</strong> Simulados generados (initial/free/final_exam)<br>
                         <strong>QuizResults:</strong> Respuestas y métricas<br>
-                        <strong>Cohorts:</strong> Turmas con MaxStudents
+                        <strong>Cohorts:</strong> Turmas con MaxStudents — turma-beta-01 activa
                     </div>
                 </div>
 
@@ -964,10 +966,15 @@
                     <div class="timeline-title">Historial de Quizzes + Protecciones</div>
                     <div class="timeline-desc">Endpoint historial, ScorePercentage, MaxStudents, AccessExpiresAt, fix Amplify trust policy (huevo-gallina #3).</div>
                 </div>
+                <div class="timeline-item done">
+                    <div class="timeline-date">6-7 septiembre 2026</div>
+                    <div class="timeline-title">Restructuración MVP + Migración de datos</div>
+                    <div class="timeline-desc">Fases simplificadas (Diag → Práctica → Final por fecha), examen final con release/reset, frontend PT-BR, 54 tests, limpieza de tablas y seed turma-beta-01 (MentoringQuestions intacta, 203 preguntas).</div>
+                </div>
                 <div class="timeline-item next">
-                    <div class="timeline-date">Semana 1-7 Sep 2026</div>
+                    <div class="timeline-date">Desde 7 Sep 2026</div>
                     <div class="timeline-title">Beta — Turma Real (7 alumnos)</div>
-                    <div class="timeline-desc">Rol de Profesor, Sistema de Fases (Diag→F1→F2→Final→Práctica), Links externos, primer cohort activo.</div>
+                    <div class="timeline-desc">Turma-beta-01 activa (MaxStudents 7), Links externos, primer cohort real en producción.</div>
                 </div>
             </div>
         </section>
@@ -978,16 +985,16 @@
             
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-value">20-30h</div>
+                    <div class="stat-value">6-12h</div>
                     <div class="stat-label">Tiempo total restante</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">6-8h</div>
+                    <div class="stat-value">✅ Hecho</div>
                     <div class="stat-label">Rol de Profesor (7b)</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">8-12h</div>
-                    <div class="stat-label">Sistema de Fases (7e)</div>
+                    <div class="stat-value">✅ Hecho</div>
+                    <div class="stat-label">Sistema de Fases (7e) + Migración (7f)</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value">6-10h</div>

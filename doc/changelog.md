@@ -6,6 +6,25 @@
 
 ## 2026-09
 
+### 07 Sep — Fase 7: Migración de datos ejecutada (restructuración MVP completada)
+- **Ejecución**: Migración manual con credenciales AWS locales (nunca por CI/CD) usando `scripts/migrate_clean.py` (pasos: export → confirmación `SI` → batch delete → seed → verificación). Resultado real:
+  - Tablas `AI_Mentoring-Students-dev`, `AI_Mentoring-Quizzes-dev`, `AI_Mentoring-QuizResults-dev` y `AI_Mentoring-Cohorts-dev` limpiadas (backups en `scripts/backup/`, gitignored).
+  - Turma inicial sembrada en `Cohorts`: `CohortID="turma-beta-01"`, `Name="Beta Turma 01"`, `MaxStudents=7`.
+  - `MentoringQuestions` verificada **intacta con 203 preguntas** (tabla excluida explícitamente de todos los pasos).
+  - Verificación post-migración: `verify_empty` OK (cohortes=1, resto 0, `beta_cohort_exists=true`).
+- **Scripts nuevos**: `scripts/migrate_clean.py` (con flags `--dry-run` `--export-only` `--project` `--environment` `--region` `--backup-dir` `--timestamp`) y `scripts/migrate_restore.py` (auto-detección del juego completo de 4 backups más reciente o `--prefix`). Restauración por si un backup se pierde o hay que revertir.
+- **Tests**: `tests/test_migration_scripts.py` con 9 casos en memoria (dry-run sin mutar, export-only, flujo completo, cancelación, roundtrip `Decimal`, restore latest/prefijo, grupos incompletos). Suite total: **54 tests en verde**.
+- **Dependencias**: `pytest==9.1.1` y `hypothesis==6.167.1` añadidos a `requirements.txt`; `.gitignore` incluye `scripts/backup/`.
+- **Requisitos cumplidos**: 15.1, 15.2, 15.4, 15.5 (y 15.3 por backend). Equivale a Checkpoint 12 del plan de restructuración.
+- Archivos: `scripts/migrate_clean.py`, `scripts/migrate_restore.py`, `tests/test_migration_scripts.py`, `.gitignore`, `requirements.txt`.
+
+### 06 Sep — Restructuración del MVP (Fases 1–6): modelo de fases, examen final, frontend y tests
+- **Backend (PRs #91–#93)**: Simplificación del sistema de fases de `initial → phase_1 → phase_2 → final_exam → free_practice` (progresión por score ≥ 70%) a `initial → free_practice → final_exam` sin umbrales. `student_api.py` incorporó `GET /config`, `PUT /students/{studentId}/final-exam-release` y `DELETE /students/{studentId}/final-exam-attempt`; se eliminó la llamada Cognito `AdminListGroupsForUser` en `is_teacher()` (ahora lee el claim `cognito:groups`).
+- **Examen final (PR #95)**: Liberado por fecha (`FinalExamReleaseDate`) + `has_taken_initial_test`; reanudación de examen `in_progress` (no duplica quizzes); exclusividad estricta de 1 `completed` (`can_generate_final_exam`); anti-repetición; `domain_breakdown` en resultados. Matriz `FINAL_EXAM_DISTRIBUTION` recalibrada a 65 preguntas (Compute 7, DA&ML 2, AI & Serverless 2, MGD/General 0).
+- **Frontend (PR #94)**: Overhaul a PT-BR con páginas dinámicas (`index`, `dashboard`, `quiz`, `results`, `teacher`) y módulos JS (`config`, `auth`, `api`, `teacher`) consumiendo `GET /config` para API URL/Cognito dinámicos.
+- **Tests (PR #95)**: `test_phase_system.py` reenfocado al modelo nuevo, `test_quiz_engine.py` (nuevo, resume/403/get_results/submit idempotente) y `test_pbt.py` (nuevo, 6 propiedades con Hypothesis). Suite total: 54 tests.
+- **Decisión clave**: `phase_1`/`phase_2` eliminados; el proceso de aprendizaje ahora es diagnóstico inicial + práctica libre + un examen final administrado por el instructor.
+
 ### 05 Sep (Noche) — Fix Teacher Dashboard initialization & Logout
 - **Problema**: El panel del profesor (`teacher.html`) no cargaba los estudiantes, los KPIs ni permitía cerrar sesión (`logoutBtn`). La causa raíz era que la función de inicialización `initTeacherDashboard()` estaba definida en `teacher.js` pero nunca se invocaba al cargar el DOM.
 - **Solución**: Se añadió el listener `document.addEventListener("DOMContentLoaded", () => { initTeacherDashboard(); });` al final de `src/frontend/js/teacher.js`, garantizando la carga automática de alumnos, cohortes, KPIs, eventos y el funcionamiento correcto del botón de cierre de sesión.
