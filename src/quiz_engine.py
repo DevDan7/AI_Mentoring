@@ -648,10 +648,14 @@ def get_results(quiz_id, student_id, claims=None):
 
     # Un Teacher puede consultar resultados de cualquier alumno
     is_teacher_request = False
-    if claims:
-        groups = claims.get('cognito:groups', [])
-        if isinstance(groups, str):
-            groups = [groups]
+    if claims and isinstance(claims, dict):
+        raw_groups = claims.get('cognito:groups') or []
+        if isinstance(raw_groups, str):
+            groups = {g.strip() for g in raw_groups.split(',')}
+        elif isinstance(raw_groups, (list, tuple, set)):
+            groups = {str(g).strip() for g in raw_groups}
+        else:
+            groups = set()
         is_teacher_request = 'Teachers' in groups
 
     if quiz.get('StudentID') != student_id and not is_teacher_request:
@@ -670,7 +674,7 @@ def get_results(quiz_id, student_id, claims=None):
     score_percentage = round((correct_answers / answered_questions) * 100, 1) if answered_questions > 0 else 0
 
     # Cargar enunciados, respuestas correctas y explicaciones desde MentoringQuestions
-    question_ids = [r['QuestionID'] for r in results]
+    question_ids = [r['QuestionID'] for r in results if r.get('QuestionID')]
     questions_map = {}
     if question_ids:
         batch = questions_table.meta.client.batch_get_item(
@@ -679,42 +683,61 @@ def get_results(quiz_id, student_id, claims=None):
             }
         )
         for item in batch.get('Responses', {}).get(questions_table.name, []):
-            questions_map[item['QuestionID']] = item
+            questions_map[item.get('QuestionID')] = item
 
     answers = []
     domain_totals = {}
     domain_correct = {}
 
     for result in results:
-        q = questions_map.get(result['QuestionID'], {})
-        topic = q.get('Topic', 'General / Otros Servicios')
-        domain = TOPIC_TO_DOMAIN.get(topic, 'Cloud Technology & Services')
+        # Enriquecimiento defensivo: un ítem mal formado no debe tumbar la respuesta
+        try:
+            question_id = result.get('QuestionID', '')
+            q = questions_map.get(question_id, {})
+            topic = q.get('Topic', 'General / Otros Servicios')
+            domain = TOPIC_TO_DOMAIN.get(topic, 'Cloud Technology & Services')
 
-        domain_totals[domain] = domain_totals.get(domain, 0) + 1
-        if result.get('IsCorrect', False):
-            domain_correct[domain] = domain_correct.get(domain, 0) + 1
+            domain_totals[domain] = domain_totals.get(domain, 0) + 1
+            if result.get('IsCorrect', False):
+                domain_correct[domain] = domain_correct.get(domain, 0) + 1
 
-        correct_answers_for_question = result.get('CorrectAnswers') or [
-            k.strip().upper() for k, opt in q.get('Options', {}).items() if opt.get('is_correct', False)
-        ]
-        explanation = next(
-            (opt.get('explanation', '') for k, opt in q.get('Options', {}).items() if opt.get('is_correct', False)),
-            ''
-        )
+            options = q.get('Options') or {}
+            if not isinstance(options, dict):
+                options = {}
 
-        answers.append({
-            'question_id': result['QuestionID'],
-            'statement': q.get('QuestionText', ''),
-            'given_answers': result.get('GivenAnswers', []),
-            'correct_answers': correct_answers_for_question,
-            'is_correct': result.get('IsCorrect', False),
-            'explanation': explanation
-        })
+            correct_answers_for_question = result.get('CorrectAnswers') or [
+                k.strip().upper() for k, opt in options.items()
+                if isinstance(opt, dict) and opt.get('is_correct', False)
+            ]
+            explanation = next(
+                (opt.get('explanation', '') for k, opt in options.items()
+                 if isinstance(opt, dict) and opt.get('is_correct', False)),
+                ''
+            )
+
+            answers.append({
+                'question_id': question_id,
+                'statement': q.get('QuestionText', ''),
+                'given_answers': result.get('GivenAnswers', []),
+                'correct_answers': correct_answers_for_question,
+                'is_correct': result.get('IsCorrect', False),
+                'explanation': explanation
+            })
+        except Exception as exc:
+            print(f'get_results: skipping malformed result {result.get("QuestionID", "<unknown>")}: {exc}')
+            answers.append({
+                'question_id': result.get('QuestionID', ''),
+                'statement': '',
+                'given_answers': result.get('GivenAnswers', []),
+                'correct_answers': [],
+                'is_correct': result.get('IsCorrect', False),
+                'explanation': ''
+            })
 
     response = {
         'quiz': {
-            'quiz_id': quiz['QuizID'],
-            'student_id': quiz['StudentID'],
+            'quiz_id': quiz.get('QuizID', quiz_id),
+            'student_id': quiz.get('StudentID', student_id),
             'topic': quiz.get('Topic', ''),
             'status': quiz.get('Status', ''),
             'created_at': quiz.get('CreatedAt', '')

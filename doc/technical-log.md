@@ -4,6 +4,30 @@
 
 ---
 
+## Fixes E2E (is_teacher, get_results, tarjeta Simulado Final) — 2026-09-07
+
+### Problema
+El test E2E detectó: (1) "Erro ao carregar turmas" en el profesor — `is_teacher(claims)` fallaba con `claims=None` y no normalizaba `cognito:groups` coma-separado; (2) HTTP 500 en resultados — `get_results()` reventaba al enriquecer con `Options` ausente/lista legacy o `opt` no-dict; (3) el dashboard del alumno no mostraba ninguna tarjeta de "Simulado Final".
+
+### Causa raíz
+- `claims.get('cognito:groups', [])` con `claims=None` → `AttributeError` (500).
+- `q.get('Options', {}).items()` con `Options` como lista/None → `AttributeError`; `opt.get('explanation')` con `opt` no-dict → `AttributeError`; indexado directo `r['QuestionID']` → `KeyError`.
+- Frontend: la sección de examen final simplemente no existía en `dashboard.html`.
+
+### Solución aplicada
+| Área | Cambio |
+|------|--------|
+| `is_teacher()` | Normalización defensiva: `claims` falsy→False; `cognito:groups` como str (separado por comas), list/tuple/set o inválido; nunca lanza. |
+| `get_results()` | `Options` validado con `isinstance(dict)`; guardas por opción; `QuestionID` con `.get()`; `try/except` por resultado con `print()` y fallbacks. Mismo patrón teaching en el chequeo inline de teacher. |
+| Dashboard | Tarjeta `#finalExamCard` con 4 estados y botón de inicio cuando está disponible. |
+
+### Resultado
+- Suite de tests: **63 passed** (54 + 9 nuevos de defensa).
+- `py_compile` OK en ambos módulos; `node --check` OK del script inline del dashboard.
+- El enriquecimiento parcial ya no devuelve 500: un ítem corrupto se loguea en CloudWatch y se responde con fallback.
+
+---
+
 ## Migración de Datos Ejecutada — 2026-09-07
 
 ### Contexto
