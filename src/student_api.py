@@ -304,9 +304,17 @@ def is_teacher(claims):
 
     raw_groups = claims.get('cognito:groups') or []
     if isinstance(raw_groups, str):
-        groups = {g.strip() for g in raw_groups.split(',')}
+        # API Gateway HTTP API v2 serializa arrays JWT como JSON string: '["Teachers"]'
+        try:
+            parsed = json.loads(raw_groups)
+            if isinstance(parsed, list):
+                groups = {str(g).strip().strip('"').strip("'") for g in parsed}
+            else:
+                groups = {str(parsed).strip().strip('"').strip("'")}
+        except (json.JSONDecodeError, TypeError):
+            groups = {g.strip().strip('"').strip("'") for g in raw_groups.split(',')}
     elif isinstance(raw_groups, (list, tuple, set)):
-        groups = {str(g).strip() for g in raw_groups}
+        groups = {str(g).strip().strip('"').strip("'") for g in raw_groups}
     else:
         groups = set()
 
