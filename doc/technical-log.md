@@ -4,6 +4,36 @@
 
 ---
 
+## Migración de Datos Ejecutada — 2026-09-07
+
+### Contexto
+Fase 7 de la restructuración del MVP: se requería limpiar datos de prueba (fases/estructura previa) e insertar la turma inicial beta antes de abrir el sistema a alumnos reales. `MentoringQuestions` (banco de 203 preguntas) debía permanecer **intacta**.
+
+### Comandos usados (manual, con credenciales AWS locales)
+```
+python scripts/migrate_clean.py --dry-run                 # verificación, sin mutar
+python scripts/migrate_clean.py --export-only             # backups en scripts/backup/
+python scripts/migrate_clean.py                           # confirmación 'SI' → delete + seed + verify
+```
+
+### Resultado
+| Tabla | Items antes | Acción | Items después |
+|-------|------------|--------|---------------|
+| `AI_Mentoring-Students-dev` | >0 (prueba) | batch delete | 0 |
+| `AI_Mentoring-Quizzes-dev` | >0 (prueba) | batch delete | 0 |
+| `AI_Mentoring-QuizResults-dev` | >0 (prueba) | batch delete | 0 |
+| `AI_Mentoring-Cohorts-dev` | 0 | seed | 1 (`turma-beta-01`, MaxStudents 7) |
+| `MentoringQuestions` | **203** | **excluida explícitamente** | **203 (intacta)** |
+
+**Verificación**: `verify_empty` OK (cohortes=1, resto 0, `beta_cohort_exists=true`). Backups en `scripts/backup/` (gitignored); `migrate_restore.py` disponible para revertir.
+
+### Lecciones
+- Los flags `--dry-run` y `--export-only` permiten validar sin riesgo antes del paso destructivo; la confirmación es explícita (`input('SI')`).
+- La exclusión de `MentoringQuestions` es explícita en todas las rutas del script (protección contra errores futuros).
+- La verificación `verify_empty` confirma el estado esperado post-migración antes de declarar éxito.
+
+---
+
 ## Resumen de Métricas por Lote
 
 | Lote | Fecha | Fotos | Éxito | DLQ | Throttling | Duración Prom. | Concurrencia |
