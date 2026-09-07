@@ -17,6 +17,17 @@ resource "aws_apigatewayv2_integration" "quiz" {
 }
 
 # =============================================================================
+# Configuration Routes
+# =============================================================================
+
+resource "aws_apigatewayv2_route" "config_get" {
+  api_id             = aws_apigatewayv2_api.mentoring_api.id
+  route_key          = "GET /config"
+  target             = "integrations/${aws_apigatewayv2_integration.student.id}"
+  authorization_type = "NONE"
+}
+
+# =============================================================================
 # Student API Routes
 # =============================================================================
 
@@ -63,6 +74,22 @@ resource "aws_apigatewayv2_route" "students_me_quizzes_get" {
 resource "aws_apigatewayv2_route" "students_phase_put" {
   api_id             = aws_apigatewayv2_api.mentoring_api.id
   route_key          = "PUT /students/{studentId}/phase"
+  target             = "integrations/${aws_apigatewayv2_integration.student.id}"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+  authorization_type = "JWT"
+}
+
+resource "aws_apigatewayv2_route" "students_final_exam_release_put" {
+  api_id             = aws_apigatewayv2_api.mentoring_api.id
+  route_key          = "PUT /students/{studentId}/final-exam-release"
+  target             = "integrations/${aws_apigatewayv2_integration.student.id}"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+  authorization_type = "JWT"
+}
+
+resource "aws_apigatewayv2_route" "students_final_exam_attempt_delete" {
+  api_id             = aws_apigatewayv2_api.mentoring_api.id
+  route_key          = "DELETE /students/{studentId}/final-exam-attempt"
   target             = "integrations/${aws_apigatewayv2_integration.student.id}"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
   authorization_type = "JWT"
