@@ -1,7 +1,8 @@
-"""Pruebas del Sistema de Fases Adaptativo (Fase 7e).
+"""Pruebas del Sistema de Fases (nuevo modelo).
 
-Valida la lógica de progresión de fases, restricciones de generación de quizzes,
-y control de acceso por rol de profesor. Usa unittest.mock para simular DynamoDB.
+Valida la progresión de fases (initial → free_practice sin umbral), el control
+de acceso por rol de profesor y la gestión del examen final. Usa unittest.mock
+para simular DynamoDB.
 """
 import json
 import sys
@@ -9,7 +10,6 @@ import os
 import unittest
 from unittest import mock
 from datetime import datetime, timezone, timedelta
-from decimal import Decimal
 
 # Configurar entorno antes de importar los módulos
 os.environ['STUDENTS_TABLE'] = 'test-students'
@@ -30,7 +30,7 @@ def make_student_item(student_id='student-123', phase='initial', failed_attempts
         'Name': 'Test Student',
         'CurrentPhase': phase,
         'PhaseHistory': [],
-        'FailedAttempts': failed_attempts or {'phase_1': 0, 'phase_2': 0, 'final_exam': 0},
+        'FailedAttempts': failed_attempts or {'final_exam': 0},
         'AccessExpiresAt': (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
         'CreatedAt': datetime.now(timezone.utc).isoformat(),
     }
@@ -96,7 +96,7 @@ def make_api_event(route_key, body=None, student_id=None, claims=None):
 
 
 class TestCreateStudentPhaseFields(unittest.TestCase):
-    """Test 1: Verifica que create_student agregue campos de fase."""
+    """Verifica que create_student agregue los campos del nuevo modelo."""
 
     @mock.patch('student_api.students_table')
     @mock.patch('student_api.cohorts_table')
@@ -113,32 +113,45 @@ class TestCreateStudentPhaseFields(unittest.TestCase):
 
         self.assertEqual(response['statusCode'], 201)
 
-        # Verificar que put_item fue llamado con los campos de fase
         call_args = mock_students.put_item.call_args
         item = call_args[1]['Item'] if 'Item' in call_args[1] else call_args[0][0]
 
         self.assertEqual(item['CurrentPhase'], 'initial')
         self.assertEqual(item['PhaseHistory'], [])
-        self.assertEqual(item['FailedAttempts'], {
-            'phase_1': 0,
-            'phase_2': 0,
-            'final_exam': 0
-        })
+        self.assertEqual(item['FailedAttempts'], {'final_exam': 0})
+        self.assertNotIn('Cohort', item)
+
+    @mock.patch('student_api.students_table')
+    @mock.patch('student_api.cohorts_table')
+    def test_create_student_with_full_cohort_rejected(self, mock_cohorts, mock_students):
+        import student_api
+
+        # Turma con cupo máximo 1 y ya con 1 alumno
+        mock_cohorts.get_item.return_value = {'Item': {'CohortID': 'turma-1', 'MaxStudents': 1}}
+        mock_students.query.return_value = {'Count': 1}
+
+        event = make_api_event('POST /students', body={'cohort_id': 'turma-1'})
+        claims = {'sub': 'new-student', 'email': 'new@test.com', 'name': 'Test'}
+
+        response = student_api.create_student(event, claims)
+
+        self.assertEqual(response['statusCode'], 403)
+        body = json.loads(response['body'])
+        self.assertIn('Turma está cheia', body['message'])
 
 
 class TestGenerateQuizPhaseRestriction(unittest.TestCase):
-    """Test 2: Verifica que generate_quiz restrinja tipos según la fase."""
+    """Verifica que generate_quiz restrinja tipos según la fase."""
 
     @mock.patch('quiz_engine.students_table')
     @mock.patch('quiz_engine.quizzes_table')
     @mock.patch('quiz_engine.questions_table')
-    def test_initial_phase_cannot_generate_phase_1(self, mock_questions, mock_quizzes, mock_students):
+    def test_initial_phase_cannot_generate_final_exam(self, mock_questions, mock_quizzes, mock_students):
         import quiz_engine
 
-        # Estudiante en fase 'initial'
         mock_students.get_item.return_value = {'Item': make_student_item(phase='initial')}
 
-        event = make_api_event('POST /quizzes/generate', body={'quiz_type': 'phase_1'})
+        event = make_api_event('POST /quizzes/generate', body={'quiz_type': 'final_exam'})
         claims = {'sub': 'student-123'}
         event['requestContext']['authorizer']['jwt']['claims'] = claims
 
@@ -155,7 +168,6 @@ class TestGenerateQuizPhaseRestriction(unittest.TestCase):
     def test_initial_phase_can_generate_initial(self, mock_questions, mock_quizzes, mock_students):
         import quiz_engine
 
-        # Estudiante en fase 'initial' - mock para generate_initial_quiz
         mock_students.get_item.return_value = {'Item': make_student_item(phase='initial')}
         mock_questions.query.return_value = {'Items': [make_question_item(f'q{i}') for i in range(20)]}
         mock_quizzes.put_item.return_value = {}
@@ -174,18 +186,17 @@ class TestGenerateQuizPhaseRestriction(unittest.TestCase):
     @mock.patch('quiz_engine.students_table')
     @mock.patch('quiz_engine.quizzes_table')
     @mock.patch('quiz_engine.questions_table')
-    def test_phase_1_can_generate_free(self, mock_questions, mock_quizzes, mock_students):
+    def test_free_quiz_uses_num_questions(self, mock_questions, mock_quizzes, mock_students):
         import quiz_engine
 
-        # Estudiante en fase 'phase_1' puede generar 'free'
-        mock_students.get_item.return_value = {'Item': make_student_item(phase='phase_1')}
-        mock_questions.query.return_value = {'Items': [make_question_item('q1')]}
+        mock_students.get_item.return_value = {'Item': make_student_item(phase='free_practice')}
+        mock_questions.query.return_value = {'Items': [make_question_item(f'q{i}') for i in range(5)]}
         mock_quizzes.put_item.return_value = {}
 
         event = make_api_event('POST /quizzes/generate', body={
             'quiz_type': 'free',
             'topic': 'Cloud Concepts & Well-Architected',
-            'count': 1
+            'num_questions': 5
         })
         claims = {'sub': 'student-123'}
         event['requestContext']['authorizer']['jwt']['claims'] = claims
@@ -193,31 +204,49 @@ class TestGenerateQuizPhaseRestriction(unittest.TestCase):
         response = quiz_engine.lambda_handler(event, None)
 
         self.assertEqual(response['statusCode'], 201)
+        # El topic es obligatorio y la query usa el parámetro num_questions
+        mock_questions.query.assert_called_once()
+        query_kwargs = mock_questions.query.call_args[1]
+        self.assertEqual(query_kwargs['Limit'], 5)
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_free_quiz_requires_topic(self, mock_questions, mock_quizzes, mock_students):
+        import quiz_engine
+
+        mock_students.get_item.return_value = {'Item': make_student_item(phase='free_practice')}
+
+        event = make_api_event('POST /quizzes/generate', body={'quiz_type': 'free'})
+        claims = {'sub': 'student-123'}
+        event['requestContext']['authorizer']['jwt']['claims'] = claims
+
+        response = quiz_engine.lambda_handler(event, None)
+
+        self.assertEqual(response['statusCode'], 400)
+        body = json.loads(response['body'])
+        self.assertIn('topic é obrigatório', body['error'])
 
 
 class TestCompleteQuizPhaseAdvancement(unittest.TestCase):
-    """Test 3: Verifica avance de fase al completar con >= 70%."""
+    """Verifica que el diagnóstico inicial avance a free_practice sin umbral."""
 
     @mock.patch('quiz_engine.students_table')
     @mock.patch('quiz_engine.quizzes_table')
     @mock.patch('quiz_engine.quiz_results_table')
-    def test_advances_initial_to_phase_1_on_70_percent(self, mock_results, mock_quizzes, mock_students):
+    def test_initial_advances_to_free_practice_with_any_score(self, mock_results, mock_quizzes, mock_students):
         import quiz_engine
 
-        # Quiz de tipo 'initial' completado
-        quiz = make_quiz_item(quiz_type='initial', questions=['q1', 'q2', 'q3', 'q4', 'q5'])
+        # Solo 1 de 3 correctas (33%) — debe avanzar igualmente
+        quiz = make_quiz_item(quiz_type='initial', questions=['q1', 'q2', 'q3'])
         mock_quizzes.get_item.return_value = {'Item': quiz}
 
-        # 4 de 5 correctas = 80%
         mock_results.query.return_value = {'Items': [
             make_result_item(is_correct=True),
-            make_result_item(result_id='r2', question_id='q2', is_correct=True),
-            make_result_item(result_id='r3', question_id='q3', is_correct=True),
-            make_result_item(result_id='r4', question_id='q4', is_correct=True),
-            make_result_item(result_id='r5', question_id='q5', is_correct=False),
+            make_result_item(result_id='r2', question_id='q2', is_correct=False),
+            make_result_item(result_id='r3', question_id='q3', is_correct=False),
         ]}
 
-        # Estudiante en fase 'initial'
         student = make_student_item(phase='initial')
         mock_students.get_item.return_value = {'Item': student}
         mock_quizzes.update_item.return_value = {}
@@ -229,28 +258,24 @@ class TestCompleteQuizPhaseAdvancement(unittest.TestCase):
         body = json.loads(response['body'])
         self.assertTrue(body.get('phase_advanced'))
         self.assertEqual(body['previous_phase'], 'initial')
-        self.assertEqual(body['new_phase'], 'phase_1')
+        self.assertEqual(body['new_phase'], 'free_practice')
 
     @mock.patch('quiz_engine.students_table')
     @mock.patch('quiz_engine.quizzes_table')
     @mock.patch('quiz_engine.quiz_results_table')
-    def test_does_not_advance_below_70_percent(self, mock_results, mock_quizzes, mock_students):
+    def test_free_quiz_does_not_change_phase(self, mock_results, mock_quizzes, mock_students):
         import quiz_engine
 
-        # Quiz de tipo 'initial'
-        quiz = make_quiz_item(quiz_type='initial', questions=['q1', 'q2', 'q3', 'q4', 'q5'])
+        quiz = make_quiz_item(quiz_type='free', questions=['q1', 'q2', 'q3'])
         mock_quizzes.get_item.return_value = {'Item': quiz}
 
-        # 3 de 5 correctas = 60%
         mock_results.query.return_value = {'Items': [
             make_result_item(is_correct=True),
             make_result_item(result_id='r2', question_id='q2', is_correct=True),
             make_result_item(result_id='r3', question_id='q3', is_correct=True),
-            make_result_item(result_id='r4', question_id='q4', is_correct=False),
-            make_result_item(result_id='r5', question_id='q5', is_correct=False),
         ]}
 
-        student = make_student_item(phase='initial')
+        student = make_student_item(phase='free_practice')
         mock_students.get_item.return_value = {'Item': student}
         mock_quizzes.update_item.return_value = {}
 
@@ -261,108 +286,105 @@ class TestCompleteQuizPhaseAdvancement(unittest.TestCase):
         self.assertFalse(body.get('phase_advanced'))
 
 
-class TestFailedAttemptsIncrement(unittest.TestCase):
-    """Test 4: Verifica que puntajes < 70% incrementen FailedAttempts."""
+class TestGenerateFinalExamReleaseDate(unittest.TestCase):
+    """Verifica la liberación por fecha del examen final (Req. 7.1, 7.2)."""
 
     @mock.patch('quiz_engine.students_table')
     @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.questions_table')
     @mock.patch('quiz_engine.quiz_results_table')
-    def test_increments_failed_attempts_on_low_score(self, mock_results, mock_quizzes, mock_students):
+    def test_generates_when_release_date_in_past(self, mock_results, mock_questions, mock_quizzes, mock_students):
         import quiz_engine
 
-        # Quiz de tipo 'phase_1'
-        quiz = make_quiz_item(quiz_type='phase_1', questions=['q1', 'q2', 'q3', 'q4', 'q5'])
-        mock_quizzes.get_item.return_value = {'Item': quiz}
-
-        # 2 de 5 correctas = 40%
-        mock_results.query.return_value = {'Items': [
-            make_result_item(is_correct=True),
-            make_result_item(result_id='r2', question_id='q2', is_correct=True),
-            make_result_item(result_id='r3', question_id='q3', is_correct=False),
-            make_result_item(result_id='r4', question_id='q4', is_correct=False),
-            make_result_item(result_id='r5', question_id='q5', is_correct=False),
-        ]}
-
-        student = make_student_item(phase='phase_1', failed_attempts={
-            'phase_1': 0, 'phase_2': 0, 'final_exam': 0
-        })
+        past = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+        student = make_student_item(phase='free_practice')
+        student['FinalExamReleaseDate'] = past
         mock_students.get_item.return_value = {'Item': student}
-        mock_quizzes.update_item.return_value = {}
-        mock_students.update_item.return_value = {}
 
-        response = quiz_engine.complete_quiz('quiz-123', 'student-123')
+        # Sin exámenes previos ni quizzes completados
+        mock_quizzes.query.return_value = {'Items': []}
+        mock_results.query.return_value = {'Items': []}
+        mock_questions.query.return_value = {
+            'Items': [make_question_item(f'q{i}') for i in range(70)]
+        }
+        mock_quizzes.put_item.return_value = {}
 
-        self.assertEqual(response['statusCode'], 200)
+        response = quiz_engine.generate_final_exam('student-123')
 
-        # Verificar que update_item fue llamado para incrementar FailedAttempts
-        mock_students.update_item.assert_called()
-        call_args = mock_students.update_item.call_args
-        update_expr = call_args[1].get('UpdateExpression', call_args[0][0] if call_args[0] else '')
-        self.assertIn('FailedAttempts', update_expr)
-
-
-class TestMaxAttemptsExceeded(unittest.TestCase):
-    """Test 5: Verifica que al 3er fallo se genere MaxAttemptsAlert."""
-
-    @mock.patch('quiz_engine.students_table')
-    @mock.patch('quiz_engine.quizzes_table')
-    @mock.patch('quiz_engine.quiz_results_table')
-    def test_max_attempts_exceeded_on_third_failure(self, mock_results, mock_quizzes, mock_students):
-        import quiz_engine
-
-        # Quiz de tipo 'phase_2'
-        quiz = make_quiz_item(quiz_type='phase_2', questions=['q1', 'q2', 'q3', 'q4', 'q5'])
-        mock_quizzes.get_item.return_value = {'Item': quiz}
-
-        # 1 de 5 correctas = 20%
-        mock_results.query.return_value = {'Items': [
-            make_result_item(is_correct=True),
-            make_result_item(result_id='r2', question_id='q2', is_correct=False),
-            make_result_item(result_id='r3', question_id='q3', is_correct=False),
-            make_result_item(result_id='r4', question_id='q4', is_correct=False),
-            make_result_item(result_id='r5', question_id='q5', is_correct=False),
-        ]}
-
-        # Estudiante ya tiene 2 fallos (este es el 3ero)
-        student = make_student_item(phase='phase_2', failed_attempts={
-            'phase_1': 0, 'phase_2': 2, 'final_exam': 0
-        })
-        mock_students.get_item.return_value = {'Item': student}
-        mock_quizzes.update_item.return_value = {}
-        mock_students.update_item.return_value = {}
-
-        response = quiz_engine.complete_quiz('quiz-123', 'student-123')
-
-        self.assertEqual(response['statusCode'], 200)
+        self.assertEqual(response['statusCode'], 201)
         body = json.loads(response['body'])
-        self.assertIn('alert', body)
-        self.assertEqual(body['alert'], 'MAX_ATTEMPTS_EXCEEDED: Contact your instructor')
+        self.assertEqual(body['quiz_type'], 'final_exam')
 
-        # Verificar que se actualizó MaxAttemptsAlert en DynamoDB
-        mock_students.update_item.assert_called()
-        call_args = mock_students.update_item.call_args
-        expr_values = call_args[1].get('ExpressionAttributeValues', {})
-        self.assertIn(':alert', expr_values)
-        alert_data = expr_values[':alert']
-        self.assertEqual(alert_data['AlertType'], 'MAX_ATTEMPTS_EXCEEDED')
-        self.assertEqual(alert_data['Phase'], 'phase_2')
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    def test_returns_403_when_release_date_in_future(self, mock_quizzes, mock_students):
+        import quiz_engine
+
+        future = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+        student = make_student_item(phase='free_practice')
+        student['FinalExamReleaseDate'] = future
+        mock_students.get_item.return_value = {'Item': student}
+        mock_quizzes.query.return_value = {'Items': []}
+
+        response = quiz_engine.generate_final_exam('student-123')
+
+        self.assertEqual(response['statusCode'], 403)
+        body = json.loads(response['body'])
+        self.assertIn('Exame disponível', body['error'])
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    def test_returns_403_when_no_release_date(self, mock_quizzes, mock_students):
+        import quiz_engine
+
+        student = make_student_item(phase='free_practice')
+        mock_students.get_item.return_value = {'Item': student}
+        mock_quizzes.query.return_value = {'Items': []}
+
+        response = quiz_engine.generate_final_exam('student-123')
+
+        self.assertEqual(response['statusCode'], 403)
+        body = json.loads(response['body'])
+        self.assertIn('não liberado', body['error'])
+
+
+class TestIsTeacher(unittest.TestCase):
+    """Verifica is_teacher() con claim como lista, string o ausente (Req. 12.2)."""
+
+    def test_teacher_with_list_claim(self):
+        import student_api
+        self.assertTrue(student_api.is_teacher({'cognito:groups': ['Teachers', 'Admin']}))
+
+    def test_non_teacher_with_list_claim(self):
+        import student_api
+        self.assertFalse(student_api.is_teacher({'cognito:groups': ['Students']}))
+
+    def test_teacher_with_string_claim(self):
+        import student_api
+        self.assertTrue(student_api.is_teacher({'cognito:groups': 'Teachers'}))
+
+    def test_non_teacher_with_string_claim(self):
+        import student_api
+        self.assertFalse(student_api.is_teacher({'cognito:groups': 'Students'}))
+
+    def test_missing_groups_claim(self):
+        import student_api
+        self.assertFalse(student_api.is_teacher({'sub': 'student-123'}))
 
 
 class TestTeacherUpdatePhase(unittest.TestCase):
-    """Test 6: Verifica que update_student_phase valide el grupo Teachers."""
+    """Verifica que update_student_phase valide el grupo Teachers."""
 
     @mock.patch('student_api.students_table')
     def test_teacher_can_update_phase(self, mock_students):
         import student_api
 
-        # Mock para obtener estudiante actual
         mock_students.get_item.return_value = {'Item': make_student_item(phase='initial')}
-        mock_students.update_item.return_value = {'Attributes': make_student_item(phase='phase_1')}
+        mock_students.update_item.return_value = {'Attributes': make_student_item(phase='free_practice')}
 
-        # Claims con grupo Teachers
         claims = {'sub': 'teacher-123', 'cognito:groups': 'Teachers'}
         event = make_api_event('PUT /students/{studentId}/phase',
-                               body={'phase': 'phase_1'},
+                               body={'phase': 'free_practice'},
                                student_id='student-123',
                                claims=claims)
 
@@ -371,16 +393,15 @@ class TestTeacherUpdatePhase(unittest.TestCase):
         self.assertEqual(response['statusCode'], 200)
         body = json.loads(response['body'])
         self.assertEqual(body['previous_phase'], 'initial')
-        self.assertEqual(body['new_phase'], 'phase_1')
+        self.assertEqual(body['new_phase'], 'free_practice')
 
     @mock.patch('student_api.students_table')
     def test_non_teacher_cannot_update_phase(self, mock_students):
         import student_api
 
-        # Claims SIN grupo Teachers
         claims = {'sub': 'student-456', 'cognito:groups': ''}
         event = make_api_event('PUT /students/{studentId}/phase',
-                               body={'phase': 'phase_1'},
+                               body={'phase': 'free_practice'},
                                student_id='student-123',
                                claims=claims)
 
@@ -408,24 +429,23 @@ class TestTeacherUpdatePhase(unittest.TestCase):
         body = json.loads(response['body'])
         self.assertIn('Invalid phase', body['message'])
 
-    @mock.patch('student_api.students_table')
-    def test_teacher_group_as_list(self, mock_students):
-        """Verifica que cognito:groups funcione como lista."""
+
+class TestGetConfig(unittest.TestCase):
+    """Verifica que GET /config retorne los tres campos requeridos (Req. 1.1)."""
+
+    @mock.patch.dict(os.environ, {
+        'API_URL': 'https://api.example.com',
+        'COGNITO_USER_POOL_ID': 'us-east-1_XXXXX',
+        'COGNITO_CLIENT_ID': 'client-123'
+    })
+    def test_get_config_returns_fields(self):
         import student_api
-
-        mock_students.get_item.return_value = {'Item': make_student_item(phase='phase_1')}
-        mock_students.update_item.return_value = {'Attributes': make_student_item(phase='phase_2')}
-
-        # Groups como lista
-        claims = {'sub': 'teacher-123', 'cognito:groups': ['Teachers', 'Admin']}
-        event = make_api_event('PUT /students/{studentId}/phase',
-                               body={'phase': 'phase_2'},
-                               student_id='student-123',
-                               claims=claims)
-
-        response = student_api.update_student_phase(event, claims, 'student-123')
-
+        response = student_api.get_config()
         self.assertEqual(response['statusCode'], 200)
+        body = json.loads(response['body'])
+        self.assertEqual(body['apiUrl'], 'https://api.example.com')
+        self.assertEqual(body['userPoolId'], 'us-east-1_XXXXX')
+        self.assertEqual(body['clientId'], 'client-123')
 
 
 if __name__ == '__main__':
