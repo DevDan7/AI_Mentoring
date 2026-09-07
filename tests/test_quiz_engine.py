@@ -392,6 +392,37 @@ class TestGetResultsEnrichment(unittest.TestCase):
 
         self.assertEqual(response['statusCode'], 403)
 
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_teacher_json_array_string_groups_accesses_other_results(self, mock_questions, mock_results, mock_quizzes, mock_students):
+        """API Gateway HTTP API v2 serializa cognito:groups como JSON string '["Teachers"]'."""
+        import quiz_engine
+
+        quiz = {
+            'QuizID': 'quiz-other',
+            'StudentID': 'student-999',
+            'QuizType': 'free',
+            'Topic': 'Compute & Containers',
+            'Questions': ['q1'],
+            'Status': 'completed',
+            'CreatedAt': datetime.now(timezone.utc).isoformat(),
+        }
+        mock_questions.name = 'test-questions'
+        mock_quizzes.get_item.return_value = {'Item': quiz}
+        mock_results.query.return_value = {
+            'Items': [make_result_item(quiz_id='quiz-other', question_id='q1')]
+        }
+        mock_questions.meta.client.batch_get_item.return_value = {
+            'Responses': {'test-questions': [make_question_item('q1', 'Compute & Containers')]}
+        }
+
+        claims = {'sub': 'teacher-1', 'cognito:groups': '["Teachers","Admin"]'}
+        response = quiz_engine.get_results('quiz-other', 'other-student', claims)
+
+        self.assertEqual(response['statusCode'], 200)
+
 
 class TestSubmitAnswer(unittest.TestCase):
     """Tarea 9.2: persistencia de CorrectAnswers e idempotencia."""

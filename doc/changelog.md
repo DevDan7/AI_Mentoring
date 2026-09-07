@@ -6,6 +6,13 @@
 
 ## 2026-09
 
+### 07 Sep — Fix profesor 403: serialización de `cognito:groups` en API Gateway HTTP API v2
+- **Problema**: Tras desplegar los fixes E2E, el panel del profesor saltaba 403 (Forbidden) en `GET /students` y `GET /cohorts`. El frontend sí detectaba el rol (redirigía a `teacher.html`) pero la Lambda devolvía 403.
+- **Causa raíz**: API Gateway HTTP API v2 con authorizer JWT de Cognito serializa el claim `cognito:groups` del token como **JSON string** (`'["Teachers"]'`) en `requestContext.authorizer.jwt.claims`, no como lista. El `split(',')` de `is_teacher()` no separaba dicho string → `'Teachers' in {'["Teachers"]'}` → False → 403. El error 403 ya existía implícitamente con el código anterior (igual chequeo); no es un problema de despliegue.
+- **Solución**: `is_teacher()` (`student_api.py`) y el chequeo inline de teacher en `get_results()` (`quiz_engine.py`) ahora intentan `json.loads()` cuando `cognito:groups` llega como string, con fallback a `split(',')` (retrocompatible con formatos legacy).
+- **Tests**: +5 casos (63 → **68 tests en verde**): JSON string `'["Teachers"]'`, `'["Students","Testers"]'`, multi-grupo, fallback no-array, y acceso 200 a quiz de otro alumno con `'["Teachers","Admin"]'`.
+- Archivos: `src/student_api.py`, `src/quiz_engine.py`, `tests/test_phase_system.py`, `tests/test_quiz_engine.py`.
+
 ### 07 Sep — Fixes E2E: is_teacher defensivo, get_results sin HTTP 500, tarjeta Simulado Final
 - **Problemas detectados en el test E2E**:
   1. Profesor — "Erro ao carregar turmas": `is_teacher(claims)` levantaba `AttributeError` si `claims` era `None`/no-dict, y no normalizaba `cognito:groups` con separación por comas/espacios.

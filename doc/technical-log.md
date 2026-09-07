@@ -28,6 +28,31 @@ El test E2E detectó: (1) "Erro ao carregar turmas" en el profesor — `is_teach
 
 ---
 
+## Fix 403 profesor: serialización de `cognito:groups` en API Gateway HTTP API v2 — 2026-09-07
+
+### Problema
+Tras desplegar los fixes E2E (PR #99), la interfaz del profesor seguía fallando: `GET /students` y `GET /cohorts` devolvían **403 Forbidden**. El frontend logueaba al usuario como teacher (redirige a `teacher.html` correctamente), pero la Lambda rechazaba la petición.
+
+### Causa raíz
+Discrepancia en el formato del claim `cognito:groups` entre frontend y backend:
+
+- **Frontend** (`auth.js:isTeacher()`): parsea el JWT directamente desde base64 → `cognito:groups` es un array JS real `["Teachers"]` → detecta el rol.
+- **Backend**: API Gateway **HTTP API v2** (authorizer JWT de Cognito) re-serializa el claim como **string JSON** en `requestContext.authorizer.jwt.claims`: `claims['cognito:groups'] == '["Teachers"]'`.
+
+`is_teacher()` hacía `'["Teachers"]'.split(',')` → `{'["Teachers"]'}` → `'Teachers' in grupos` → **False** → 403. Afectaba a los 6 endpoints teacher-only de `student_api.py` y al chequeo inline de teacher en `get_results()` de `quiz_engine.py`.
+
+El refactor de PRs #91–#93 cambió `AdminListGroupsForUser` (API Cognito, devuelve lista real) por la lectura directa del claim JWT, introduciendo la sensibilidad al formato de serialización. El 403 no es un problema de deploy: la Lambda ya corría el código nuevo.
+
+### Solución
+En `is_teacher()` (y en el chequeo inline de `get_results()`): cuando `cognito:groups` es string, primero `json.loads()`; si parsea como lista, normaliza sus elementos; si no, fallback a `split(',')` (retrocompatible con cadenas coma-separadas legacy).
+
+### Resultado
+- 68 tests en verde (5 nuevos cubriendo JSON string, multi-grupo, fallback y acceso a quiz ajeno).
+- Sin cambios de infraestructura: el grupo `Teachers` y la membresía del profesor ya existen (lo confirma el routing del frontend).
+- Despliegue: push a `main` → GitHub Actions `terraform apply` redepliega la Lambda.
+
+---
+
 ## Migración de Datos Ejecutada — 2026-09-07
 
 ### Contexto
