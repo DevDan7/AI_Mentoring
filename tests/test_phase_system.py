@@ -371,6 +371,28 @@ class TestIsTeacher(unittest.TestCase):
         import student_api
         self.assertFalse(student_api.is_teacher({'sub': 'student-123'}))
 
+    def test_claims_none_returns_false(self):
+        import student_api
+        self.assertFalse(student_api.is_teacher(None))
+        self.assertFalse(student_api.is_teacher({}))
+        self.assertFalse(student_api.is_teacher('not-a-dict'))
+
+    def test_empty_groups_string_returns_false(self):
+        import student_api
+        self.assertFalse(student_api.is_teacher({'sub': 'student-123', 'cognito:groups': ''}))
+
+    def test_teacher_with_comma_separated_groups(self):
+        import student_api
+        self.assertTrue(student_api.is_teacher({'cognito:groups': 'Teachers, Admin'}))
+
+    def test_non_teacher_with_comma_separated_groups(self):
+        import student_api
+        self.assertFalse(student_api.is_teacher({'cognito:groups': ' Students, Testers'}))
+
+    def test_non_iterable_groups_returns_false(self):
+        import student_api
+        self.assertFalse(student_api.is_teacher({'cognito:groups': 123}))
+
 
 class TestTeacherUpdatePhase(unittest.TestCase):
     """Verifica que update_student_phase valide el grupo Teachers."""

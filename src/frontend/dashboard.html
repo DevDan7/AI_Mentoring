@@ -51,6 +51,17 @@
             </article>
         </section>
 
+        <!-- Tarjeta de Simulado Final (examen de certificación) -->
+        <section id="finalExamCard" style="display: none;">
+            <article>
+                <header>
+                    <h4>Exame Final de Certificação</h4>
+                </header>
+                <p id="finalExamStatus">Carregando...</p>
+                <button id="startFinalExamBtn" role="button" style="display: none;">Iniciar Exame Final</button>
+            </article>
+        </section>
+
         <section id="quizSection">
             <article>
                 <header>
@@ -109,10 +120,11 @@
             const token = await checkAuth();
             if (!token) return;
 
-            await loadProfile();
-            await loadHistory();
+            const profile = await loadProfile();
+            const historyData = await loadHistory();
             setupBanners();
             setupQuizForm();
+            renderFinalExamCard(profile, historyData);
         })();
 
         async function loadProfile() {
@@ -127,9 +139,12 @@
                 if (!data.HasTakenInitialTest) {
                     document.getElementById("initialTestBanner").style.display = "";
                 }
+
+                return data;
             } catch (err) {
                 console.error(err);
                 showError("Erro ao carregar perfil: " + err.message);
+                return null;
             }
         }
 
@@ -141,7 +156,7 @@
 
                 if (quizzes.length === 0) {
                     container.innerHTML = "<p>Nenhum simulado realizado ainda.</p>";
-                    return;
+                    return quizzes;
                 }
 
                 // Retomar examen final en progreso (Req. 11.5)
@@ -171,11 +186,58 @@
                 }
                 html += "</tbody></table>";
                 container.innerHTML = html;
+                return quizzes;
             } catch (err) {
                 console.error(err);
                 showError("Erro ao carregar histórico: " + err.message);
                 container.innerHTML = "<p>Erro ao carregar histórico.</p>";
+                return [];
             }
+        }
+
+        // Renderiza la tarjeta de Exame Final: disponível, bloqueado por fecha o ya realizado.
+        function renderFinalExamCard(profile, quizzes) {
+            const card = document.getElementById("finalExamCard");
+            const statusEl = document.getElementById("finalExamStatus");
+            const btn = document.getElementById("startFinalExamBtn");
+            if (!card || !statusEl || !btn) return;
+
+            const finals = (quizzes || []).filter(q => q.quiz_type === 'final_exam');
+            const completed = finals.some(q => q.status === 'completed');
+            const releaseDate = profile ? profile.FinalExamReleaseDate : null;
+
+            let statusText;
+            let showBtn = false;
+
+            if (completed) {
+                statusText = "Exame final já realizado. Entre em contato com seu instrutor para um novo intento.";
+            } else if (!releaseDate) {
+                statusText = "Bloqueado pelo professor.";
+            } else {
+                const release = new Date(releaseDate);
+                if (isNaN(release.getTime())) {
+                    statusText = "Bloqueado pelo professor.";
+                } else if (release > new Date()) {
+                    statusText = `Bloqueado pelo professor (disponível a partir de ${release.toLocaleString('pt-BR')}).`;
+                } else {
+                    statusText = "Disponível";
+                    showBtn = true;
+                }
+            }
+
+            statusEl.textContent = statusText;
+            btn.style.display = showBtn ? "" : "none";
+            btn.onclick = async () => {
+                try {
+                    const quizData = await generateFinalExam();
+                    localStorage.setItem("active_quiz", JSON.stringify(quizData));
+                    window.location.href = "quiz.html";
+                } catch (err) {
+                    showError(err.message);
+                }
+            };
+
+            card.style.display = "";
         }
 
         function esc(value) {

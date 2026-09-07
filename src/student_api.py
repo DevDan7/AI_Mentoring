@@ -296,10 +296,20 @@ def get_quiz_history(claims):
     })
 
 def is_teacher(claims):
-    """Verifica si el usuario pertenece al grupo Teachers leyendo el claim cognito:groups del JWT."""
-    groups = claims.get('cognito:groups', [])
-    if isinstance(groups, str):
-        groups = [groups]
+    """Verifica si el usuario pertenece al grupo Teachers leyendo el claim cognito:groups del JWT.
+    Manejo defensivo: claims puede ser None, y el grupo puede llegar como string, lista,
+    tupla/set, cadena separada por comas o valor inválido. Nunca lanza excepción."""
+    if not claims or not isinstance(claims, dict):
+        return False
+
+    raw_groups = claims.get('cognito:groups') or []
+    if isinstance(raw_groups, str):
+        groups = {g.strip() for g in raw_groups.split(',')}
+    elif isinstance(raw_groups, (list, tuple, set)):
+        groups = {str(g).strip() for g in raw_groups}
+    else:
+        groups = set()
+
     return 'Teachers' in groups
 
 

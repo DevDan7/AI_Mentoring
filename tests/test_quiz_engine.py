@@ -255,6 +255,143 @@ class TestGetResultsEnrichment(unittest.TestCase):
 
         self.assertEqual(response['statusCode'], 200)
 
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_missing_question_in_bank_returns_fallbacks(self, mock_questions, mock_results, mock_quizzes, mock_students):
+        """La pregunta no existe en el banco: 200 con fallbacks, nunca 500."""
+        import quiz_engine
+
+        quiz = {
+            'QuizID': 'quiz-free',
+            'StudentID': 'student-123',
+            'QuizType': 'free',
+            'Topic': 'Cloud Concepts & Well-Architected',
+            'Questions': ['q-missing'],
+            'Status': 'completed',
+            'CreatedAt': datetime.now(timezone.utc).isoformat(),
+        }
+        mock_questions.name = 'test-questions'
+        mock_quizzes.get_item.return_value = {'Item': quiz}
+        mock_results.query.return_value = {'Items': [
+            make_result_item(quiz_id='quiz-free', question_id='q-missing')
+        ]}
+        # Banco no devuelve la pregunta
+        mock_questions.meta.client.batch_get_item.return_value = {'Responses': {'test-questions': []}}
+
+        response = quiz_engine.get_results('quiz-free', 'student-123')
+
+        self.assertEqual(response['statusCode'], 200)
+        body = json.loads(response['body'])
+        answer = body['answers'][0]
+        self.assertEqual(answer['statement'], '')
+        self.assertEqual(answer['correct_answers'], ['A'])
+        self.assertEqual(answer['explanation'], '')
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_malformed_legacy_options_list_does_not_500(self, mock_questions, mock_results, mock_quizzes, mock_students):
+        """Ítem legacy con Options como lista y sin CorrectAnswers: 200 sin excepción."""
+        import quiz_engine
+
+        quiz = {
+            'QuizID': 'quiz-legacy',
+            'StudentID': 'student-123',
+            'QuizType': 'free',
+            'Topic': 'Compute & Containers',
+            'Questions': ['q-legacy'],
+            'Status': 'completed',
+            'CreatedAt': datetime.now(timezone.utc).isoformat(),
+        }
+        mock_questions.name = 'test-questions'
+        mock_quizzes.get_item.return_value = {'Item': quiz}
+        mock_results.query.return_value = {'Items': [
+            {
+                'ResultID': 'r-legacy',
+                'QuizID': 'quiz-legacy',
+                'StudentID': 'student-123',
+                'QuestionID': 'q-legacy',
+                'GivenAnswers': ['A'],
+                'IsCorrect': True,
+                'Timestamp': datetime.now(timezone.utc).isoformat(),
+            }
+        ]}
+        legacy_question = make_question_item('q-legacy', 'Compute & Containers')
+        legacy_question['Options'] = [
+            {'text': 'A', 'is_correct': True, 'explanation': 'E'},
+            {'text': 'B', 'is_correct': False, 'explanation': ''}
+        ]
+        mock_questions.meta.client.batch_get_item.return_value = {
+            'Responses': {'test-questions': [legacy_question]}
+        }
+
+        response = quiz_engine.get_results('quiz-legacy', 'student-123')
+
+        self.assertEqual(response['statusCode'], 200)
+        body = json.loads(response['body'])
+        answer = body['answers'][0]
+        self.assertEqual(answer['correct_answers'], [])
+        self.assertEqual(answer['explanation'], '')
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_teacher_claim_comma_separated_accesses_other_results(self, mock_questions, mock_results, mock_quizzes, mock_students):
+        import quiz_engine
+
+        quiz = {
+            'QuizID': 'quiz-other',
+            'StudentID': 'student-999',
+            'QuizType': 'free',
+            'Topic': 'Compute & Containers',
+            'Questions': ['q1'],
+            'Status': 'completed',
+            'CreatedAt': datetime.now(timezone.utc).isoformat(),
+        }
+        mock_questions.name = 'test-questions'
+        mock_quizzes.get_item.return_value = {'Item': quiz}
+        mock_results.query.return_value = {
+            'Items': [make_result_item(quiz_id='quiz-other', question_id='q1')]
+        }
+        mock_questions.meta.client.batch_get_item.return_value = {
+            'Responses': {'test-questions': [make_question_item('q1', 'Compute & Containers')]}
+        }
+
+        claims = {'sub': 'teacher-1', 'cognito:groups': 'Teachers,Admin'}
+        response = quiz_engine.get_results('quiz-other', 'other-student', claims)
+
+        self.assertEqual(response['statusCode'], 200)
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_claims_none_cannot_access_other_results(self, mock_questions, mock_results, mock_quizzes, mock_students):
+        """claims=None: sin privilegio de teacher → 403, nunca 500."""
+        import quiz_engine
+
+        quiz = {
+            'QuizID': 'quiz-other',
+            'StudentID': 'student-999',
+            'QuizType': 'free',
+            'Topic': 'Compute & Containers',
+            'Questions': ['q1'],
+            'Status': 'completed',
+            'CreatedAt': datetime.now(timezone.utc).isoformat(),
+        }
+        mock_quizzes.get_item.return_value = {'Item': quiz}
+        mock_results.query.return_value = {
+            'Items': [make_result_item(quiz_id='quiz-other', question_id='q1')]
+        }
+
+        response = quiz_engine.get_results('quiz-other', 'other-student', None)
+
+        self.assertEqual(response['statusCode'], 403)
+
 
 class TestSubmitAnswer(unittest.TestCase):
     """Tarea 9.2: persistencia de CorrectAnswers e idempotencia."""
