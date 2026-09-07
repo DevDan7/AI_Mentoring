@@ -18,6 +18,9 @@
     </nav>
 
     <main class="container">
+        <div id="errorMsg" style="display: none; color: var(--pico-color-red-500); margin-bottom: 1rem;"></div>
+        <div id="successMsg" style="display: none; color: var(--pico-color-green-500); margin-bottom: 1rem;"></div>
+
         <section id="profileSection">
             <article>
                 <header>
@@ -27,6 +30,24 @@
                     <div><strong>E-mail:</strong> <span id="userEmail">-</span></div>
                     <div><strong>Turma:</strong> <span id="userCohort">-</span></div>
                 </div>
+            </article>
+        </section>
+
+        <!-- Aviso destacado de diagnóstico inicial (Req. 11.4) -->
+        <section id="initialTestBanner" style="display: none;">
+            <article style="background: var(--pico-color-blue-50);">
+                <h4>Você ainda não realizou seu diagnóstico inicial</h4>
+                <p>O diagnóstico inicial ajuda a conhecer seu ponto de partida na preparação para o AWS Cloud Practitioner.</p>
+                <button id="startInitialTestBtn" role="button">Fazer Diagnóstico Inicial</button>
+            </article>
+        </section>
+
+        <!-- Retomar examen final en progreso (Req. 11.5) -->
+        <section id="resumeFinalExamBanner" style="display: none;">
+            <article style="background: var(--pico-color-yellow-50);">
+                <h4>Você tem um exame final em progresso</h4>
+                <p>Retome de onde parou para não perder as respostas já enviadas.</p>
+                <button id="resumeFinalExamBtn" role="button">Retomar Exame Final</button>
             </article>
         </section>
 
@@ -78,56 +99,39 @@
     <script src="js/auth.js"></script>
     <script src="js/api.js"></script>
     <script>
-        checkAuth();
+        (async function initDashboard() {
+            try {
+                await loadConfig();
+            } catch (err) {
+                return;
+            }
+
+            const token = await checkAuth();
+            if (!token) return;
+
+            await loadProfile();
+            await loadHistory();
+            setupBanners();
+            setupQuizForm();
+        })();
 
         async function loadProfile() {
             try {
                 const data = await ensureStudentProfile();
 
-                if (!data.HasTakenInitialTest) {
-                    let quizData;
-                    if (data.InitialTestQuizID) {
-                        quizData = await getQuiz(data.InitialTestQuizID);
-                    } else {
-                        quizData = await generateInitialTest();
-                    }
-                    localStorage.setItem("active_quiz", JSON.stringify(quizData));
-                    window.location.href = "quiz.html";
-                    return;
-                }
-
                 document.getElementById("userName").innerText = data.Name || "Aluno";
                 document.getElementById("userEmail").innerText = data.Email;
-                document.getElementById("userCohort").innerText = data.CohortID || data.Cohort || "Sem turma";
+                document.getElementById("userCohort").innerText = data.CohortID || "Sem turma";
+
+                // Diagnostic initial banner (Req. 11.4)
+                if (!data.HasTakenInitialTest) {
+                    document.getElementById("initialTestBanner").style.display = "";
+                }
             } catch (err) {
                 console.error(err);
-                document.getElementById("userName").innerText = "Erro ao carregar perfil";
+                showError("Erro ao carregar perfil: " + err.message);
             }
         }
-
-        document.getElementById("quizForm").addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const topic = document.getElementById("topicSelect").value;
-            const count = parseInt(document.getElementById("questionCount").value);
-            const btn = document.getElementById("generateBtn");
-
-            btn.ariaBusy = "true";
-            btn.disabled = true;
-
-            try {
-                const quizData = await generateQuiz(topic, count);
-                localStorage.setItem("active_quiz", JSON.stringify(quizData));
-                window.location.href = "quiz.html";
-            } catch (err) {
-                alert(err.message);
-            } finally {
-                btn.ariaBusy = "false";
-                btn.disabled = false;
-            }
-        });
-
-        loadProfile();
-        loadHistory();
 
         async function loadHistory() {
             const container = document.getElementById("historyContainer");
@@ -140,26 +144,85 @@
                     return;
                 }
 
+                // Retomar examen final en progreso (Req. 11.5)
+                const inProgressFinal = quizzes.find(
+                    q => q.quiz_type === 'final_exam' && q.status === 'in_progress'
+                );
+                const resumeBanner = document.getElementById("resumeFinalExamBanner");
+                const resumeBtn = document.getElementById("resumeFinalExamBtn");
+                if (inProgressFinal && resumeBanner && resumeBtn) {
+                    resumeBanner.style.display = "";
+                    resumeBtn.onclick = () => {
+                        window.location.href = `quiz.html?quizId=${inProgressFinal.quiz_id}`;
+                    };
+                }
+
                 let html = "<table><thead><tr><th>Tipo</th><th>Tema</th><th>Status</th><th>Score</th><th>Data</th></tr></thead><tbody>";
                 for (const q of quizzes) {
                     const typeLabels = {
                         'initial': 'Diagnóstico',
                         'free': 'Simulado Livre',
-                        'phase_1': 'Fase 1',
-                        'phase_2': 'Fase 2',
                         'final_exam': 'Exame Final'
                     };
                     const type = typeLabels[q.quiz_type] || q.quiz_type;
-                    const score = q.score_percentage !== null ? `${q.score_percentage}%` : '-';
+                    const score = q.score_percentage !== null && q.score_percentage !== undefined ? `${q.score_percentage}%` : '-';
                     const date = q.completed_at ? new Date(q.completed_at).toLocaleDateString('pt-BR') : '-';
-                    html += `<tr><td>${type}</td><td>${q.topic}</td><td>${q.status}</td><td>${score}</td><td>${date}</td></tr>`;
+                    html += `<tr><td>${type}</td><td>${esc(q.topic || '')}</td><td>${esc(q.status || '')}</td><td>${score}</td><td>${esc(date)}</td></tr>`;
                 }
                 html += "</tbody></table>";
                 container.innerHTML = html;
             } catch (err) {
                 console.error(err);
+                showError("Erro ao carregar histórico: " + err.message);
                 container.innerHTML = "<p>Erro ao carregar histórico.</p>";
             }
+        }
+
+        function esc(value) {
+            return String(value === undefined || value === null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function setupBanners() {
+            const startInitialTestBtn = document.getElementById("startInitialTestBtn");
+            if (startInitialTestBtn) {
+                startInitialTestBtn.addEventListener("click", async () => {
+                    try {
+                        const quizData = await generateInitialTest();
+                        localStorage.setItem("active_quiz", JSON.stringify(quizData));
+                        window.location.href = "quiz.html";
+                    } catch (err) {
+                        showError("Erro ao gerar diagnóstico: " + err.message);
+                    }
+                });
+            }
+        }
+
+        function setupQuizForm() {
+            document.getElementById("quizForm").addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const topic = document.getElementById("topicSelect").value;
+                const count = parseInt(document.getElementById("questionCount").value);
+                const btn = document.getElementById("generateBtn");
+
+                btn.ariaBusy = "true";
+                btn.disabled = true;
+
+                try {
+                    const quizData = await generateQuiz('free', topic, count);
+                    localStorage.setItem("active_quiz", JSON.stringify(quizData));
+                    window.location.href = "quiz.html";
+                } catch (err) {
+                    showError(err.message);
+                } finally {
+                    btn.ariaBusy = "false";
+                    btn.disabled = false;
+                }
+            });
         }
     </script>
 </body>

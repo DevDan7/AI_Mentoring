@@ -107,9 +107,11 @@ async function getToken() {
     return token;
 }
 
-function checkAuth() {
-    const token = localStorage.getItem("id_token");
-    if (!token || isTokenExpired(token)) {
+// Verifica la sesión usando getToken() (que hace refresh si es necesario).
+// Devuelve null y redirige a index.html solo si el token no se puede renovar.
+async function checkAuth() {
+    const token = await getToken();
+    if (!token) {
         logout();
         return null;
     }
@@ -231,12 +233,8 @@ async function resendConfirmationCode(email) {
 
 function isTeacher() {
     const idToken = localStorage.getItem("id_token");
-    const accessToken = localStorage.getItem("access_token");
-    
     const idPayload = parseJwt(idToken) || {};
-    const accessPayload = parseJwt(accessToken) || {};
-    
-    const groups = idPayload['cognito:groups'] || accessPayload['cognito:groups'] || [];
+    const groups = idPayload['cognito:groups'] || [];
     return groups.includes('Teachers');
 }
 

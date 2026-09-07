@@ -1,3 +1,13 @@
+// Muestra un mensaje de error en el elemento visible de la pantalla activa.
+// Nunca usa alert(): escribe en <div id="errorMsg"> y lo hace visible.
+function showError(message) {
+    const errorEl = document.getElementById('errorMsg');
+    if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.style.display = 'block';
+    }
+}
+
 async function apiCall(method, path, body) {
     const token = await getToken();
 
@@ -18,7 +28,13 @@ async function apiCall(method, path, body) {
         options.body = JSON.stringify(body);
     }
 
-    let response = await fetch(`${CONFIG.apiUrl}${path}`, options);
+    let response;
+    try {
+        response = await fetch(`${CONFIG.apiUrl}${path}`, options);
+    } catch (networkErr) {
+        showError("Erro de conexão. Verifique sua internet e tente novamente.");
+        throw networkErr;
+    }
 
     if (response.status === 401) {
         const newToken = await refreshSession();
@@ -27,11 +43,17 @@ async function apiCall(method, path, body) {
             return null;
         }
         options.headers["Authorization"] = `Bearer ${newToken}`;
-        response = await fetch(`${CONFIG.apiUrl}${path}`, options);
+        try {
+            response = await fetch(`${CONFIG.apiUrl}${path}`, options);
+        } catch (networkErr) {
+            showError("Erro de conexão. Verifique sua internet e tente novamente.");
+            throw networkErr;
+        }
     }
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({}));
+        showError(error.message || `Erro ${response.status}`);
         throw new Error(error.message || `Error ${response.status}`);
     }
 
@@ -46,12 +68,27 @@ async function updateStudent(data) {
     return apiCall("PUT", "/students/me", data);
 }
 
-async function generateQuiz(topic, count) {
-    return apiCall("POST", "/quizzes/generate", { 
-        quiz_type: "free", 
-        topic: topic, 
-        num_questions: count 
-    });
+async function generateQuiz(quizType, topic, numQuestions) {
+    const body = { quiz_type: quizType };
+    if (topic !== undefined && topic !== null) {
+        body.topic = topic;
+    }
+    if (numQuestions !== undefined && numQuestions !== null) {
+        body.num_questions = numQuestions;
+    }
+    return apiCall("POST", "/quizzes/generate", body);
+}
+
+async function generateFinalExam() {
+    return apiCall("POST", "/quizzes/generate", { quiz_type: "final_exam" });
+}
+
+async function setFinalExamRelease(studentId, date) {
+    return apiCall("PUT", `/students/${studentId}/final-exam-release`, { release_date: date });
+}
+
+async function resetFinalExamAttempt(studentId) {
+    return apiCall("DELETE", `/students/${studentId}/final-exam-attempt`);
 }
 
 async function submitAnswer(quizId, questionId, givenAnswers) {
