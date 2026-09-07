@@ -107,17 +107,25 @@ S3 (foto examen) → S3 Event → SNS (notificaciones + email)
 
 | Método | Ruta | Lambda | Descripción |
 |--------|------|--------|-------------|
+| GET | `/config` | student_api | Config pública (API URL, Cognito User Pool/Client) — sin auth |
 | POST | `/students` | student_api | Crear alumno |
+| GET | `/students` | student_api | Listar alumnos (solo teacher) |
 | GET | `/students/me` | student_api | Obtener perfil propio |
 | PUT | `/students/me` | student_api | Actualizar perfil propio |
-| GET | `/students/{studentId}` | student_api | Obtener alumno por ID |
-| GET | `/students/me/quizzes` | student_api | Historial de simulados |
+| GET | `/students/{studentId}` | student_api | Obtener alumno por ID (solo teacher) |
+| GET | `/students/me/quizzes` | student_api | Historial de simulados propio |
+| GET | `/students/{studentId}/quizzes` | student_api | Historial de simulados de un alumno (solo teacher) |
 | PUT | `/students/{studentId}/phase` | student_api | Cambiar fase de alumno (solo teacher) |
+| PUT | `/students/{studentId}/final-exam-release` | student_api | Liberar examen final de un alumno con fecha (solo teacher) |
+| DELETE | `/students/{studentId}/final-exam-attempt` | student_api | Resetear intento de examen final (solo teacher) |
+| GET | `/cohorts` | student_api | Listar cohortes |
 | GET | `/cohorts/{cohortId}/capacity` | student_api | Consulta de cupo (requiere auth) |
 | GET | `/public/cohorts/{cohortId}/capacity` | student_api | Consulta de cupo (público, sin auth) |
-| POST | `/quizzes/generate` | quiz_engine | Generar simulado |
+| POST | `/quizzes/generate` | quiz_engine | Generar simulado (initial/free/final_exam) |
 | POST | `/quizzes/submit` | quiz_engine | Registrar respuesta |
-| GET | `/quizzes/{quizId}/results` | quiz_engine | Obtener resultados |
+| GET | `/quizzes/{quizId}/results` | quiz_engine | Obtener resultados (con `domain_breakdown`) |
+| GET | `/quizzes/{quizId}` | quiz_engine | Obtener quiz (reanudación de `in_progress`) |
+| POST | `/quizzes/{quizId}/complete` | quiz_engine | Completar quiz y persistir resultado |
 
 ### Cognito — Autenticación
 
@@ -138,9 +146,9 @@ S3 (foto examen) → S3 Event → SNS (notificaciones + email)
 
 | Rol | Propósito | Permisos |
 |-----|-----------|----------|
-| `mentoring-lambda-processor` | Ejecutar `processor.py` | Rekognition, Bedrock, DynamoDB, SNS, SQS, CloudWatch |
-| `mentoring-lambda-student-api` | Ejecutar `student_api.py` | DynamoDB (Students, Cohorts), Cognito GetUser |
-| `mentoring-lambda-quiz-engine` | Ejecutar `quiz_engine.py` | DynamoDB (todas las tablas + GetItem sobre Students), Cognito GetUser |
+| `mentoring-lambda-processor` | Ejecutar `processor.py` | Bedrock, DynamoDB, SNS, SQS, CloudWatch (Rekognition removido el 2026-09-02) |
+| `mentoring-lambda-student-api` | Ejecutar `student_api.py` | DynamoDB (Students GetItem/Query/Put/Update, Cohorts GetItem/Scan, Quizzes Query), CloudWatch Logs |
+| `mentoring-lambda-quiz-engine` | Ejecutar `quiz_engine.py` | DynamoDB (todas las tablas + GetItem sobre Students), CloudWatch |
 | `ai-mentoring-github-actions` | CI/CD con OIDC | `ReadOnlyAccess` + `terraform-cicd-policy` |
 | `mentoring-amplify-role` | Amplify Hosting | Logs (CloudWatch) |
 
@@ -167,18 +175,21 @@ QuestionID (PK)    | Topic | QuestionText | QuestionType | CorrectCount | Option
 ### Students
 
 ```
-StudentID (PK) | Email | Name | CreatedAt | UpdatedAt | AccessExpiresAt | CohortID | Role | CurrentPhase | PhaseHistory | FailedAttempts | MaxAttemptsAlert | InitialTestQuizID | HasTakenInitialTest
+StudentID (PK) | Email | Name | CreatedAt | UpdatedAt | AccessExpiresAt | CohortID | Role | CurrentPhase | PhaseHistory | FailedAttempts | MaxAttemptsAlert | InitialTestQuizID | HasTakenInitialTest | FinalExamReleaseDate
 ```
 
 - **GSI EmailIndex**: Permite buscar por email
 - **GSI CohortIndex**: Permite buscar alumnos por cohorte
 - **CohortID**: Referencia a tabla `Cohorts` (enrollment vía URL `?turma=<id>`)
 - **AccessExpiresAt**: Fecha de expiración del acceso (CreatedAt + 30 días por defecto)
-- **Role**: `"student"` por defecto; `"teacher"` para profesores (asignado vía CLI)
-- **CurrentPhase**: Fase actual del alumno (`initial`, `phase_1`, `phase_2`, `final_exam`, `free_practice`)
+- **Role**: `"student"` por defecto; `"teacher"` para profesores (asignado vía CLI o claim `cognito:groups`)
+- **CurrentPhase**: Fase actual del alumno (`initial`, `free_practice`, `final_exam`) — modelo simplificado post-restructuración
 - **PhaseHistory**: Array de objetos `{Phase, UnlockedAt, UnlockedBy}` que registra cada cambio de fase
-- **FailedAttempts**: Objeto con contadores por fase: `{phase_1: N, phase_2: N, final_exam: N}`
-- **MaxAttemptsAlert**: Alerta cuando el alumno falla 3 veces en una fase: `{Phase, AlertType, OccurredAt, Score}`
+- **FailedAttempts**: Objeto inicializado `{final_exam: 0}` al crear el alumno. Hoy el control real de intentos lo ejerce el conteo de exámenes finales con `Status=completed` (exclusividad de 1 intento confirmado); campo reservado para métricas.
+- **MaxAttemptsAlert**: Campo legacy sin consumo actual en el código (no se escribe desde `quiz_engine.py`/`student_api.py`).
+- **InitialTestQuizID**: Quiz ID del diagnóstico inicial
+- **HasTakenInitialTest**: Booleano — indica si el alumno completó el diagnóstico `initial`
+- **FinalExamReleaseDate**: Fecha ISO en que el examen final queda disponible (lo fija el instructor con `PUT /students/{id}/final-exam-release`)
 
 ### Quizzes
 
@@ -420,10 +431,11 @@ El objetivo del proyecto tiene 3 piezas:
 | Pieza | Estado |
 |-------|--------|
 | BD de alumnos | ✅ `Students` table + `student_api.py` |
-| Banco de preguntas | ✅ `MentoringQuestions` + pipeline de ingesta |
-| Generación de quizzes | ✅ `quiz_engine.py` (generate_quiz, submit_answer, get_results) |
-| Gestión de cohortes | ✅ `Cohorts` table + enrollment vía URL |
-| Relatorios | ⚠️ Parcial — métricas en `get_results`, sin generación automatizada de reportes |
+| Banco de preguntas | ✅ `MentoringQuestions` + pipeline de ingesta (203 preguntas) |
+| Generación de quizzes | ✅ `quiz_engine.py` (generate_quiz, submit_answer, get_results, complete) |
+| Gestión de cohortes | ✅ `Cohorts` table (turma-beta-01 sembrada) + enrollment vía URL |
+| Sistema de fases simplificado | ✅ `initial → free_practice → final_exam` sin umbrales (restructuración 2026-09) |
+| Relatorios | ⚠️ Parcial — métricas en `get_results` (`domain_breakdown`), sin generación automatizada de reportes |
 
 **Próximos pasos (roadmap ejecutivo):**
 
@@ -436,10 +448,11 @@ El objetivo del proyecto tiene 3 piezas:
 | 5 | ~~Migración Frontend a Amplify~~ | ✅ Hecho (2026-08-27) |
 | 6 | ~~Auto-registro de alumnos~~ | ✅ Hecho (2026-08-28) |
 | 7 | ~~Gestión de cohortes~~ | ✅ Hecho (2026-08-29) |
-| 7b | Rol de Profesor (teacher dashboard) | ⏳ En progreso |
+| 7b | ~~Rol de Profesor (teacher dashboard)~~ | ✅ Hecho (2026-09-05) |
 | 7c | ~~Historial de quizzes~~ | ✅ Hecho (2026-09-01) |
 | 7d | Links externos (Anki, próximos simulados) | ⏳ Pendiente |
-| 7e | ~~Sistema de Fases (Phase 1 → Phase 2 → Final Exam)~~ | ✅ Hecho |
+| 7e | ~~Restructuración MVP: fases simplificadas + examen final~~ | ✅ Hecho (2026-09-06) |
+| 7f | ~~Migración de datos (limpieza tablas + turma-beta-01)~~ | ✅ Hecho (2026-09-07) |
 | 11 | ~~Bloque 1: Protecciones básicas~~ | ✅ Hecho (2026-09-01) |
 | 12 | Refactor: AWS Step Functions para orquestación asíncrona | ⏳ Pendiente |
 | 13 | Cleanup: avisos de depreciación (`key_schema` vs `hash_key`) | ⏳ Evaluado, mantenido (bug del proveedor AWS) |
@@ -500,47 +513,53 @@ Terraform solo declara atributos que son PK, SK o están en un GSI. Los demás c
 
 **Renovación**: Profesor debe actualizar `AccessExpiresAt` manualmente vía CLI o futura interfaz admin.
 
-### Sistema de Fases Adaptativo
+### Sistema de Fases (modelo simplificado — restructuración 2026-09)
 
 #### Flujo de Progresión
 
 ```
 initial (Diagnóstico 20q)
-    ↓ Score ≥ 70%
-phase_1 (20q, distribución uniforme)
-    ↓ Score ≥ 70%
-phase_2 (20q, adaptativo: 70% temas débiles + 30% refuerzo)
-    ↓ Score ≥ 70%
+    ↓ completar el quiz (sin umbral)
+free_practice (práctica libre ilimitada por tema)
+    ↓ instructor libera el examen final (FinalExamReleaseDate)
 final_exam (65q, matriz AWS Cloud Practitioner)
-    ↓ Score ≥ 70%
-free_practice (práctica libre ilimitada)
+    → 1 intento completed (exclusividad estricta)
+    ↓ instructor resetea el intento para permitir re-intento
 ```
 
 #### Reglas de Negocio
 
-1. **Progresión automática**: Al completar un quiz con score ≥ 70%, el alumno avanza a la fase siguiente
-2. **Reintentos**: Máximo 3 intentos por fase antes de registrar alerta `MAX_ATTEMPTS_EXCEEDED`
-3. **Selección adaptativa (phase_2)**: 70% preguntas de temas con más errores en phase_1, 30% refuerzo
-4. **Anti-repetición (final_exam)**: Excluye preguntas ya respondidas por el alumno en quizzes anteriores
-5. **Control del profesor**: Endpoint `PUT /students/{studentId}/phase` permite forzar cambio de fase
-6. **Simulados libres**: Disponibles en todas las fases como práctica adicional
+1. **Diagnóstico sin umbral**: Completar el quiz `initial` (cualquier score) avanza automáticamente a `free_practice` (`PhaseHistory` con `UnlockedBy: system`). El alumno queda marcado con `HasTakenInitialTest=true`.
+2. **Práctica libre**: Disponible en todas las fases (`quiz_type='free'`), selección por tema con `num_questions`.
+3. **Examen final por fecha**: Se genera solo si el instructor fijó `FinalExamReleaseDate` y la fecha ya pasó. Sin fecha → 403 *"Exame não liberado"*.
+4. **Exclusividad estricta**: Un alumno solo puede tener **1 examen final `completed`** (`can_generate_final_exam` = 0 completados). Para un nuevo intento, el instructor usa `DELETE /students/{id}/final-exam-attempt`, que marca el examen más reciente con `Status=reset` (no lo borra).
+5. **Reanudación de `in_progress`**: Si existe un examen final en progreso, no se crea otro: se reanuda el existente (evita duplicados por doble submit).
+6. **Anti-repetición**: El examen final excluye preguntas ya respondidas por el alumno en quizzes anteriores (`get_student_answered_question_ids`).
+7. **Control del profesor**:
+   - `PUT /students/{studentId}/phase` — forzar cambio de fase del alumno.
+   - `PUT /students/{studentId}/final-exam-release` — fijar/actualizar `FinalExamReleaseDate` (solo teacher).
+   - `DELETE /students/{studentId}/final-exam-attempt` — resetear intento del examen final (solo teacher).
+8. **Resultados**: `get_results` devuelve score y `domain_breakdown` (desempeño por dominio CLF-C02).
 
 #### Matriz de Preguntas — Examen Final (65 preguntas)
 
-Basado en AWS Cloud Practitioner CLF-C02:
+Basado en AWS Cloud Practitioner CLF-C02. Fuente: `FINAL_EXAM_DISTRIBUTION` en `src/quiz_engine.py`:
 
 | Domain | Tema Canonical | Preguntas | % |
 |--------|---------------|-----------|---|
 | 1. Cloud Concepts | Cloud Concepts & Well-Architected | 16 | 24.6% |
 | 2. Security & Compliance | Security, Identity & Compliance | 20 | 30.8% |
-| 3. Technology & Services | Compute & Containers | 8 | 12.3% |
+| 3. Technology & Services | Compute & Containers | 7 | 10.8% |
 | 3. Technology & Services | Storage & Database | 6 | 9.2% |
 | 3. Technology & Services | Networking & Content Delivery | 5 | 7.7% |
-| 3. Technology & Services | Data, Analytics & Machine Learning | 3 | 4.6% |
+| 3. Technology & Services | Data, Analytics & Machine Learning | 2 | 3.1% |
+| 3. Technology & Services | Application Integration & Serverless Architecture | 2 | 3.1% |
 | 4. Billing & Support | Billing, Cost Management & Support | 7 | 10.8% |
-| Complemento | Management, Governance & DevOps | 5 | 7.7% |
-| Complemento | General / Otros Servicios | 1 | 1.5% |
+| Complemento | Management, Governance & DevOps | 0 | 0% |
+| Complemento | General / Otros Servicios | 0 | 0% |
 | **Total** | | **65** | **100%** |
+
+**Mapeo de dominios** (para `domain_breakdown`): `TOPIC_TO_DOMAIN` agrupa Compute, Storage, Networking, DA&ML, AI & Serverless, MGD y General en **Cloud Technology & Services**; Cloud Concepts y Billing conservan dominios propios (Cloud Concepts & Well-Architected Framework / Billing, Pricing & Support).
 
 ---
 
