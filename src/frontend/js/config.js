@@ -1,3 +1,9 @@
+// URL base del API Gateway para el bootstrap de configuración.
+// En hosting estático (Amplify) no hay templating: el navegador resuelve
+// rutas relativas contra el dominio del frontend (404), por lo que /config
+// debe apuntarse explícitamente al API Gateway.
+const API_GATEWAY_URL = "https://9ftb5bwpk7.execute-api.us-east-1.amazonaws.com";
+
 // Configuración global de la aplicación, cargada dinámicamente desde GET /config.
 const CONFIG = {
     apiUrl: "",
@@ -10,7 +16,7 @@ const CONFIG = {
 // Debe invocarse como primer paso en <script> de todas las páginas.
 async function loadConfig() {
     try {
-        const response = await fetch('/config');
+        const response = await fetch(`${API_GATEWAY_URL}/config`);
         if (!response.ok) {
             throw new Error(`HTTP ${response.status} ao obter /config`);
         }
