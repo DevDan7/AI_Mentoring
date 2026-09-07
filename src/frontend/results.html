@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,50 +12,68 @@
             <li><strong>☁️ AI Mentoring Cloud</strong></li>
         </ul>
         <ul>
-            <li><a href="dashboard.html" role="button" class="secondary outline">Volver al Dashboard</a></li>
+            <li><a href="dashboard.html" role="button" class="secondary outline">Voltar ao Painel</a></li>
         </ul>
     </nav>
 
     <main class="container">
+        <div id="errorMsg" style="display: none; color: var(--pico-color-red-500); margin-bottom: 1rem;"></div>
+
         <div id="loadingState" class="center" style="margin-top: 3rem;">
             <progress></progress>
-            <p>Cargando resultados...</p>
+            <p>Carregando resultados...</p>
         </div>
 
         <div id="errorState" style="display: none;">
             <article>
-                <header><h4 style="color: var(--pico-color-red-500);">Error</h4></header>
-                <p id="errorMessage">No se pudieron cargar los resultados.</p>
-                <a href="dashboard.html" role="button">Volver al Dashboard</a>
+                <header><h4 style="color: var(--pico-color-red-500);">Erro</h4></header>
+                <p id="errorMessage">Não foi possível carregar os resultados.</p>
+                <a href="dashboard.html" role="button">Voltar ao Painel</a>
             </article>
         </div>
 
         <div id="resultsState" style="display: none;">
             <article>
                 <header>
-                    <h3 style="text-align: center;">Resumen del Simulado</h3>
+                    <h3 style="text-align: center;">Resumo do Simulado</h3>
                 </header>
-                
+
                 <div class="grid" style="text-align: center; margin-bottom: 2rem;">
                     <div>
                         <h2 id="scorePercentage" style="margin-bottom: 0;">0%</h2>
-                        <small>Puntaje Final</small>
+                        <small>Pontuação Final</small>
                     </div>
                     <div>
                         <h2 id="correctCount" style="margin-bottom: 0; color: var(--pico-color-green-500);">0</h2>
-                        <small>Correctas</small>
+                        <small>Corretas</small>
                     </div>
                     <div>
                         <h2 id="totalCount" style="margin-bottom: 0;">0</h2>
-                        <small>Total Preguntas</small>
+                        <small>Total de Perguntas</small>
                     </div>
                 </div>
 
-                <h4>Desglose de Respuestas</h4>
+                <!-- Desglose por dominio, solo para final_exam -->
+                <div id="domainBreakdownSection" style="display: none; margin-bottom: 2rem;">
+                    <h4>Desempenho por Domínio</h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Domínio</th>
+                                <th>Corretas</th>
+                                <th>Total</th>
+                                <th>%</th>
+                            </tr>
+                        </thead>
+                        <tbody id="domainBreakdownTable"></tbody>
+                    </table>
+                </div>
+
+                <h4>Detalhamento das Respostas</h4>
                 <div id="answersContainer"></div>
 
                 <div style="margin-top: 2rem; text-align: center;">
-                    <a href="dashboard.html" role="button">Realizar Otro Simulado</a>
+                    <a href="dashboard.html" role="button">Realizar Outro Simulado</a>
                 </div>
             </article>
         </div>
@@ -65,64 +83,80 @@
     <script src="js/auth.js"></script>
     <script src="js/api.js"></script>
     <script>
-        const token = checkAuth();
+        (async function initResultsPage() {
+            try {
+                await loadConfig();
+            } catch (err) {
+                return;
+            }
 
-        async function loadResults() {
-            // Extract quizId from URL params OR localStorage fallback
+            const token = await checkAuth();
+            if (!token) return;
+
+            // Extraer quizId de los parámetros URL o del localStorage (fallback)
             const urlParams = new URLSearchParams(window.location.search);
             const quizId = urlParams.get('quizId') || localStorage.getItem('last_quiz_id');
 
             if (!quizId) {
-                showError("No se encontró un ID de simulado válido.");
+                showError("Não foi encontrado um ID de simulado válido.");
                 return;
             }
 
             try {
-                // Invocación a la API real
-                const response = await fetch(`${CONFIG.apiUrl}/quizzes/${quizId}/results`, {
-                    headers: { 
-                        "Authorization": `Bearer ${token}`,
-                        "Content-Type": "application/json"
-                    }
-                });
+                // Llamada con apiCall(): obtiene token con refresh automático (Req. 10.4)
+                const data = await getQuizResults(quizId);
 
-                if (!response.ok) {
-                    const errData = await response.json().catch(() => ({}));
-                    throw new Error(errData.error || `Error HTTP ${response.status}`);
-                }
-
-                const data = await response.json();
-
-                // 1. Mostrar Métricas
+                // 1. Mostrar métricas
                 const metrics = data.metrics || {};
                 document.getElementById("scorePercentage").textContent = `${metrics.score_percentage || 0}%`;
                 document.getElementById("correctCount").textContent = metrics.correct_answers || 0;
                 document.getElementById("totalCount").textContent = metrics.total_questions || 0;
 
-                // 2. Renderizar Respuestas
+                // 2. Mostrar desglose por dominio si es examen final (Req. 10.3)
+                const breakdown = data.domain_breakdown;
+                if (breakdown && Object.keys(breakdown).length > 0) {
+                    const tbody = document.getElementById("domainBreakdownTable");
+                    tbody.innerHTML = "";
+                    for (const [domain, info] of Object.entries(breakdown)) {
+                        const tr = document.createElement("tr");
+                        const td = document.createElement("td");
+                        td.textContent = domain;
+                        tr.appendChild(td);
+                        tr.appendChild(Object.assign(document.createElement("td"), { textContent: info.correct }));
+                        tr.appendChild(Object.assign(document.createElement("td"), { textContent: info.total }));
+                        tr.appendChild(Object.assign(document.createElement("td"), { textContent: `${info.percentage}%` }));
+                        tbody.appendChild(tr);
+                    }
+                    document.getElementById("domainBreakdownSection").style.display = "";
+                }
+
+                // 3. Renderizar respuestas
                 const answersList = data.answers || [];
                 const container = document.getElementById("answersContainer");
                 container.innerHTML = "";
 
                 if (answersList.length === 0) {
-                    container.innerHTML = "<p>No hay respuestas registradas para este simulado.</p>";
+                    container.innerHTML = "<p>Não há respostas registradas para este simulado.</p>";
                 } else {
                     answersList.forEach((item, index) => {
                         const card = document.createElement("article");
                         const isCorrect = Boolean(item.is_correct || item.IsCorrect);
-                        
+
                         card.style.borderLeft = `6px solid ${isCorrect ? 'var(--pico-color-green-500)' : 'var(--pico-color-red-500)'}`;
                         card.style.marginBottom = "1rem";
-                        
+
                         card.innerHTML = `
                             <header style="padding: 0.5rem 1rem;">
-                                <strong>Pregunta ${index + 1}</strong> — 
+                                <strong>Pergunta ${index + 1}</strong> —
                                 <span style="color: ${isCorrect ? 'var(--pico-color-green-600)' : 'var(--pico-color-red-600)'}; font-weight: bold;">
-                                    ${isCorrect ? 'Correcta ✅' : 'Incorrecta ❌'}
+                                    ${isCorrect ? 'Correta ✅' : 'Incorreta ❌'}
                                 </span>
                             </header>
                             <div style="padding: 0.5rem 1rem;">
-                                <p style="margin-bottom: 0.25rem;"><strong>Respuesta enviada:</strong> ${(item.given_answers || []).join(', ') || '-'}</p>
+                                <p style="margin-bottom: 0.25rem;"><strong>Enunciado:</strong> ${esc(item.statement || '')}</p>
+                                <p style="margin-bottom: 0.25rem;"><strong>Resposta enviada:</strong> ${esc((item.given_answers || []).join(', ')) || '-'}</p>
+                                <p style="margin-bottom: 0.25rem;"><strong>Resposta correta:</strong> ${esc((item.correct_answers || []).join(', ')) || '-'}</p>
+                                <p style="margin-bottom: 0.25rem;"><strong>Explicação:</strong> ${esc(item.explanation || '')}</p>
                             </div>
                         `;
                         container.appendChild(card);
@@ -133,17 +167,25 @@
                 document.getElementById("resultsState").style.display = "";
 
             } catch (err) {
+                // Mostrar el error en un elemento visible (Req. 10.5)
                 showError(err.message);
+                const errorEl = document.getElementById("errorMessage");
+                if (errorEl) {
+                    errorEl.textContent = err.message || "Não foi possível carregar os resultados.";
+                }
+                document.getElementById("loadingState").style.display = "none";
+                document.getElementById("errorState").style.display = "";
             }
-        }
+        })();
 
-        function showError(msg) {
-            document.getElementById("loadingState").style.display = "none";
-            document.getElementById("errorMessage").textContent = msg;
-            document.getElementById("errorState").style.display = "";
+        function esc(value) {
+            return String(value === undefined || value === null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
-
-        loadResults();
     </script>
 </body>
 </html>
