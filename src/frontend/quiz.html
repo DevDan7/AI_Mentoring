@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,14 +12,16 @@
             <li><strong>☁️ AI Mentoring Cloud</strong></li>
         </ul>
         <ul>
-            <li><a href="dashboard.html" role="button" class="secondary outline">Volver</a></li>
+            <li><a href="dashboard.html" role="button" class="secondary outline">Voltar</a></li>
         </ul>
     </nav>
 
     <main class="container">
+        <div id="errorMsg" style="display: none; color: var(--pico-color-red-500); margin-bottom: 1rem;"></div>
+
         <div id="loadingState" class="center">
             <progress></progress>
-            <p>Cargando preguntas...</p>
+            <p>Carregando perguntas...</p>
         </div>
 
         <div id="quizState" style="display: none;">
@@ -27,7 +29,8 @@
                 <header>
                     <div class="grid">
                         <div><strong>Tema:</strong> <span id="quizTopic">-</span></div>
-                        <div><strong>Pregunta:</strong> <span id="questionProgress">1/3</span></div>
+                        <div><strong>Pergunta:</strong> <span id="questionProgress">1/3</span></div>
+                        <div><strong>Respondidas:</strong> <span id="answeredProgress">0 de 3</span></div>
                     </div>
                 </header>
 
@@ -36,8 +39,8 @@
                 <div id="optionsContainer"></div>
 
                 <div class="grid" style="margin-top: 1.5rem;">
-                    <button id="submitBtn" disabled>Confirmar Respuesta</button>
-                    <button id="nextBtn" class="secondary" style="display: none;">Siguiente Pregunta</button>
+                    <button id="submitBtn" disabled>Confirmar Resposta</button>
+                    <button id="nextBtn" class="secondary" style="display: none;">Próxima Pergunta</button>
                 </div>
 
                 <div id="feedbackMsg" style="display: none; margin-top: 1rem; padding: 1rem; border-radius: 8px;"></div>
@@ -46,10 +49,10 @@
 
         <div id="completedState" style="display: none;">
             <article class="center">
-                <h4 id="completedTitle">Simulado Completado 🎉</h4>
-                <p id="completedText">Has respondido todas las preguntas exitosamente.</p>
+                <h4 id="completedTitle">Simulado Concluído 🎉</h4>
+                <p id="completedText">Você respondeu todas as perguntas com sucesso.</p>
                 <a href="results.html" id="viewResultsBtn" role="button">Ver Resultados</a>
-                <a href="dashboard.html" role="button" class="secondary outline" style="margin-top: 0.5rem;">Volver al Dashboard</a>
+                <a href="dashboard.html" role="button" class="secondary outline" style="margin-top: 0.5rem;">Voltar ao Painel</a>
             </article>
         </div>
     </main>
@@ -58,132 +61,198 @@
     <script src="js/auth.js"></script>
     <script src="js/api.js"></script>
     <script>
-        const token = checkAuth();
-        const quizData = JSON.parse(localStorage.getItem("active_quiz"));
+        (async function initQuizPage() {
+            try {
+                await loadConfig();
+            } catch (err) {
+                return;
+            }
 
-        if (!quizData) {
-            window.location.href = "dashboard.html";
-        }
+            const token = await checkAuth();
+            if (!token) return;
 
-        let selectedAnswers = [];
-        let answered = false;
+            const urlParams = new URLSearchParams(window.location.search);
+            const quizIdParam = urlParams.get('quizId');
 
-        const answeredIds = quizData.answered_question_ids || [];
-        let currentIndex = quizData.questions.findIndex(q => !answeredIds.includes(q.question_id));
-        if (currentIndex === -1) {
-            document.getElementById("loadingState").style.display = "none";
-            document.getElementById("completedState").style.display = "";
-            document.getElementById("viewResultsBtn").href = `results.html?quizId=${quizData.quiz_id}`;
-        } else {
+            let quizData = null;
+
+            if (quizIdParam) {
+                // Cargar el quiz por su ID para reanudarlo (Req. 8.1)
+                try {
+                    quizData = await getQuiz(quizIdParam);
+                } catch (err) {
+                    window.location.href = "dashboard.html";
+                    return;
+                }
+            } else {
+                // Sin quiz_id en la URL: retomar exame final in_progress (Req. 8.4)
+                const history = await getQuizHistory();
+                const inProgressFinal = (history.quizzes || []).find(
+                    q => q.quiz_type === 'final_exam' && q.status === 'in_progress'
+                );
+                if (inProgressFinal) {
+                    window.location.href = `quiz.html?quizId=${inProgressFinal.quiz_id}`;
+                    return;
+                }
+
+                const stored = localStorage.getItem("active_quiz");
+                if (stored) {
+                    quizData = JSON.parse(stored);
+                }
+            }
+
+            if (!quizData || !quizData.questions || quizData.questions.length === 0) {
+                window.location.href = "dashboard.html";
+                return;
+            }
+
+            let selectedAnswers = [];
+            let answered = false;
+
+            const answeredIds = quizData.answered_question_ids || (quizData.answered_question_ids = []);
+            const totalQuestions = quizData.questions.length;
+            let currentIndex = quizData.questions.findIndex(q => !answeredIds.includes(q.question_id));
+
+            updateAnsweredProgress();
+
+            if (currentIndex === -1) {
+                document.getElementById("loadingState").style.display = "none";
+                document.getElementById("completedState").style.display = "";
+                document.getElementById("viewResultsBtn").href = `results.html?quizId=${quizData.quiz_id}`;
+                return;
+            }
+
             document.getElementById("loadingState").style.display = "none";
             document.getElementById("quizState").style.display = "";
             renderQuestion(currentIndex);
-        }
 
-        function renderQuestion(index) {
-            const q = quizData.questions[index];
-            const isMultiple = q.type === 'multiple';
-            const topicDisplay = quizData.quiz_type === "initial" 
-                ? "Diagnóstico Inicial" 
-                : quizData.topic;
-            document.getElementById("quizTopic").textContent = topicDisplay;
-            document.getElementById("questionProgress").textContent = `${index + 1}/${quizData.questions.length}`;
-            
-            const typeLabel = isMultiple ? ' (Selección múltiple)' : '';
-            document.getElementById("questionStatement").innerHTML = `<strong>${typeLabel}</strong> ${q.statement || q.question || `Pregunta ${index + 1}`}`;
-
-            const container = document.getElementById("optionsContainer");
-            container.innerHTML = "";
-
-            const sortedKeys = Object.keys(q.options || {}).sort();
-            for (const key of sortedKeys) {
-                const opt = q.options[key];
-                const label = document.createElement("label");
-                label.style.cursor = "pointer";
-                label.style.display = "block";
-                label.style.marginBottom = "0.8rem";
-                
-                const inputType = isMultiple ? "checkbox" : "radio";
-                label.innerHTML = `
-                    <input type="${inputType}" name="option" value="${key}">
-                    <strong>${key})</strong> ${opt.text || ''}
-                `;
-                
-                label.querySelector("input").addEventListener("change", (e) => {
-                    if (isMultiple) {
-                        if (e.target.checked) {
-                            selectedAnswers.push(key);
-                        } else {
-                            selectedAnswers = selectedAnswers.filter(k => k !== key);
-                        }
-                    } else {
-                        selectedAnswers = [key];
-                    }
-                    document.getElementById("submitBtn").disabled = selectedAnswers.length === 0;
-                });
-                container.appendChild(label);
-            }
-
-            document.getElementById("submitBtn").style.display = "";
-            document.getElementById("submitBtn").disabled = true;
-            document.getElementById("nextBtn").style.display = "none";
-            document.getElementById("feedbackMsg").style.display = "none";
-            selectedAnswers = [];
-            answered = false;
-        }
-
-        document.getElementById("submitBtn").addEventListener("click", async () => {
-            if (selectedAnswers.length === 0 || answered) return;
-
-            answered = true;
-            const btn = document.getElementById("submitBtn");
-            btn.ariaBusy = "true";
-            btn.disabled = true;
-
-            try {
-                const q = quizData.questions[currentIndex];
-                const result = await submitAnswer(quizData.quiz_id, q.question_id, selectedAnswers);
-
-                const feedback = document.getElementById("feedbackMsg");
-                if (result.is_correct) {
-                    feedback.style.background = "var(--pico-color-green-100)";
-                    feedback.style.color = "var(--pico-color-green-700)";
-                    feedback.innerHTML = "<strong>Correcto!</strong>";
-                } else {
-                    feedback.style.background = "var(--pico-color-red-100)";
-                    feedback.style.color = "var(--pico-color-red-700)";
-                    feedback.innerHTML = `<strong>Incorrecto.</strong> ${result.explanation || ''}`;
+            function updateAnsweredProgress() {
+                const el = document.getElementById("answeredProgress");
+                if (el) {
+                    el.textContent = `${answeredIds.length} de ${totalQuestions} respondidas`;
                 }
-                feedback.style.display = "block";
+            }
 
-                document.getElementById("submitBtn").style.display = "none";
-                document.getElementById("nextBtn").style.display = "";
-            } catch (err) {
-                alert("Error al enviar respuesta: " + err.message);
+            function renderQuestion(index) {
+                const q = quizData.questions[index];
+                const isMultiple = q.type === 'multiple';
+                const topicDisplay = quizData.quiz_type === "initial"
+                    ? "Diagnóstico Inicial"
+                    : quizData.topic;
+                document.getElementById("quizTopic").textContent = topicDisplay;
+                document.getElementById("questionProgress").textContent = `Pergunta ${index + 1}/${totalQuestions}`;
+                updateAnsweredProgress();
+
+                const typeLabel = isMultiple ? ' (Seleção múltipla)' : '';
+                document.getElementById("questionStatement").innerHTML = `<strong>${typeLabel}</strong> ${esc(q.statement || q.question || `Pergunta ${index + 1}`)}`;
+
+                const container = document.getElementById("optionsContainer");
+                container.innerHTML = "";
+
+                const sortedKeys = Object.keys(q.options || {}).sort();
+                for (const key of sortedKeys) {
+                    const opt = q.options[key];
+                    const label = document.createElement("label");
+                    label.style.cursor = "pointer";
+                    label.style.display = "block";
+                    label.style.marginBottom = "0.8rem";
+
+                    const inputType = isMultiple ? "checkbox" : "radio";
+                    label.innerHTML = `
+                        <input type="${inputType}" name="option" value="${key}">
+                        <strong>${key})</strong> ${esc(opt.text || '')}
+                    `;
+
+                    label.querySelector("input").addEventListener("change", (e) => {
+                        if (isMultiple) {
+                            if (e.target.checked) {
+                                selectedAnswers.push(key);
+                            } else {
+                                selectedAnswers = selectedAnswers.filter(k => k !== key);
+                            }
+                        } else {
+                            selectedAnswers = [key];
+                        }
+                        document.getElementById("submitBtn").disabled = selectedAnswers.length === 0;
+                    });
+                    container.appendChild(label);
+                }
+
+                document.getElementById("submitBtn").style.display = "";
+                document.getElementById("submitBtn").disabled = true;
+                document.getElementById("nextBtn").style.display = "none";
+                document.getElementById("feedbackMsg").style.display = "none";
+                selectedAnswers = [];
                 answered = false;
-            } finally {
-                btn.ariaBusy = "false";
             }
-        });
 
-        document.getElementById("nextBtn").addEventListener("click", () => {
-            currentIndex++;
-            if (currentIndex >= quizData.questions.length) {
-                localStorage.setItem("last_quiz_id", quizData.quiz_id);
-                
-                const completionMessage = quizData.quiz_type === "initial"
-                    ? { title: "Diagnóstico Completado 🎉", text: "¡Diagnóstico completado! Ahora conocemos tu punto de partida." }
-                    : { title: "Simulado Completado 🎉", text: "Has respondido todas las preguntas exitosamente." };
-                document.getElementById("completedTitle").textContent = completionMessage.title;
-                document.getElementById("completedText").textContent = completionMessage.text;
+            document.getElementById("submitBtn").addEventListener("click", async () => {
+                if (selectedAnswers.length === 0 || answered) return;
 
-                document.getElementById("quizState").style.display = "none";
-                document.getElementById("completedState").style.display = "";
-                document.getElementById("viewResultsBtn").href = `results.html?quizId=${quizData.quiz_id}`;
-            } else {
-                renderQuestion(currentIndex);
-            }
-        });
+                answered = true;
+                const btn = document.getElementById("submitBtn");
+                btn.ariaBusy = "true";
+                btn.disabled = true;
+
+                try {
+                    const q = quizData.questions[currentIndex];
+                    const result = await submitAnswer(quizData.quiz_id, q.question_id, selectedAnswers);
+
+                    const feedback = document.getElementById("feedbackMsg");
+                    if (result.is_correct) {
+                        feedback.style.background = "var(--pico-color-green-100)";
+                        feedback.style.color = "var(--pico-color-green-700)";
+                        feedback.innerHTML = "<strong>Correto!</strong>";
+                    } else {
+                        feedback.style.background = "var(--pico-color-red-100)";
+                        feedback.style.color = "var(--pico-color-red-700)";
+                        feedback.innerHTML = `<strong>Incorreto.</strong> ${esc(result.explanation || '')}`;
+                    }
+                    feedback.style.display = "block";
+
+                    if (!answeredIds.includes(q.question_id)) {
+                        answeredIds.push(q.question_id);
+                    }
+                    updateAnsweredProgress();
+
+                    document.getElementById("submitBtn").style.display = "none";
+                    document.getElementById("nextBtn").style.display = "";
+                } catch (err) {
+                    showError("Erro ao enviar resposta: " + err.message);
+                    answered = false;
+                } finally {
+                    btn.ariaBusy = "false";
+                }
+            });
+
+            document.getElementById("nextBtn").addEventListener("click", () => {
+                currentIndex++;
+                if (currentIndex >= quizData.questions.length) {
+                    localStorage.setItem("last_quiz_id", quizData.quiz_id);
+
+                    const completionMessage = quizData.quiz_type === "initial"
+                        ? { title: "Diagnóstico Concluído 🎉", text: "Diagnóstico concluído! Agora conhecemos seu ponto de partida." }
+                        : { title: "Simulado Concluído 🎉", text: "Você respondeu todas as perguntas com sucesso." };
+                    document.getElementById("completedTitle").textContent = completionMessage.title;
+                    document.getElementById("completedText").textContent = completionMessage.text;
+
+                    document.getElementById("quizState").style.display = "none";
+                    document.getElementById("completedState").style.display = "";
+                    document.getElementById("viewResultsBtn").href = `results.html?quizId=${quizData.quiz_id}`;
+                } else {
+                    renderQuestion(currentIndex);
+                }
+            });
+        })();
+
+        function esc(value) {
+            return String(value === undefined || value === null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
     </script>
 </body>
 </html>
