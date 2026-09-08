@@ -64,10 +64,6 @@ async function getStudent() {
     return apiCall("GET", "/students/me");
 }
 
-async function updateStudent(data) {
-    return apiCall("PUT", "/students/me", data);
-}
-
 async function generateQuiz(quizType, topic, numQuestions) {
     const body = { quiz_type: quizType };
     if (topic !== undefined && topic !== null) {
@@ -107,10 +103,6 @@ async function generateInitialTest() {
     return apiCall("POST", "/quizzes/generate", { quiz_type: "initial" });
 }
 
-async function completeQuiz(quizId) {
-    return apiCall("POST", `/quizzes/${quizId}/complete`, {});
-}
-
 async function getQuiz(quizId) {
     return apiCall("GET", `/quizzes/${quizId}`);
 }
@@ -120,10 +112,6 @@ async function getQuizHistory() {
 }
 
 // ========== VALIDACIÓN DE CUPO ==========
-
-async function checkCohortCapacity(cohortId) {
-    return apiCall("GET", `/cohorts/${cohortId}/capacity`);
-}
 
 async function checkCohortCapacityPublic(cohortId) {
     const response = await fetch(`${CONFIG.apiUrl}/public/cohorts/${cohortId}/capacity`);
