@@ -15,5 +15,6 @@ tfplan.memory
 
 .kiro/
 .opencode/
+.claude/settings.local.json/
 
 scripts/backup/
