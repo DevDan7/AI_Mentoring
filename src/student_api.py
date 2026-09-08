@@ -56,7 +56,7 @@ def lambda_handler(event, context):
         return update_student_by_claims(event, claims)
     elif route_key == 'GET /students/{studentId}':
         student_id = path_params.get('studentId')
-        return get_student(student_id)
+        return get_student(student_id, claims)
     elif route_key == 'GET /students/me/quizzes':
         return get_quiz_history(claims)
     elif route_key == 'GET /students/{studentId}/quizzes':
@@ -191,12 +191,15 @@ def get_student_by_claims(claims):
     student_id = claims.get('sub')
     if not student_id:
         return build_response(401, {'message': 'Unauthorized: Invalid JWT claims'})
-    return get_student(student_id)
+    return get_student(student_id, claims)
 
 
-def get_student(student_id):
+def get_student(student_id, claims):
     if not student_id:
         return build_response(400, {'message': 'student_id is required'})
+
+    if not is_teacher(claims) and claims.get('sub') != student_id:
+        return build_response(403, {'message': 'Forbidden: not the owner of this profile'})
 
     response = students_table.get_item(Key={'StudentID': student_id})
     student = response.get('Item')
