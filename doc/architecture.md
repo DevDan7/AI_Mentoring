@@ -112,7 +112,7 @@ S3 (foto examen) → S3 Event → SNS (notificaciones + email)
 | GET | `/students` | student_api | Listar alumnos (solo teacher) |
 | GET | `/students/me` | student_api | Obtener perfil propio |
 | PUT | `/students/me` | student_api | Actualizar perfil propio |
-| GET | `/students/{studentId}` | student_api | Obtener alumno por ID (solo teacher) |
+| GET | `/students/{studentId}` | student_api | Obtener alumno por ID (teacher, o el propio alumno — fix 2026-09-08) |
 | GET | `/students/me/quizzes` | student_api | Historial de simulados propio |
 | GET | `/students/{studentId}/quizzes` | student_api | Historial de simulados de un alumno (solo teacher) |
 | PUT | `/students/{studentId}/phase` | student_api | Cambiar fase de alumno (solo teacher) |
@@ -126,6 +126,69 @@ S3 (foto examen) → S3 Event → SNS (notificaciones + email)
 | GET | `/quizzes/{quizId}/results` | quiz_engine | Obtener resultados (con `domain_breakdown`) |
 | GET | `/quizzes/{quizId}` | quiz_engine | Obtener quiz (reanudación de `in_progress`) |
 | POST | `/quizzes/{quizId}/complete` | quiz_engine | Completar quiz y persistir resultado |
+
+### Contratos de API (request/response, verificados contra código real 2026-09-08)
+
+Extraído y verificado línea por línea contra `src/student_api.py`/`src/quiz_engine.py` antes de eliminar `.kiro/` (que tenía la fuente original en `design.md`). Solo se listan los endpoints con body no trivial.
+
+```json
+POST /students
+→ Request:  { "cohort_id": "turma-beta-01" }
+→ 201:      { "student_id", "email", "name" }
+→ 409:      { "message": "Student profile already exists" }
+→ 403:      { "message": "Turma está cheia" }
+
+GET /students   (solo teacher)
+→ 200: {
+    "students": [{
+      "student_id", "name", "email", "cohort_id", "current_phase",
+      "failed_attempts", "created_at", "access_expires_at",
+      "final_exam_release_date", "has_taken_initial_test"
+    }],
+    "total": 7
+  }
+
+PUT /students/{studentId}/final-exam-release   (solo teacher)
+→ Request:  { "release_date": "2025-08-01T10:00:00Z" }
+→ 200:      { "student_id", "final_exam_release_date" }
+
+DELETE /students/{studentId}/final-exam-attempt   (solo teacher)
+→ 200: { "student_id", "message": "Final exam attempt reset" }
+→ 404: { "message": "El alumno no tiene examen final registrado" }
+
+GET /students/{studentId}/quizzes   (solo teacher)
+→ 200: { "quizzes": [{ "quiz_id", "quiz_type", "topic", "status", "created_at", "completed_at", "score_percentage" }] }
+
+POST /quizzes/generate
+→ Request:  { "quiz_type": "initial"|"free"|"final_exam", "topic"?, "num_questions"? (default 5, solo free) }
+→ 201:      { "quiz_id", "student_id", "quiz_type", "topic", "questions": [{ "question_id", "topic", "type", "statement", "options": { "A": {"text","keywords"}, ... } }] }
+→ 403:      acceso expirado, tipo de quiz no permitido en fase actual, examen ya completado, o fecha no liberada
+→ 404:      sin preguntas disponibles (solo quiz initial/final_exam)
+
+POST /quizzes/submit
+→ Request:  { "quiz_id", "question_id", "given_answers": ["A"] }
+→ 201:      { "result_id", "quiz_id", "is_correct", "explanation" }
+
+POST /quizzes/{quizId}/complete
+→ 200: { "message": "Quiz completed", "quiz_id", "completed_at", "score_percentage",
+         "phase_advanced"?, "previous_phase"?, "new_phase"? }   // los 3 últimos solo si hubo avance de fase
+
+GET /quizzes/{quizId}/results   (student propio o teacher cualquier quiz)
+→ 200: {
+    "quiz": { "quiz_id", "student_id", "topic", "status", "created_at" },
+    "metrics": { "score_percentage", "total_questions", "correct_answers", "incorrect_answers" },
+    "domain_breakdown": { "<dominio CLF-C02>": { "correct", "total", "percentage" } },  // solo si quiz_type == final_exam
+    "answers": [{ "question_id", "statement", "given_answers", "correct_answers", "is_correct", "explanation" }]
+  }
+```
+
+Mensajes de error verbatim usados por el backend (mezclan pt-BR y español, ver nota de idioma en `AGENTS.md`):
+- 403 acceso expirado: `"Acesso expirado. Entre em contato com seu instrutor."`
+- 403 examen final no liberado: `"Exame disponível a partir de {DD/MM/YYYY HH:MM}"`
+- 403 examen final ya completado: `"Você já realizou o exame final. Contate seu instrutor para um novo intento."`
+- 400 topic vacío en quiz free: `"O campo topic é obrigatório"`
+
+**Nota de discrepancia encontrada en la verificación:** el `design.md` original (ya eliminado) mostraba una versión simplificada de `is_teacher()` que NO parseaba `cognito:groups` como JSON string. Esa versión simple nunca estuvo en producción tal cual — el código real siempre necesitó (y tiene, ver `student_api.py`) el parseo defensivo documentado en el fix del 2026-09-07 más abajo. No es una regresión, solo un ejemplo de código desactualizado en la spec original.
 
 ### Cognito — Autenticación
 

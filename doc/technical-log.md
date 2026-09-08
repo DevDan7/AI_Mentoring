@@ -4,6 +4,25 @@
 
 ---
 
+## Catálogo de bugs — Restructuración MVP (extraído de `.kiro/specs/ai-mentoring-mvp-restructure/requirements.md`, 2026-09-06)
+
+Los 10 bugs diagnosticados y corregidos durante la restructuración del modelo de fases. Extraído aquí porque `.kiro/` fue eliminado del repo (residuo de tooling) — este catálogo no estaba antes en `doc/`.
+
+| # | Bug | Causa | Corrección |
+|---|-----|-------|------------|
+| 1 | `api.js` enviaba `num_questions` pero `quiz_engine.py` leía `count` | Nombres de parámetro distintos entre frontend y backend | Unificado en `num_questions` en ambos lados |
+| 2 | `checkAuth()` en `quiz.html` no hacía refresh antes de redirigir | Token expirado no se refrescaba antes del chequeo de sesión | `checkAuth()` usa `getToken()` con refresh automático |
+| 3 | `historySection` en `teacher.html` tenía `display:none` y el JS no lo activaba | Falta de código JS que mostrara la sección al seleccionar alumno | `selectStudent()` activa la visibilidad de `historySection` |
+| 4 | `showToast()` usaba `alert()` nativo | No había manejo de errores visible en pantalla | Reemplazado por `showError()` escribiendo en `#errorMsg` |
+| 5 | `isTeacher()` en backend hacía llamada a Cognito API (`AdminListGroupsForUser`) por cada request | Dependencia de latencia/costo innecesaria en runtime | `is_teacher()` lee el claim `cognito:groups` del JWT directamente (ver también el fix posterior de serialización JSON-string, más abajo) |
+| 6 | `generate_final_exam` no verificaba quiz `in_progress` existente | Creaba un examen final nuevo en vez de retomar el existente | Ahora busca `Status: in_progress` antes de generar y llama a `resume_quiz()` |
+| 7 | `get_results()` no retornaba enunciado, respuesta correcta ni explicación | Respuesta incompleta para pantalla de resultados | `get_results()` agrega `statement`, `correct_answers`, `explanation` por pregunta |
+| 8 | `results.html` usaba `fetch` directo sin manejo de refresh | Podía fallar con token expirado sin refrescar | Reemplazado por `apiCall()` (usa `getToken()`/refresh) |
+| 9 | `list_cohorts()` tenía N+1 queries en loop (una query por turma) | Ineficiencia — un query DynamoDB por cada cohorte | Reemplazado por `scan()` + agrupación en Python (`Counter`) |
+| 10 | `FINAL_EXAM_DISTRIBUTION` no sumaba 65 | Matriz de preguntas desalineada con el examen real (65 preguntas CLF-C02) | Recalibrada a 16/20/7/6/5/2/2/7/0/0 = 65 (ver `doc/architecture.md` → Matriz de Preguntas) |
+
+---
+
 ## Fixes E2E (is_teacher, get_results, tarjeta Simulado Final) — 2026-09-07
 
 ### Problema
