@@ -55,14 +55,15 @@ S3 (foto examen) → S3 Event → SNS (notificaciones + email)
 | Lambda | Archivo | Propósito | Memoria | Timeout |
 |--------|---------|-----------|---------|---------|
 | `mentoring-exam-processor` | `processor.py` | Bedrock multimodal + DynamoDB | 256 MB | 60s |
-| `student-api` | `student_api.py` | CRUD de estudiantes | 256 MB | 30s |
-| `quiz-engine` | `quiz_engine.py` | Quizzes y resultados | 256 MB | 30s |
+| `mentoring-student-api` | `student_api.py` | CRUD de estudiantes + cohortes | 256 MB | 15s |
+| `quiz-engine` | `quiz_engine.py` | Quizzes y resultados | 256 MB | 15s |
 
 **Configuración común:**
 - Python 3.12
 - Boto3 inicializado a nivel de módulo
 - Variables de entorno con `os.environ.get()`
 - `botocore adaptive retry` en `processor.py` (max_attempts=6)
+- **Empaquetado**: un `data "archive_file"` por Lambda (`lambda*.tf`), zip de un solo `.py` desde `src/`, con `output_file_mode = "0644"` para que `source_code_hash` sea determinista sin importar el umask de quien corra el plan (CI usa 0644; local con umask 002 daba 0664 → diff fantasma en las 3 Lambdas). Añadido el 2026-09-08 (PR #107).
 
 ### DynamoDB — Tablas
 
@@ -204,6 +205,10 @@ Mensajes de error verbatim usados por el backend (mezclan pt-BR y español, ver 
 - **Dominio**: `main.d1jhem8rxt5h6t.amplifyapp.com`
 - **Branch**: `main`
 - **Service Role**: `mentoring-amplify-role` (least privilege)
+- **Conexión al repo**: deploy key **SSH** (no PAT); `access_token`/`oauth_token` del recurso vivo son `null`.
+- **`lifecycle { ignore_changes = [access_token, repository] }`** (`amplify.tf`):
+  - `access_token` — atributo sensible que genera diff en cada `apply`; actualizarlo en caliente invalidaba temporalmente el rol IAM de Amplify (ver changelog 05 Sep).
+  - `repository` — el casing de la config (`https://github.com/DevDan7/AI_Mentoring`) difiere del recurso vivo (`https://github.com/devdan7/ai_mentoring.git`) y **nunca re-sincroniza**: la API `UpdateApp` de Amplify exige un token cuando cambia `repository`, y Terraform no lo envía por el `ignore` de `access_token` → `apply` fallaba con `BadRequestException: You should at least provide one valid token`. Drift cosmético y permanente; el deploy real no se ve afectado (PR #106, 2026-09-08).
 
 ### IAM — Roles y Políticas
 
@@ -211,7 +216,7 @@ Mensajes de error verbatim usados por el backend (mezclan pt-BR y español, ver 
 |-----|-----------|----------|
 | `mentoring-lambda-processor` | Ejecutar `processor.py` | Bedrock, DynamoDB, SNS, SQS, CloudWatch (Rekognition removido el 2026-09-02) |
 | `mentoring-lambda-student-api` | Ejecutar `student_api.py` | DynamoDB (Students GetItem/Query/Put/Update, Cohorts GetItem/Scan, Quizzes Query), CloudWatch Logs |
-| `mentoring-lambda-quiz-engine` | Ejecutar `quiz_engine.py` | DynamoDB (todas las tablas + GetItem sobre Students), CloudWatch |
+| `mentoring-lambda-quiz-engine` | Ejecutar `quiz_engine.py` | DynamoDB (`MentoringQuestions` Query/GetItem/**BatchGetItem**; `Quizzes`/`QuizResults` GetItem/Put/Query; `Students` GetItem/UpdateItem), CloudWatch Logs. `BatchGetItem` agregado el 2026-09-08 para `get_results()` (PR #105) |
 | `ai-mentoring-github-actions` | CI/CD con OIDC | `ReadOnlyAccess` + `terraform-cicd-policy` |
 | `mentoring-amplify-role` | Amplify Hosting | Logs (CloudWatch) |
 
@@ -516,6 +521,7 @@ El objetivo del proyecto tiene 3 piezas:
 | 7d | Links externos (Anki, próximos simulados) | ⏳ Pendiente |
 | 7e | ~~Restructuración MVP: fases simplificadas + examen final~~ | ✅ Hecho (2026-09-06) |
 | 7f | ~~Migración de datos (limpieza tablas + turma-beta-01)~~ | ✅ Hecho (2026-09-07) |
+| 7g | ~~Saneamiento infra post-E2E (permiso `BatchGetItem`, hash `archive_file`, drift Amplify)~~ | ✅ Hecho (2026-09-08) |
 | 11 | ~~Bloque 1: Protecciones básicas~~ | ✅ Hecho (2026-09-01) |
 | 12 | Refactor: AWS Step Functions para orquestación asíncrona | ⏳ Pendiente |
 | 13 | Cleanup: avisos de depreciación (`key_schema` vs `hash_key`) | ⏳ Evaluado, mantenido (bug del proveedor AWS) |

@@ -6,6 +6,29 @@
 
 ## 2026-09
 
+### 08 Sep — Fix HTTP 500 en resultados de simulado libre (permiso `dynamodb:BatchGetItem`)
+- **Problema**: En el E2E con `turma-beta-01`, al terminar un simulado libre y pulsar "Ver Resultados" la pantalla mostraba "Erro". `GET /quizzes/{quizId}/results` devolvía HTTP 500.
+- **Causa raíz**: `get_results()` (`quiz_engine.py`) usa `questions_table.meta.client.batch_get_item()` sobre `MentoringQuestions` para traer enunciados/respuestas correctas/explicaciones en lote. El rol `quiz-engine-role` (statement `AllowReadQuestions` en `iam.tf`) solo tenía `dynamodb:Query` y `dynamodb:GetItem` → `AccessDeniedException`. Confirmado en CloudWatch `/aws/lambda/quiz-engine` (último evento 2026-09-07 15:59 UTC). `generate_quiz` y `submit_answer` no fallaban porque usan `query`/`get_item`.
+- **Solución**: Se añadió `"dynamodb:BatchGetItem"` a `AllowReadQuestions`. `BatchGetItem` sobre la tabla base no requiere permiso de índice; efectivo tras `apply`, sin redeploy de la Lambda.
+- **Verificación**: `terraform validate`/`plan` OK; flujo alumno → simulado libre → Ver Resultados carga resumen y detalle por pregunta. Detalle en `technical-log.md`.
+- Archivos: `iam.tf` (PR #105).
+
+### 08 Sep — Saneamiento de infraestructura Terraform: drift de Amplify y hash de `archive_file`
+- **Amplify — drift permanente de `repository` (PR #106)**: `terraform apply` fallaba en `aws_amplify_app.frontend` con `BadRequestException: You should at least provide one valid token`. El recurso vivo está conectado por **deploy key SSH**; el valor de `repository` en config/state (`https://github.com/DevDan7/AI_Mentoring`) difiere del recurso vivo (`https://github.com/devdan7/ai_mentoring.git`) y nunca re-sincroniza porque la API `UpdateApp` exige un token que Terraform no envía (por `ignore_changes = [access_token]`). **Solución**: agregar `repository` a `ignore_changes` → `lifecycle { ignore_changes = [access_token, repository] }`. Drift cosmético y permanente. El deploy real de Amplify sigue activo (job SUCCEED, frontend sirve HTTP 200).
+- **Lambda — falso positivo de `source_code_hash` (PR #107)**: todo `terraform plan` local marcaba las 3 Lambdas como "update in-place" sin cambios en `src/`. Los bloques `data "archive_file"` no fijaban `output_file_mode`, así que el zip hereda los permisos del working tree: local (umask 002 → `0664`) vs checkout de GitHub Actions (umask 022 → `0644`) → distinto hash. **Solución**: `output_file_mode = "0644"` en los 3 bloques → hash determinista. `terraform plan` → `No changes` incluso con `src/*.py` en `0664`.
+- Archivos: `amplify.tf`, `lambda.tf`, `lambda_quiz_engine.tf`, `lambda_student_api.tf`.
+
+### 08 Sep — Autorización owner-or-teacher en `get_student` (IDOR) y UX para no-profesores
+- **PR #102 — IDOR en `GET /students/{studentId}`**: cualquier alumno autenticado podía leer el perfil de otro alumno por ID. Se añadió el control `is_teacher(claims) or claims['sub'] == studentId` en `get_student()` (`student_api.py`); si no, 403.
+- **PR #101 — UX del panel del profesor**: `teacher.html` ante un 403 del backend ahora redirige a `dashboard.html` y muestra aviso; un usuario sin el claim `Teachers` es desviado a los ~3 s en vez de quedar en una página vacía.
+- **Nota (diagnóstico Bug 1, "el profesor no ve los resultados")**: NO es por falta de turma — `list_all_students()` y `get_student_quizzes()` no filtran por cohorte. Si el profesor no ve datos, la causa típica es un **token JWT viejo sin `cognito:groups`**: tras agregar al usuario al grupo `Teachers` debe cerrar y volver a iniciar sesión. Detalle en `technical-log.md`.
+- Archivos: `src/student_api.py`, `src/frontend/js/teacher.js`.
+
+### 08 Sep — Documentación y tooling; limpieza de código muerto en el frontend
+- **PR #103 — documentación y config**: se rescataron a `doc/` los contratos request/response de la API y el catálogo de 10 bugs de la restructuración MVP antes de eliminar `.kiro/` del repo (`doc/architecture.md`, `doc/technical-log.md`); nueva guía `TEACHER_SETUP.md` (alta de profesor en el grupo `Teachers` de Cognito, troubleshooting de 403) y helper `check_user_groups.js` (decodifica el `id_token` en consola del navegador para inspeccionar `cognito:groups`); `CLAUDE.md` (instrucciones de proyecto para Claude Code) y `.claude/agents/git-helper.md` (subagente que propone comandos git/gh sin ejecutarlos). `.gitignore`: `.claude/settings.local.json`.
+- **PR #104 — código muerto en el frontend**: se eliminaron 3 funciones sin call sites en `src/frontend/js/api.js` (`updateStudent`, `completeQuiz`, `checkCohortCapacity` — solo se usa `checkCohortCapacityPublic`), el `<div id="successMsg">` nunca mostrado en `dashboard.html` y `teacher.html`, y ~9 atributos `id` sin referencia JS ni CSS. Elementos vivos y clases intactos.
+- Archivos: `doc/architecture.md`, `doc/technical-log.md`, `TEACHER_SETUP.md`, `check_user_groups.js`, `CLAUDE.md`, `.claude/agents/git-helper.md`, `.gitignore`, `src/frontend/js/api.js`, `src/frontend/dashboard.html`, `src/frontend/teacher.html`.
+
 ### 07 Sep — Fix profesor 403: serialización de `cognito:groups` en API Gateway HTTP API v2
 - **Problema**: Tras desplegar los fixes E2E, el panel del profesor saltaba 403 (Forbidden) en `GET /students` y `GET /cohorts`. El frontend sí detectaba el rol (redirigía a `teacher.html`) pero la Lambda devolvía 403.
 - **Causa raíz**: API Gateway HTTP API v2 con authorizer JWT de Cognito serializa el claim `cognito:groups` del token como **JSON string** (`'["Teachers"]'`) en `requestContext.authorizer.jwt.claims`, no como lista. El `split(',')` de `is_teacher()` no separaba dicho string → `'Teachers' in {'["Teachers"]'}` → False → 403. El error 403 ya existía implícitamente con el código anterior (igual chequeo); no es un problema de despliegue.
