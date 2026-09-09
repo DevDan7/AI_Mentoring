@@ -1,7 +1,8 @@
 data "archive_file" "student_api_zip" {
-  type        = "zip"
-  source_file = "${path.module}/src/student_api.py"
-  output_path = "${path.module}/student_api_function.zip"
+  type             = "zip"
+  source_file      = "${path.module}/src/student_api.py"
+  output_path      = "${path.module}/student_api_function.zip"
+  output_file_mode = "0644" # hash determinista: no depende del umask local (CI usa 0644)
 }
 
 resource "aws_lambda_function" "student_api" {
