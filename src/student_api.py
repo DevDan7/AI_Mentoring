@@ -37,6 +37,20 @@ def build_response(status_code, body):
     }
 
 
+def parse_iso_datetime_utc(value):
+    """Parsea un string ISO-8601 a datetime tz-aware. Un valor naive se asume UTC.
+    Lanza ValueError si no parsea — el caller decide devolver 400.
+
+    NOTA: función DUPLICADA IDÉNTICA en student_api.py y quiz_engine.py — cada
+    Lambda se empaqueta como un único .py (archive_file source_file), no hay
+    módulo compartido. Si se cambia una copia, cambiar la otra.
+    """
+    dt = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 def lambda_handler(event, context):
     route_key = event.get('routeKey')
     path_params = event.get('pathParameters', {})
@@ -447,18 +461,28 @@ def set_final_exam_release(event, claims, target_student_id):
     if not release_date:
         return build_response(400, {'message': 'release_date is required'})
 
+    # Validar y normalizar a ISO-8601 con offset (evita el 500 en quiz_engine al comparar)
+    try:
+        release_dt = parse_iso_datetime_utc(release_date)
+    except ValueError:
+        return build_response(400, {
+            'message': f'release_date inválida: {release_date!r}. '
+                       f'Usá ISO-8601, ej. "2026-09-09T13:00" o "2026-09-09T13:00:00-03:00".'
+        })
+    normalized = release_dt.isoformat()   # siempre con offset
+
     students_table.update_item(
         Key={'StudentID': target_student_id},
         UpdateExpression='SET FinalExamReleaseDate = :release_date, UpdatedAt = :updated_at',
         ExpressionAttributeValues={
-            ':release_date': release_date,
+            ':release_date': normalized,
             ':updated_at': datetime.now(timezone.utc).isoformat()
         }
     )
 
     return build_response(200, {
         'student_id': target_student_id,
-        'final_exam_release_date': release_date
+        'final_exam_release_date': normalized
     })
 
 
