@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import boto3
 from decimal import Decimal
 from datetime import datetime, timezone, timedelta
@@ -299,25 +300,40 @@ def get_quiz_history(claims):
     })
 
 def is_teacher(claims):
-    """Verifica si el usuario pertenece al grupo Teachers leyendo el claim cognito:groups del JWT.
-    Manejo defensivo: claims puede ser None, y el grupo puede llegar como string, lista,
-    tupla/set, cadena separada por comas o valor inválido. Nunca lanza excepción."""
-    if not claims or not isinstance(claims, dict):
+    """True si el usuario pertenece al grupo Cognito 'Teachers'.
+
+    Tolera todos los formatos en que puede llegar el claim 'cognito:groups',
+    sin lanzar excepción:
+      - API Gateway HTTP API v2: string con corchetes, separado por espacios y
+        SIN comillas  ->  "[Teachers]"  |  "[Teachers Admin]"
+      - JSON array string (por si AWS cambia el formato): '["Teachers"]'
+      - lista/tupla/set nativa: ["Teachers", "Admin"]
+      - string separado por comas (legacy): "Teachers,Admin"
+      - None / no-dict / tipo no soportado  ->  False
+
+    NOTA: función DUPLICADA IDÉNTICA en student_api.py y quiz_engine.py — cada
+    Lambda se empaqueta como un único .py (archive_file source_file), no hay
+    módulo compartido. Si se cambia una copia, cambiar la otra.
+    """
+    if not isinstance(claims, dict):
         return False
 
-    raw_groups = claims.get('cognito:groups') or []
-    if isinstance(raw_groups, str):
-        # API Gateway HTTP API v2 serializa arrays JWT como JSON string: '["Teachers"]'
+    raw = claims.get('cognito:groups')
+
+    if isinstance(raw, (list, tuple, set)):
+        groups = {str(g).strip() for g in raw}
+    elif isinstance(raw, str):
+        text = raw.strip()
         try:
-            parsed = json.loads(raw_groups)
-            if isinstance(parsed, list):
-                groups = {str(g).strip().strip('"').strip("'") for g in parsed}
-            else:
-                groups = {str(parsed).strip().strip('"').strip("'")}
+            parsed = json.loads(text)
+            groups = (
+                {str(g).strip() for g in parsed}
+                if isinstance(parsed, list)
+                else {str(parsed).strip()}
+            )
         except (json.JSONDecodeError, TypeError):
-            groups = {g.strip().strip('"').strip("'") for g in raw_groups.split(',')}
-    elif isinstance(raw_groups, (list, tuple, set)):
-        groups = {str(g).strip().strip('"').strip("'") for g in raw_groups}
+            # "[Teachers Admin]" / "Teachers,Admin" -> quitar corchetes y separar
+            groups = {t for t in re.split(r'[\s,]+', text.strip('[]')) if t}
     else:
         groups = set()
 
