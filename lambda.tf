@@ -1,8 +1,9 @@
 # 1. Empaquetar el código automáticamente
 data "archive_file" "lambda_zip" {
-  type        = "zip"
-  source_file = "${path.module}/src/processor.py"
-  output_path = "${path.module}/lambda_function.zip"
+  type             = "zip"
+  source_file      = "${path.module}/src/processor.py"
+  output_path      = "${path.module}/lambda_function.zip"
+  output_file_mode = "0644" # hash determinista: no depende del umask local (CI usa 0644)
 }
 
 
