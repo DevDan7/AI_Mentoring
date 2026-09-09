@@ -151,6 +151,20 @@ def is_teacher(claims):
     return 'Teachers' in groups
 
 
+def parse_iso_datetime_utc(value):
+    """Parsea un string ISO-8601 a datetime tz-aware. Un valor naive se asume UTC.
+    Lanza ValueError si no parsea — el caller decide devolver 400.
+
+    NOTA: función DUPLICADA IDÉNTICA en student_api.py y quiz_engine.py — cada
+    Lambda se empaqueta como un único .py (archive_file source_file), no hay
+    módulo compartido. Si se cambia una copia, cambiar la otra.
+    """
+    dt = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 def check_student_access(student_id):
     """Verifica si el estudiante tiene acceso vigente. Retorna error 403 si expiró."""
     student_response = students_table.get_item(Key={'StudentID': student_id})
@@ -396,7 +410,13 @@ def generate_final_exam(student_id):
         return build_response(403, {
             'error': 'Exame não liberado. Contate seu instrutor.'
         })
-    release_dt = datetime.fromisoformat(release_date.replace('Z', '+00:00'))
+    try:
+        release_dt = parse_iso_datetime_utc(release_date)
+    except ValueError:
+        return build_response(400, {
+            'error': f'FinalExamReleaseDate mal formada ({release_date!r}). '
+                     f'Contate seu instrutor para reconfigurar a data.'
+        })
     if datetime.now(timezone.utc) < release_dt:
         formatted = release_dt.strftime('%d/%m/%Y %H:%M')
         return build_response(403, {

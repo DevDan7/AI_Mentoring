@@ -234,9 +234,14 @@ function setupEvents() {
             }
             if (e.target.classList.contains('btn-set-exam')) {
                 const studentId = e.target.dataset.student;
-                const date = prompt("Data de liberação do exame final (formato YYYY-MM-DDTHH:MM):");
-                if (date) {
-                    setFinalExamRelease(studentId, date);
+                const raw = prompt("Data de liberação do exame final (YYYY-MM-DD ou YYYY-MM-DDTHH:MM, hora local):");
+                if (raw !== null) {
+                    const iso = normalizeReleaseDate(raw.trim());
+                    if (iso) {
+                        setFinalExamRelease(studentId, iso);
+                    } else {
+                        showError("Data inválida. Use YYYY-MM-DD ou YYYY-MM-DDTHH:MM.");
+                    }
                 }
             }
             if (e.target.classList.contains('btn-reset-exam')) {
@@ -277,6 +282,28 @@ function showError(message) {
         errorEl.textContent = message;
         errorEl.style.display = 'block';
     }
+}
+
+// Normaliza la entrada del prompt a ISO-8601 con offset local.
+// Acepta "YYYY-MM-DD" (asume 00:00) o "YYYY-MM-DDTHH:MM"; la hora se interpreta
+// como local y se le agrega el offset del navegador. Devuelve null si no parsea.
+function normalizeReleaseDate(input) {
+    let s = input;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        s += "T00:00";
+    }
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(s)) {
+        return null;
+    }
+    const d = new Date(s);
+    if (isNaN(d.getTime())) {
+        return null;
+    }
+    const tzMin = -d.getTimezoneOffset();
+    const sign = tzMin >= 0 ? "+" : "-";
+    const abs = Math.abs(tzMin);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${s}${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`;
 }
 
 function esc(value) {
