@@ -8,7 +8,12 @@ resource "aws_amplify_app" "frontend" {
   iam_service_role_arn = aws_iam_role.amplify_role.arn
 
   lifecycle {
-    ignore_changes = [access_token]
+    # access_token: se ignora para no invalidar el IAM service role en cada apply.
+    # repository: el recurso vivo está conectado por SSH; el drift de mayúsculas/
+    # minúsculas en la URL nunca se re-sincroniza porque Amplify exige un token en
+    # el UpdateApp que Terraform no envía (por el ignore de access_token). Drift
+    # cosmético y permanente — se ignora en vez de forzarlo.
+    ignore_changes = [access_token, repository]
   }
 
   build_spec = <<-EOT
