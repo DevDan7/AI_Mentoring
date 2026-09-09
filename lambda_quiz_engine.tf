@@ -1,7 +1,8 @@
 data "archive_file" "quiz_engine_zip" {
-  type        = "zip"
-  source_file = "${path.module}/src/quiz_engine.py"
-  output_path = "${path.module}/quiz_engine_function.zip"
+  type             = "zip"
+  source_file      = "${path.module}/src/quiz_engine.py"
+  output_path      = "${path.module}/quiz_engine_function.zip"
+  output_file_mode = "0644" # hash determinista: no depende del umask local (CI usa 0644)
 }
 
 resource "aws_lambda_function" "quiz_engine" {
