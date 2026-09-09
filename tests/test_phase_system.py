@@ -393,8 +393,26 @@ class TestIsTeacher(unittest.TestCase):
         import student_api
         self.assertFalse(student_api.is_teacher({'cognito:groups': 123}))
 
+    def test_teacher_with_bracket_space_single_group(self):
+        """Formato REAL de API Gateway HTTP API v2: corchetes literales, sin comillas."""
+        import student_api
+        self.assertTrue(student_api.is_teacher({'cognito:groups': '[Teachers]'}))
+
+    def test_teacher_with_bracket_space_multiple_groups(self):
+        """Formato REAL con varios grupos: separados por espacios dentro de corchetes."""
+        import student_api
+        self.assertTrue(student_api.is_teacher({'cognito:groups': '[Teachers Admin]'}))
+
+    def test_non_teacher_with_bracket_space_multiple_groups(self):
+        import student_api
+        self.assertFalse(student_api.is_teacher({'cognito:groups': '[Students Testers]'}))
+
+    def test_empty_brackets_returns_false(self):
+        import student_api
+        self.assertFalse(student_api.is_teacher({'cognito:groups': '[]'}))
+
     def test_teacher_with_json_array_string_groups(self):
-        """API Gateway HTTP API v2 serializa el array JWT como string: '["Teachers"]'."""
+        """Formato alternativo (JSON array string) — no es el que llega hoy, pero se soporta."""
         import student_api
         self.assertTrue(student_api.is_teacher({'cognito:groups': '["Teachers"]'}))
 
@@ -406,7 +424,7 @@ class TestIsTeacher(unittest.TestCase):
         import student_api
         self.assertTrue(student_api.is_teacher({'cognito:groups': '["Students"," Teachers "]'}))
 
-    def test_json_string_not_a_list_falls_back_to_comma_split(self):
+    def test_json_string_not_a_list_falls_back_to_split(self):
         import student_api
         self.assertTrue(student_api.is_teacher({'cognito:groups': 'Teachers,Admin'}))
         self.assertFalse(student_api.is_teacher({'cognito:groups': 'not-an-array'}))
