@@ -33,8 +33,6 @@ async function login(email, password) {
     }
     localStorage.setItem("user_email", email);
 
-    // [DEBUG TEMPORAL] revertir
-    console.log('[login] token recién guardado, llamando isTeacher()…');
     window.location.href = isTeacher() ? "teacher.html" : "dashboard.html";
 }
 
@@ -80,25 +78,15 @@ async function refreshSession() {
 }
 
 function parseJwt(token) {
-    // [DEBUG TEMPORAL] instrumentación para el redirect a dashboard.html — revertir
-    if (!token) { console.log('[parseJwt] token falsy:', JSON.stringify(token)); return null; }
+    if (!token) return null;
     try {
-        const parts = token.split('.');
-        const base64Url = parts[1];
-        console.log('[parseJwt] parts:', parts.length,
-                    '| payload len:', base64Url && base64Url.length,
-                    '| len%4:', base64Url && (base64Url.length % 4));
+        const base64Url = token.split('.')[1];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const raw = atob(base64);
-        const jsonPayload = decodeURIComponent(raw.split('').map(function(c) {
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
             return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
         }).join(''));
-        const obj = JSON.parse(jsonPayload);
-        console.log('[parseJwt] OK — cognito:groups =', JSON.stringify(obj['cognito:groups']),
-                    '| iat:', obj.iat, '| exp:', obj.exp, '| token_use:', obj.token_use);
-        return obj;
+        return JSON.parse(jsonPayload);
     } catch (e) {
-        console.error('[parseJwt] THREW → return null:', e.name, '-', e.message);
         return null;
     }
 }
@@ -244,19 +232,10 @@ async function resendConfirmationCode(email) {
 // ========== VERIFICACIÓN DE ROLES ==========
 
 function isTeacher() {
-    // [DEBUG TEMPORAL] instrumentación para el redirect a dashboard.html — revertir
     const idToken = localStorage.getItem("id_token");
-    console.log('[isTeacher] id_token length:', idToken && idToken.length,
-                '| head:', idToken && idToken.slice(0, 24));
     const idPayload = parseJwt(idToken) || {};
-    console.log('[isTeacher] parseJwt result:', idPayload);
     const groups = idPayload['cognito:groups'] || [];
-    console.log('[isTeacher] groups =', JSON.stringify(groups),
-                '| typeof:', typeof groups, '| isArray:', Array.isArray(groups));
-    const result = groups.includes('Teachers');
-    console.log('[isTeacher] → returns', result,
-                '(' + (result ? 'teacher.html' : 'dashboard.html') + ')');
-    return result;
+    return groups.includes('Teachers');
 }
 
 // ========== RECUPERAR CONTRASEÑA ==========
