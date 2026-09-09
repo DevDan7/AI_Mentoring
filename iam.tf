@@ -204,7 +204,8 @@ resource "aws_iam_policy" "quiz_engine_policy" {
         Effect = "Allow"
         Action = [
           "dynamodb:Query",
-          "dynamodb:GetItem"
+          "dynamodb:GetItem",
+          "dynamodb:BatchGetItem"
         ]
         Resource = [
           aws_dynamodb_table.mentoring_questions_table.arn,
