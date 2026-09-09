@@ -72,6 +72,93 @@ En `is_teacher()` (y en el chequeo inline de `get_results()`): cuando `cognito:g
 
 ---
 
+## Fix HTTP 500 en resultados de simulado libre: falta `dynamodb:BatchGetItem` — 2026-09-08
+
+### Contexto
+Prueba E2E con la turma real `turma-beta-01`: el alumno completa un simulado libre y, al pulsar "Ver Resultados", `results.html` cae en el `catch` y muestra "Erro".
+
+### Problema
+`GET /quizzes/{quizId}/results` devuelve **HTTP 500**. La generación del quiz y el envío de respuestas funcionan; solo falla la pantalla de resultados.
+
+### Causa raíz
+`get_results()` (`quiz_engine.py`) enriquece cada respuesta con enunciado, respuestas correctas y explicación llamando `questions_table.meta.client.batch_get_item()` sobre `MentoringQuestions` (una sola llamada en lote para todos los `QuestionID`). El rol `quiz-engine-role` — statement `AllowReadQuestions` en `iam.tf` — solo concedía `dynamodb:Query` y `dynamodb:GetItem` sobre esa tabla. `batch_get_item` → `AccessDeniedException`:
+
+```
+[ERROR] ClientError: AccessDeniedException when calling the BatchGetItem operation:
+User: .../quiz-engine-role/quiz-engine is not authorized to perform:
+dynamodb:BatchGetItem on resource: .../table/MentoringQuestions
+  File "/var/task/quiz_engine.py", line 688, in get_results
+```
+
+Confirmado en CloudWatch `/aws/lambda/quiz-engine` (último evento 2026-09-07 15:59 UTC). `generate_quiz` y `submit_answer` no se ven afectados porque leen preguntas con `query` / `get_item`, que sí están permitidos.
+
+### Solución aplicada
+| Área | Cambio |
+|------|--------|
+| `iam.tf` → `AllowReadQuestions` | `Action` pasa de `["dynamodb:Query", "dynamodb:GetItem"]` a `[..., "dynamodb:BatchGetItem"]` |
+
+`BatchGetItem` opera sobre la tabla base, no requiere permiso adicional de índice. La política es efectiva de inmediato tras `terraform apply`; no hace falta redeploy de la Lambda. (PR #105)
+
+### Resultado
+- `terraform validate` OK; `terraform plan` acota el cambio a `aws_iam_policy.quiz_engine_policy`.
+- Flujo alumno → simulado libre → "Ver Resultados" carga el resumen (score, correctas/total) y el detalle pregunta por pregunta.
+
+### Lecciones
+- `query` / `get_item` y `batch_get_item` son acciones IAM distintas: conceder las primeras no habilita la tercera.
+- Un `AccessDeniedException` dentro de un handler que ya corre bien en otras rutas apunta a una acción puntual sin permiso, no a un problema de rol o de deploy.
+
+---
+
+## Diagnóstico: "el profesor no ve los resultados de los alumnos" — 2026-09-08
+
+### Contexto
+Reporte durante el E2E: el profesor (`Profesor Test`, en el grupo `Teachers` de Cognito) no logra ver los resultados de los alumnos. Hipótesis inicial: es porque el perfil del profesor no está asignado a ninguna turma.
+
+### Hallazgo
+La hipótesis es **falsa**. `list_all_students()` y `get_student_quizzes()` (`student_api.py`) solo validan `is_teacher(claims)` y devuelven **todos** los alumnos y su historial sin ningún filtro por cohorte. Que el perfil del profesor no tenga `CohortID` es irrelevante para su visibilidad.
+
+### Causas reales (una o varias)
+| # | Causa | Estado |
+|---|-------|--------|
+| a | **Token JWT viejo sin `cognito:groups`.** El claim solo aparece en tokens emitidos *después* de agregar al usuario al grupo `Teachers`. Sin re-login, `isTeacher()` (`auth.js`) devuelve `false` y `teacher.js` redirige a `dashboard.html` a los ~3 s. | Operativo: logout + login |
+| b | `KeyError: 'QUIZZES_TABLE'` en el import de `mentoring-student-api` (variable de entorno ausente) → 500 en cold start de rutas que tocan quizzes. | Resuelto por el deploy 2026-09-08 20:20 UTC (la env var ya está presente) |
+| c | El detalle pregunta-por-pregunta de un alumno pasa por `GET /quizzes/{id}/results`, el mismo endpoint afectado por el fix de `BatchGetItem` de arriba. | Resuelto (PR #105) |
+
+### Resultado
+Sin cambio de código. **Nota operativa**: cada vez que se agrega un profesor al grupo `Teachers`, debe cerrar y volver a iniciar sesión para que el nuevo `id_token` incluya el claim `cognito:groups`. Documentado también en `TEACHER_SETUP.md`.
+
+---
+
+## Falso positivo de `source_code_hash` en `terraform plan` local (`archive_file`) — 2026-09-08
+
+### Contexto
+Tras mergear un cambio que solo tocaba `amplify.tf`, un `terraform plan` local volvió a marcar las 3 Lambdas (`processor`, `quiz_engine`, `student_api`) como "update in-place" con `source_code_hash` distinto, pese a que ningún `.py` de `src/` había cambiado.
+
+### Causa raíz
+Los bloques `data "archive_file"` (`lambda.tf`, `lambda_quiz_engine.tf`, `lambda_student_api.tf`) no fijaban `output_file_mode`. El provider `hashicorp/archive` normaliza el `mtime` de las entradas del zip a una constante (la fecha no influye), **pero mete los bits de permiso del archivo en disco** en los atributos externos del zip:
+
+| Dónde corre el plan | umask | modo de `src/*.py` | efecto |
+|---------------------|-------|--------------------|--------|
+| Working tree local | 002 | `0664` | hash A |
+| `actions/checkout@v4` en `ubuntu-latest` | 022 | `0644` | hash B |
+
+`git config core.fileMode = true` pero git no marca como modificado el bit de grupo-escritura, así que `git status` queda limpio y `archive_file` igual empaqueta `0664`. El `apply` autoritativo corre en CI (`terraform-apply.yml` en cada push a `main`), desde un checkout `0644`; el `source_code_hash` desplegado corresponde a ese modo. Cualquier `plan` local con umask 002 mostraba las 3 Lambdas como cambiadas de forma permanente.
+
+Prueba: `chmod 0644 src/*.py && terraform plan` → `No changes`.
+
+### Solución aplicada
+`output_file_mode = "0644"` en los 3 bloques `data "archive_file"`. (PR #107)
+
+### Resultado
+- `terraform plan` → `No changes`, incluso con `src/*.py` en modo `0664`.
+- El hash deja de depender del umask de quien corra el plan; local y CI producen el mismo `source_code_hash`.
+
+### Lecciones
+- `archive_file` sin `output_file_mode` no es determinista entre máquinas con distinto umask.
+- Un plan que "siempre" quiere redeployar Lambdas con código idéntico casi siempre es este artefacto de permisos, no un cambio real.
+
+---
+
 ## Migración de Datos Ejecutada — 2026-09-07
 
 ### Contexto
