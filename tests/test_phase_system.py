@@ -347,6 +347,96 @@ class TestGenerateFinalExamReleaseDate(unittest.TestCase):
         body = json.loads(response['body'])
         self.assertIn('não liberado', body['error'])
 
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.questions_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    def test_naive_release_date_in_past_is_treated_as_utc(self, mock_results, mock_questions, mock_quizzes, mock_students):
+        """Regresión: 'YYYY-MM-DD' (naive) no debe tirar 500 — se asume UTC."""
+        import quiz_engine
+
+        student = make_student_item(phase='free_practice')
+        student['FinalExamReleaseDate'] = '2020-01-01'          # naive, pasado
+        mock_students.get_item.return_value = {'Item': student}
+        mock_quizzes.query.return_value = {'Items': []}
+        mock_results.query.return_value = {'Items': []}
+        mock_questions.query.return_value = {'Items': [make_question_item(f'q{i}') for i in range(70)]}
+        mock_quizzes.put_item.return_value = {}
+
+        response = quiz_engine.generate_final_exam('student-123')
+        self.assertEqual(response['statusCode'], 201)
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    def test_naive_release_date_in_future_returns_403(self, mock_quizzes, mock_students):
+        import quiz_engine
+
+        student = make_student_item(phase='free_practice')
+        student['FinalExamReleaseDate'] = '2999-01-01'          # naive, futuro
+        mock_students.get_item.return_value = {'Item': student}
+        mock_quizzes.query.return_value = {'Items': []}
+
+        response = quiz_engine.generate_final_exam('student-123')
+        self.assertEqual(response['statusCode'], 403)
+        self.assertIn('Exame disponível', json.loads(response['body'])['error'])
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    def test_malformed_release_date_returns_400(self, mock_quizzes, mock_students):
+        import quiz_engine
+
+        student = make_student_item(phase='free_practice')
+        student['FinalExamReleaseDate'] = 'no-es-fecha'
+        mock_students.get_item.return_value = {'Item': student}
+        mock_quizzes.query.return_value = {'Items': []}
+
+        response = quiz_engine.generate_final_exam('student-123')
+        self.assertEqual(response['statusCode'], 400)
+        self.assertIn('mal formada', json.loads(response['body'])['error'])
+
+
+class TestSetFinalExamRelease(unittest.TestCase):
+    """set_final_exam_release() valida y normaliza release_date a ISO con offset."""
+
+    TEACHER = {'sub': 'teacher-1', 'cognito:groups': '[Teachers]'}
+
+    @mock.patch('student_api.students_table')
+    def test_date_only_is_normalized_to_iso_utc(self, mock_students):
+        import student_api
+
+        mock_students.update_item.return_value = {}
+        event = make_api_event('PUT /students/s1/final-exam-release',
+                               body={'release_date': '2026-09-09'}, student_id='s1',
+                               claims=self.TEACHER)
+        response = student_api.set_final_exam_release(event, self.TEACHER, 's1')
+
+        self.assertEqual(response['statusCode'], 200)
+        self.assertEqual(json.loads(response['body'])['final_exam_release_date'],
+                         '2026-09-09T00:00:00+00:00')
+        stored = mock_students.update_item.call_args[1]['ExpressionAttributeValues'][':release_date']
+        self.assertEqual(stored, '2026-09-09T00:00:00+00:00')
+
+    @mock.patch('student_api.students_table')
+    def test_malformed_release_date_returns_400(self, mock_students):
+        import student_api
+
+        event = make_api_event('PUT /students/s1/final-exam-release',
+                               body={'release_date': 'xx'}, student_id='s1', claims=self.TEACHER)
+        response = student_api.set_final_exam_release(event, self.TEACHER, 's1')
+
+        self.assertEqual(response['statusCode'], 400)
+        mock_students.update_item.assert_not_called()
+
+    @mock.patch('student_api.students_table')
+    def test_missing_release_date_returns_400(self, mock_students):
+        import student_api
+
+        event = make_api_event('PUT /students/s1/final-exam-release', body={}, student_id='s1',
+                               claims=self.TEACHER)
+        response = student_api.set_final_exam_release(event, self.TEACHER, 's1')
+
+        self.assertEqual(response['statusCode'], 400)
+
 
 class TestIsTeacher(unittest.TestCase):
     """Verifica is_teacher() con claim como lista, string o ausente (Req. 12.2)."""
