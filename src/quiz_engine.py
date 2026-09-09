@@ -1,6 +1,7 @@
 import json
 import uuid
 import os
+import re
 import boto3
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -107,6 +108,47 @@ def build_response(status_code, body):
         'headers': HEADERS,
         'body': json.dumps(body)
     }
+
+
+def is_teacher(claims):
+    """True si el usuario pertenece al grupo Cognito 'Teachers'.
+
+    Tolera todos los formatos en que puede llegar el claim 'cognito:groups',
+    sin lanzar excepción:
+      - API Gateway HTTP API v2: string con corchetes, separado por espacios y
+        SIN comillas  ->  "[Teachers]"  |  "[Teachers Admin]"
+      - JSON array string (por si AWS cambia el formato): '["Teachers"]'
+      - lista/tupla/set nativa: ["Teachers", "Admin"]
+      - string separado por comas (legacy): "Teachers,Admin"
+      - None / no-dict / tipo no soportado  ->  False
+
+    NOTA: función DUPLICADA IDÉNTICA en student_api.py y quiz_engine.py — cada
+    Lambda se empaqueta como un único .py (archive_file source_file), no hay
+    módulo compartido. Si se cambia una copia, cambiar la otra.
+    """
+    if not isinstance(claims, dict):
+        return False
+
+    raw = claims.get('cognito:groups')
+
+    if isinstance(raw, (list, tuple, set)):
+        groups = {str(g).strip() for g in raw}
+    elif isinstance(raw, str):
+        text = raw.strip()
+        try:
+            parsed = json.loads(text)
+            groups = (
+                {str(g).strip() for g in parsed}
+                if isinstance(parsed, list)
+                else {str(parsed).strip()}
+            )
+        except (json.JSONDecodeError, TypeError):
+            # "[Teachers Admin]" / "Teachers,Admin" -> quitar corchetes y separar
+            groups = {t for t in re.split(r'[\s,]+', text.strip('[]')) if t}
+    else:
+        groups = set()
+
+    return 'Teachers' in groups
 
 
 def check_student_access(student_id):
@@ -647,24 +689,7 @@ def get_results(quiz_id, student_id, claims=None):
         return build_response(404, {'error': f'Quiz not found: {quiz_id}'})
 
     # Un Teacher puede consultar resultados de cualquier alumno
-    is_teacher_request = False
-    if claims and isinstance(claims, dict):
-        raw_groups = claims.get('cognito:groups') or []
-        if isinstance(raw_groups, str):
-            # API Gateway HTTP API v2 serializa arrays JWT como JSON string: '["Teachers"]'
-            try:
-                parsed = json.loads(raw_groups)
-                if isinstance(parsed, list):
-                    groups = {str(g).strip().strip('"').strip("'") for g in parsed}
-                else:
-                    groups = {str(parsed).strip().strip('"').strip("'")}
-            except (json.JSONDecodeError, TypeError):
-                groups = {g.strip().strip('"').strip("'") for g in raw_groups.split(',')}
-        elif isinstance(raw_groups, (list, tuple, set)):
-            groups = {str(g).strip().strip('"').strip("'") for g in raw_groups}
-        else:
-            groups = set()
-        is_teacher_request = 'Teachers' in groups
+    is_teacher_request = is_teacher(claims)
 
     if quiz.get('StudentID') != student_id and not is_teacher_request:
         return build_response(403, {'error': 'Forbidden: You cannot access results for a quiz that is not yours'})
