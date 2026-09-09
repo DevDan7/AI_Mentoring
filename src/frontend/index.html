@@ -157,6 +157,8 @@
         // Redirecionar ao Painel se já houver sessão ativa
         const token = localStorage.getItem("id_token");
 if (token && !isTokenExpired(token)) {
+        // [DEBUG TEMPORAL] revertir
+        console.log('[index] sesión previa detectada, isTeacher() decide redirect');
         window.location.href = isTeacher() ? "teacher.html" : "dashboard.html";
     }
 
