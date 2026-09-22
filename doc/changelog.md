@@ -6,6 +6,28 @@
 
 ## 2026-09
 
+### 22 Sep — Validación manual E2E completa del examen final (turma-beta-01)
+- **Resultado**: alumno `bomjob8@gmail.com` completó el examen final de 65 preguntas sin
+  error 500 (confirma el fix tz-naive de `FinalExamReleaseDate`, PR #112, en producción
+  real). Score 73.4% (47/64 correctas; 1 pregunta sin responder — pendiente investigar si
+  fue timeout de sesión o comportamiento esperado del frontend, ver `roadmap.html`).
+- `domain_breakdown` mostrado correctamente en `results.html`: Billing 100%, Cloud
+  Concepts 43.8%, Cloud Technology 77.3%, Security 84.2%.
+- Cierra la validación end-to-end pendiente desde la restructuración MVP (Fase 7e, 06 Sep).
+
+### 22 Sep — Fix HTTP 500 en "Resetar tentativa" del profesor (permiso IAM faltante)
+- **Problema**: detectado durante la misma verificación E2E. El botón "Resetar tentativa"
+  en `teacher.html` (`DELETE /students/{studentId}/final-exam-attempt`) devolvía 500.
+- **Causa raíz**: `reset_final_exam_attempt()` (`student_api.py`) hace `update_item` sobre
+  `Quizzes`, pero el rol `mentoring-student-api-role` solo tenía `dynamodb:Query` sobre esa
+  tabla — nunca se agregó `UpdateItem`. Confirmado en CloudWatch
+  (`/aws/lambda/mentoring-student-api`, `AccessDeniedException`). Mismo patrón recurrente
+  de permisos IAM no sincronizados con nuevos accesos a tabla (ver Etapa 1, 05-Sep).
+- **Solución**: nuevo statement `AllowResetFinalExamAttempt` en `iam_student_api.tf` con
+  `dynamodb:UpdateItem` scoped solo a la tabla base `Quizzes` (sin ARN de índice, sin
+  `Resource: "*"`). Sin cambios en `student_api.py`.
+- Archivos: `iam_student_api.tf` (PR pendiente).
+
 ### 10 Sep — Auditoría de correctitud de las 203 preguntas de `MentoringQuestions`
 - **Motivación**: preguntas del banco CLF-C02 con la respuesta marcada (`Options[*].is_correct`) que no coincide con la documentación oficial de AWS, más inconsistencias internas (`CorrectCount` ≠ nº de opciones marcadas, `QuestionType` vs nº de correctas). No existía herramienta de validación de correctitud (solo `detectar_duplicados_contenido.py` para enunciados duplicados).
 - **Método**: export solo-lectura de la tabla + chequeos estructurales deterministas; luego auditoría pregunta por pregunta contra `docs.aws.amazon.com` / FAQs / whitepapers oficiales (13 lotes en subagentes con búsqueda web). Sin escrituras a DynamoDB en la fase de auditoría.
