@@ -66,6 +66,12 @@ resource "aws_iam_policy" "student_api_policy" {
         ]
       },
       {
+        Sid      = "AllowResetFinalExamAttempt"
+        Effect   = "Allow"
+        Action   = ["dynamodb:UpdateItem"]
+        Resource = aws_dynamodb_table.quizzes.arn
+      },
+      {
         Sid    = "AllowLambdaLogs"
         Effect = "Allow"
         Action = [
