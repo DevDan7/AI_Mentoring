@@ -6,6 +6,13 @@
 
 ## 2026-09
 
+### 10 Sep — Auditoría de correctitud de las 203 preguntas de `MentoringQuestions`
+- **Motivación**: preguntas del banco CLF-C02 con la respuesta marcada (`Options[*].is_correct`) que no coincide con la documentación oficial de AWS, más inconsistencias internas (`CorrectCount` ≠ nº de opciones marcadas, `QuestionType` vs nº de correctas). No existía herramienta de validación de correctitud (solo `detectar_duplicados_contenido.py` para enunciados duplicados).
+- **Método**: export solo-lectura de la tabla + chequeos estructurales deterministas; luego auditoría pregunta por pregunta contra `docs.aws.amazon.com` / FAQs / whitepapers oficiales (13 lotes en subagentes con búsqueda web). Sin escrituras a DynamoDB en la fase de auditoría.
+- **Resultado**: 203 auditadas → **178 OK, 17 WRONG, 6 DISCREPANCY, 2 UNVERIFIABLE**. 20 correcciones propuestas (17 respuestas erradas + 3 ajustes de metadata single/multiple). Reporte y `audit_corrections.json` entregados aparte (fuera del repo).
+- **Tooling nuevo**: `scripts/migrate_fix_answers.py` — script **manual-only** (nunca CI/CD) que aplica las correcciones aprobadas (`"approved": true` en `audit_corrections.json`): `--dry-run` por defecto, backup completo `scripts/backup_pre_fix_answers_<ts>.json` antes de `--apply`, `update_item` solo sobre `Options[*].is_correct` y `CorrectCount`. Restaurable con `scripts/migrate_restore.py`.
+- Archivos: `scripts/migrate_fix_answers.py` (nuevo). Ejecución de las correcciones: pendiente de revisión manual de Daniel.
+
 ### 08 Sep — Fix HTTP 500 en resultados de simulado libre (permiso `dynamodb:BatchGetItem`)
 - **Problema**: En el E2E con `turma-beta-01`, al terminar un simulado libre y pulsar "Ver Resultados" la pantalla mostraba "Erro". `GET /quizzes/{quizId}/results` devolvía HTTP 500.
 - **Causa raíz**: `get_results()` (`quiz_engine.py`) usa `questions_table.meta.client.batch_get_item()` sobre `MentoringQuestions` para traer enunciados/respuestas correctas/explicaciones en lote. El rol `quiz-engine-role` (statement `AllowReadQuestions` en `iam.tf`) solo tenía `dynamodb:Query` y `dynamodb:GetItem` → `AccessDeniedException`. Confirmado en CloudWatch `/aws/lambda/quiz-engine` (último evento 2026-09-07 15:59 UTC). `generate_quiz` y `submit_answer` no fallaban porque usan `query`/`get_item`.
