@@ -12,7 +12,7 @@
             <li><strong>☁️ AI Mentoring Cloud</strong></li>
         </ul>
         <ul>
-            <li><a href="dashboard.html" role="button" class="secondary outline">Voltar ao Painel</a></li>
+            <li><a href="dashboard.html" id="navBackLink" role="button" class="secondary outline">Voltar ao Painel</a></li>
         </ul>
     </nav>
 
@@ -28,7 +28,7 @@
             <article>
                 <header><h4 style="color: var(--pico-color-red-500);">Erro</h4></header>
                 <p id="errorMessage">Não foi possível carregar os resultados.</p>
-                <a href="dashboard.html" role="button">Voltar ao Painel</a>
+                <a href="dashboard.html" id="errorBackLink" role="button">Voltar ao Painel</a>
             </article>
         </div>
 
@@ -73,7 +73,7 @@
                 <div id="answersContainer"></div>
 
                 <div style="margin-top: 2rem; text-align: center;">
-                    <a href="dashboard.html" role="button">Realizar Outro Simulado</a>
+                    <a href="dashboard.html" id="retakeLink" role="button">Realizar Outro Simulado</a>
                 </div>
             </article>
         </div>
@@ -92,6 +92,13 @@
 
             const token = await checkAuth();
             if (!token) return;
+
+            // Um professor sempre volta para teacher.html, nunca para dashboard.html
+            // (o profesor pode chegar aqui via "Ver detalhes" no painel do professor).
+            const backHref = isTeacher() ? "teacher.html" : "dashboard.html";
+            document.getElementById("navBackLink").href = backHref;
+            document.getElementById("errorBackLink").href = backHref;
+            document.getElementById("retakeLink").href = backHref;
 
             // Extraer quizId de los parámetros URL o del localStorage (fallback)
             const urlParams = new URLSearchParams(window.location.search);
