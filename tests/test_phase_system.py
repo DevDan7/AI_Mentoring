@@ -139,6 +139,21 @@ class TestCreateStudentPhaseFields(unittest.TestCase):
         body = json.loads(response['body'])
         self.assertIn('Turma está cheia', body['message'])
 
+    @mock.patch('student_api.students_table')
+    def test_create_student_rejected_for_teacher(self, mock_students):
+        """Un profesor no debe poder crear un perfil de alumno (bug: 'realizar outro
+        simulado' hacia que la cuenta de profesor terminara con StudentID en Students)."""
+        import student_api
+
+        event = make_api_event('POST /students', body={'name': 'Prof'})
+        claims = {'sub': 'teacher-123', 'email': 'prof@test.com', 'name': 'Prof',
+                  'cognito:groups': '["Teachers"]'}
+
+        response = student_api.create_student(event, claims)
+
+        self.assertEqual(response['statusCode'], 403)
+        mock_students.put_item.assert_not_called()
+
 
 class TestGenerateQuizPhaseRestriction(unittest.TestCase):
     """Verifica que generate_quiz restrinja tipos según la fase."""
