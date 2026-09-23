@@ -739,19 +739,19 @@
                     </tr>
                     <tr>
                         <td>14</td>
-                        <td><strong>Preguntas repetidas en examen final</strong><br><small>Detectado en prueba E2E del 22-Sep: revisar lógica anti-repetición de generate_final_exam</small></td>
-                        <td>Por definir</td>
-                        <td>—</td>
+                        <td><strong>Preguntas repetidas en examen final</strong><br><small>Causa: TopicIndex sin sort key devolvía siempre el mismo orden; fix con random.shuffle() (22-Sep)</small></td>
+                        <td class="priority-high">Alta</td>
+                        <td>1 hora</td>
                         <td>quiz_engine.py</td>
-                        <td><span class="phase-badge badge-future">Pendiente</span></td>
+                        <td><span class="phase-badge badge-done">✅ Corrigido (22 Sep) — pendente terraform apply + validação manual</span></td>
                     </tr>
                     <tr>
                         <td>15</td>
-                        <td><strong>Detalle pregunta-por-pregunta en panel del profesor</strong><br><small>teacher.html solo muestra score/status por intento; el alumno sí ve el detalle en results.html</small></td>
-                        <td>Por definir</td>
-                        <td>—</td>
-                        <td>teacher.html, teacher.js</td>
-                        <td><span class="phase-badge badge-future">Pendiente</span></td>
+                        <td><strong>Detalle pregunta-por-pregunta en panel do professor</strong><br><small>Link "Ver detalhes" reutiliza results.html; backend ya lo soportaba (22-Sep)</small></td>
+                        <td class="priority-medium">Média</td>
+                        <td>1 hora</td>
+                        <td>teacher.html, teacher.js, api.js</td>
+                        <td><span class="phase-badge badge-done">✅ Corrigido (22 Sep) — pendente validação manual</span></td>
                     </tr>
                 </tbody>
             </table>
