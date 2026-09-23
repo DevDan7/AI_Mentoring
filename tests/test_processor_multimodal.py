@@ -275,6 +275,45 @@ class TestProcessorMultimodal(unittest.TestCase):
         self.assertNotEqual(first_item["QuestionID"], second_item["QuestionID"])
         self.assertEqual(first_item["ContentHash"], second_item["ContentHash"])
 
+    @mock.patch("processor.SNS_TOPIC_ARN", "arn:aws:sns:us-east-1:123:topic")
+    @mock.patch("processor.sns_client")
+    @mock.patch("processor.dynamodb")
+    @mock.patch("processor.bedrock_runtime")
+    @mock.patch("processor.s3_client")
+    def test_casi_duplicado_alerta_sns_pero_igual_inserta(
+        self, s3_client, bedrock_runtime, dynamodb, sns_client
+    ):
+        """Bug reportado (22-Sep): preguntas casi-idénticas con QuestionID distinto no
+        eran detectadas por el ContentHash exacto. Fix: comparación de similitud contra
+        el pool del mismo Topic -- alerta SNS para revisión manual, pero NO bloquea el
+        insert (podría ser un falso positivo)."""
+        s3_client.get_object.return_value = {"Body": FakeBody(b"pngdata")}
+        bedrock_runtime.invoke_model.return_value = make_bedrock_response(make_valid_json())
+        table = mock.MagicMock()
+        dynamodb.Table.return_value = table
+
+        def query_side_effect(**kwargs):
+            if kwargs.get("IndexName") == "ContentHashIndex":
+                return {"Items": []}  # no es duplicado exacto
+            if kwargs.get("IndexName") == "TopicIndex":
+                return {"Items": [{
+                    "QuestionID": "existing-id",
+                    # Misma pregunta, singular en vez de plural
+                    "QuestionText": "Which AWS service runs container?",
+                }]}
+            return {"Items": []}
+
+        table.query.side_effect = query_side_effect
+
+        result = processor.lambda_handler(make_event("foto_parecida.png"), None)
+
+        self.assertEqual(result["statusCode"], 200)
+        table.put_item.assert_called_once()  # no se bloquea el insert
+        sns_client.publish.assert_called_once()
+        message = sns_client.publish.call_args.kwargs["Message"]
+        self.assertIn("casi-duplicado", message)
+        self.assertIn("existing-id", message)
+
 
 if __name__ == "__main__":
     unittest.main()
