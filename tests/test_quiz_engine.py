@@ -82,6 +82,34 @@ def make_result_item(result_id='r1', quiz_id='quiz-123', question_id='q1',
     }
 
 
+class TestCleanQuestionLang(unittest.TestCase):
+    """Traducción PT-BR del contenido de la BD: clean_question(q, lang) devuelve el
+    texto traducido si existe, y cae a inglés si falta (pregunta vieja sin traducir)."""
+
+    def test_lang_en_default_returns_english(self):
+        import quiz_engine
+        q = make_question_item()
+        cleaned = quiz_engine.clean_question(q)
+        self.assertEqual(cleaned['statement'], 'Statement q1?')
+        self.assertEqual(cleaned['options']['A']['text'], 'Option A')
+
+    def test_lang_pt_returns_translation_when_present(self):
+        import quiz_engine
+        q = make_question_item()
+        q['QuestionText_pt'] = 'Enunciado q1?'
+        q['Options']['A']['text_pt'] = 'Opção A'
+        cleaned = quiz_engine.clean_question(q, lang='pt')
+        self.assertEqual(cleaned['statement'], 'Enunciado q1?')
+        self.assertEqual(cleaned['options']['A']['text'], 'Opção A')
+
+    def test_lang_pt_falls_back_to_english_when_missing(self):
+        import quiz_engine
+        q = make_question_item()  # sin campos _pt
+        cleaned = quiz_engine.clean_question(q, lang='pt')
+        self.assertEqual(cleaned['statement'], 'Statement q1?')
+        self.assertEqual(cleaned['options']['A']['text'], 'Option A')
+
+
 class TestGenerateFinalExamResume(unittest.TestCase):
     """Tarea 9.2: reanudación del examen final en progreso."""
 
@@ -218,6 +246,39 @@ class TestGetResultsEnrichment(unittest.TestCase):
         self.assertEqual(answer['explanation'], 'Because A')
         self.assertFalse(answer['is_correct'])
         self.assertNotIn('domain_breakdown', body)
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_lang_pt_localizes_statement_and_explanation(
+        self, mock_questions, mock_results, mock_quizzes, mock_students
+    ):
+        import quiz_engine
+
+        quiz = {
+            'QuizID': 'quiz-free', 'StudentID': 'student-123', 'QuizType': 'free',
+            'Topic': 'Cloud Concepts & Well-Architected', 'Questions': ['q1'],
+            'Status': 'completed', 'CreatedAt': datetime.now(timezone.utc).isoformat(),
+        }
+        question = make_question_item('q1')
+        question['QuestionText_pt'] = 'Enunciado q1?'
+        question['Options']['A']['explanation_pt'] = 'Porque A'
+
+        mock_questions.name = 'test-questions'
+        mock_quizzes.get_item.return_value = {'Item': quiz}
+        mock_results.query.return_value = {'Items': [
+            make_result_item(quiz_id='quiz-free', question_id='q1', given=['A'], correct=['A'])
+        ]}
+        mock_questions.meta.client.batch_get_item.return_value = {
+            'Responses': {'test-questions': [question]}
+        }
+
+        response = quiz_engine.get_results('quiz-free', 'student-123', lang='pt')
+        answer = json.loads(response['body'])['answers'][0]
+
+        self.assertEqual(answer['statement'], 'Enunciado q1?')
+        self.assertEqual(answer['explanation'], 'Porque A')
 
     @mock.patch('quiz_engine.students_table')
     @mock.patch('quiz_engine.quizzes_table')

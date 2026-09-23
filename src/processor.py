@@ -146,18 +146,26 @@ categories. Do NOT invent new topics. Map the question to the closest match:
 - "Application Integration & Serverless Architecture" — Step Functions, SQS, SNS, EventBridge, API Gateway, AppSync, serverless orchestration
 - "General / Otros Servicios" — if the question does not clearly fit any category above
 
-Return strictly a JSON object with this exact structure, entirely in English:
+Additionally, provide a Brazilian Portuguese (PT-BR) translation of the question
+statement and of each option's text and explanation (natural, technical PT-BR, not a
+literal word-by-word translation), in the "_pt" fields below.
+
+Return strictly a JSON object with this exact structure, entirely in English (plus the
+"_pt" translation fields):
 {{
     "topic": "One of the 10 canonical categories listed above",
     "difficulty": "Difficulty level (Easy, Medium, Hard)",
     "question_text": "The full question statement, translated to English",
+    "question_text_pt": "The full question statement, in Brazilian Portuguese",
     "question_type": "single or multiple",
     "correct_count": "Number of options that are correct (integer, e.g. 1, 2, or 3)",
     "options": {{
         "A": {{
             "text": "Option A text, translated to English",
+            "text_pt": "Option A text, in Brazilian Portuguese",
             "is_correct": true or false,
             "explanation": "Why this option is correct or incorrect, explained for a Junior student",
+            "explanation_pt": "Same explanation, in Brazilian Portuguese",
             "keywords": "2-3 AWS technical keywords associated with this option"
         }},
         "B": {{ ... same structure ... }},
@@ -255,6 +263,7 @@ Do not include any text outside the JSON. Do not use markdown or code blocks.
                         "Topic": ai_data["topic"],
                         "Difficulty": ai_data["difficulty"],
                         "QuestionText": ai_data["question_text"],
+                        "QuestionText_pt": ai_data.get("question_text_pt", ""),
                         "QuestionType": ai_data["question_type"],
                         "CorrectCount": int(ai_data["correct_count"]),
                         "Options": ai_data["options"],

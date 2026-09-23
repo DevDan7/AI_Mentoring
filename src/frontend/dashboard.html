@@ -179,12 +179,15 @@
                     };
                 }
 
-                let html = `<table><thead><tr><th>${t("dash.col.type")}</th><th>${t("dash.col.topic")}</th><th>${t("dash.col.status")}</th><th>${t("dash.col.score")}</th><th>${t("dash.col.date")}</th></tr></thead><tbody>`;
+                let html = `<table><thead><tr><th>${t("dash.col.type")}</th><th>${t("dash.col.topic")}</th><th>${t("dash.col.status")}</th><th>${t("dash.col.score")}</th><th>${t("dash.col.date")}</th><th>${t("teacher.col.details")}</th></tr></thead><tbody>`;
                 for (const q of quizzes) {
                     const type = tEnum('quizType', q.quiz_type);
                     const score = q.score_percentage !== null && q.score_percentage !== undefined ? `${q.score_percentage}%` : '-';
                     const date = q.completed_at ? new Date(q.completed_at).toLocaleDateString(getLocale()) : '-';
-                    html += `<tr><td>${esc(type)}</td><td>${esc(q.topic || '')}</td><td>${esc(tEnum('status', q.status))}</td><td>${score}</td><td>${esc(date)}</td></tr>`;
+                    const details = q.status === 'completed'
+                        ? `<a href="results.html?quizId=${encodeURIComponent(q.quiz_id)}">${esc(t("teacher.viewDetails"))}</a>`
+                        : '-';
+                    html += `<tr><td>${esc(type)}</td><td>${esc(q.topic || '')}</td><td>${esc(tEnum('status', q.status))}</td><td>${score}</td><td>${esc(date)}</td><td>${details}</td></tr>`;
                 }
                 html += "</tbody></table>";
                 container.innerHTML = html;
