@@ -6,6 +6,66 @@
 
 ## 2026-09
 
+### 23 Sep — Reclasificación (reporte, sin aplicar) para separar "Well-Architected" de "Cloud Concepts"
+- **Motivación**: Daniel confirmó que "demasiadas preguntas de Well-Architected" se
+  refiere al framework de 6 pilares específicamente, no al Dominio 1 completo (hoy
+  16/65, alineado al blueprint oficial). El keyword-match subestimaba el conteo real
+  (solo 5/16 mencionan "well-architected" literalmente en el texto).
+- **Script nuevo**: `scripts/reclasificar_well_architected.py` (mismo patrón que
+  `normalizar_temas.py`/`migrate_fix_answers.py`: reporte primero, `--apply` separado con
+  backup). Usa Bedrock (mismo modelo que `processor.py`) para clasificar semánticamente
+  cada una de las 51 preguntas de `"Cloud Concepts & Well-Architected"` en
+  `well_architected_framework` o `cloud_concepts_general`.
+- **Bug encontrado y corregido durante el desarrollo**: la primera corrida falló 51/51
+  (`JSONDecodeError`) porque el script no removía los fences ```` ```json ```` de la
+  respuesta de Bedrock antes de parsear — a diferencia de `processor.py`, que sí lo hace
+  (líneas 241-242). Corregido para replicar ese mismo paso de limpieza.
+- **Resultado del reporte** (`scripts/reporte_reclasificacion_well_architected.json`):
+  **17 preguntas → `AWS Well-Architected Framework`, 34 → `Cloud Concepts & Value
+  Proposition`**, 0 errores. Confirma que hay pool de sobra para los 6 que pide Daniel en
+  el examen final (17 disponibles) y los ~10 de Cloud Concepts general (34 disponibles).
+- **Pendiente de Daniel**: revisar el reporte, marcar `"approved": true` en los ítems
+  correctos, y avisar antes de correr `--apply` (reclasificación real en DynamoDB, con
+  backup) y actualizar `FINAL_EXAM_DISTRIBUTION`/`INITIAL_TEST_DISTRIBUTION` en
+  `quiz_engine.py` — ningún cambio de distribución se aplicó todavía.
+- Archivos: `scripts/reclasificar_well_architected.py` (nuevo, no commiteado a `main`
+  todavía — en rama separada).
+
+### 23 Sep — Causa real de "preguntas repetidas": casi-duplicados no detectados por ContentHash
+- **Problema**: tras el fix de aleatoriedad de ayer (verificado: 0 `QuestionID` duplicados
+  dentro del examen, distribución por tema exacta al diseño), Daniel seguía viendo
+  preguntas repetidas en el examen final.
+- **Causa raíz confirmada**: no son duplicados de `QuestionID` ni de tema — son preguntas
+  CASI-idénticas con `QuestionID` distinto que el `ContentHash` exacto no atrapa (un
+  cambio de una sola palabra ya produce un hash distinto). Verificado con datos reales del
+  examen de `bomjob8@gmail.com` de hoy: 8 pares con similitud de texto >0.85 (ej. "Which
+  AWS **offering**..." vs "Which AWS **service offering**...", 0.97 de similitud; un par
+  con la palabra "Fornece" en portugués mezclada en texto en inglés, señal de que es la
+  misma foto procesada dos veces por Bedrock con variación de OCR). Auditoría completa del
+  banco (203 preguntas, `scripts/detectar_casi_duplicados_contenido.py`, umbral 0.85):
+  **69 pares casi-duplicados** — pendiente de revisión manual antes de limpiar.
+- **Solución**:
+  - `scripts/detectar_casi_duplicados_contenido.py` (nuevo, solo-lectura): compara todas
+    las preguntas por similitud de texto (`difflib.SequenceMatcher`), genera
+    `scripts/reporte_casi_duplicados_contenido.json` para revisión manual.
+  - `scripts/limpiar_casi_duplicados_contenido.py` (nuevo): borra SOLO los pares ya
+    marcados `"reviewed": true` + `"approved_remove"` en el reporte — nunca decide solo
+    cuál borrar (a diferencia del script de duplicados exactos), con backup previo
+    obligatorio.
+  - `src/processor.py`: nueva función `find_near_duplicate()` — antes de insertar una
+    pregunta nueva, compara contra el pool existente del mismo `Topic`; si supera el
+    umbral de similitud, NO bloquea el insert (podría ser un falso positivo) pero publica
+    la alerta SNS existente (`notify_unprocessable`) para revisión manual, en vez de
+    quedar en silencio.
+- **Pendiente de Daniel**: revisar `scripts/reporte_casi_duplicados_contenido.json` (69
+  pares) y completar `approved_remove` antes de correr `limpiar_casi_duplicados_contenido.py
+  --apply`.
+- Test nuevo en `tests/test_processor_multimodal.py`
+  (`test_casi_duplicado_alerta_sns_pero_igual_inserta`). 81/81 tests en verde.
+- Archivos: `scripts/detectar_casi_duplicados_contenido.py` (nuevo),
+  `scripts/limpiar_casi_duplicados_contenido.py` (nuevo), `src/processor.py`,
+  `tests/test_processor_multimodal.py`.
+
 ### 23 Sep — Fix: el profesor no debe poder "convertirse" en alumno
 - **Problema**: al usar "Realizar Outro Simulado" desde el perfil de profesor, la cuenta
   pasaba a comportarse como alumno.

@@ -7,6 +7,7 @@ import unicodedata
 import urllib.parse
 import uuid
 from datetime import datetime
+from difflib import SequenceMatcher
 
 import boto3
 from botocore.config import Config
@@ -15,6 +16,7 @@ from boto3.dynamodb.conditions import Key
 
 TABLE_NAME = os.environ.get("TABLE_NAME", "MentoringQuestions")
 SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN", "")
+NEAR_DUPLICATE_THRESHOLD = 0.85
 
 # Taxonomía canónica de categorías (debe coincidir con dashboard.html <select> y mapa_temas.json)
 CANONICAL_TOPICS = [
@@ -51,6 +53,40 @@ def content_hash(text):
     normalized = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
     normalized = re.sub(r"[^a-z0-9]", "", normalized.lower())
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def normalize_for_similarity(text):
+    """Normaliza conservando espacios (a diferencia de content_hash), para comparar
+    similitud de texto con SequenceMatcher en vez de coincidencia exacta."""
+    normalized = unicodedata.normalize("NFKD", text or "").encode("ascii", "ignore").decode()
+    normalized = re.sub(r"[^a-z0-9\s]", " ", normalized.lower())
+    return re.sub(r"\s+", " ", normalized).strip()
+
+
+def find_near_duplicate(table, topic, question_text):
+    """Busca, dentro del mismo Topic, una pregunta ya existente cuyo enunciado sea muy
+    similar (no idéntico -- eso ya lo cubre ContentHash) al nuevo. No es una decisión
+    determinística como el hash exacto: puede haber falsos positivos (dos preguntas
+    legítimamente distintas pero parecidas), así que esto NUNCA bloquea el insert -- solo
+    dispara una alerta SNS para revisión manual (ver notify_unprocessable / scripts/
+    detectar_casi_duplicados_contenido.py).
+    """
+    normalized_new = normalize_for_similarity(question_text)
+    if not normalized_new:
+        return None
+
+    response = table.query(
+        IndexName="TopicIndex",
+        KeyConditionExpression=Key("Topic").eq(topic),
+    )
+    for existing in response.get("Items", []):
+        existing_text = normalize_for_similarity(existing.get("QuestionText", ""))
+        if not existing_text:
+            continue
+        ratio = SequenceMatcher(None, normalized_new, existing_text).ratio()
+        if ratio >= NEAR_DUPLICATE_THRESHOLD:
+            return existing.get("QuestionID"), ratio
+    return None
 
 
 def notify_unprocessable(file_key, bucket_name, reason):
@@ -245,6 +281,18 @@ Do not include any text outside the JSON. Do not use markdown or code blocks.
                     f"Duplicado por contenido detectado, omitiendo: {file_key}"
                 )
                 continue
+
+            # 4b. Casi-duplicados (misma pregunta con redacción levemente distinta):
+            # no bloquea el insert (podría ser un falso positivo), pero alerta por SNS
+            # para revisión manual en vez de quedar en silencio.
+            near_dup = find_near_duplicate(table, ai_data["topic"], ai_data["question_text"])
+            if near_dup:
+                near_dup_id, near_dup_ratio = near_dup
+                notify_unprocessable(
+                    file_key, bucket_name,
+                    f"posible casi-duplicado (similitud {near_dup_ratio:.2f}) de "
+                    f"QuestionID={near_dup_id}, revisar manualmente"
+                )
 
             # 5. Guardar en DynamoDB
             try:
