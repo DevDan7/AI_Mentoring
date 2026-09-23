@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mentoring - Painel</title>
+    <title data-i18n="dash.pageTitle">AI Mentoring - Painel</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <link rel="stylesheet" href="css/theme.css">
 </head>
@@ -13,8 +13,9 @@
             <li><strong>☁️ AI Mentoring Cloud</strong></li>
         </ul>
         <ul>
-            <li><span id="userName">Carregando perfil...</span></li>
-            <li><a href="#" role="button" class="secondary" onclick="logout()">Sair</a></li>
+            <li><span id="userName" data-i18n="dash.loadingProfile">Carregando perfil...</span></li>
+            <li id="langSwitcher"></li>
+            <li><a href="#" role="button" class="secondary" onclick="logout()" data-i18n="common.logout">Sair</a></li>
         </ul>
     </nav>
 
@@ -24,11 +25,11 @@
         <section>
             <article>
                 <header>
-                    <h4>Perfil do Aluno</h4>
+                    <h4 data-i18n="dash.profileTitle">Perfil do Aluno</h4>
                 </header>
                 <div class="grid">
-                    <div><strong>E-mail:</strong> <span id="userEmail">-</span></div>
-                    <div><strong>Turma:</strong> <span id="userCohort">-</span></div>
+                    <div><strong data-i18n="dash.email">E-mail:</strong> <span id="userEmail">-</span></div>
+                    <div><strong data-i18n="dash.cohort">Turma:</strong> <span id="userCohort">-</span></div>
                 </div>
             </article>
         </section>
@@ -36,18 +37,18 @@
         <!-- Aviso destacado de diagnóstico inicial (Req. 11.4) -->
         <section id="initialTestBanner" style="display: none;">
             <article style="background: var(--pico-color-blue-50);">
-                <h4>Você ainda não realizou seu diagnóstico inicial</h4>
-                <p>O diagnóstico inicial ajuda a conhecer seu ponto de partida na preparação para o AWS Cloud Practitioner.</p>
-                <button id="startInitialTestBtn" role="button">Fazer Diagnóstico Inicial</button>
+                <h4 data-i18n="dash.initialTitle">Você ainda não realizou seu diagnóstico inicial</h4>
+                <p data-i18n="dash.initialText">O diagnóstico inicial ajuda a conhecer seu ponto de partida na preparação para o AWS Cloud Practitioner.</p>
+                <button id="startInitialTestBtn" role="button" data-i18n="dash.initialBtn">Fazer Diagnóstico Inicial</button>
             </article>
         </section>
 
         <!-- Retomar examen final en progreso (Req. 11.5) -->
         <section id="resumeFinalExamBanner" style="display: none;">
             <article style="background: var(--pico-color-yellow-50);">
-                <h4>Você tem um exame final em progresso</h4>
-                <p>Retome de onde parou para não perder as respostas já enviadas.</p>
-                <button id="resumeFinalExamBtn" role="button">Retomar Exame Final</button>
+                <h4 data-i18n="dash.resumeTitle">Você tem um exame final em progresso</h4>
+                <p data-i18n="dash.resumeText">Retome de onde parou para não perder as respostas já enviadas.</p>
+                <button id="resumeFinalExamBtn" role="button" data-i18n="dash.resumeBtn">Retomar Exame Final</button>
             </article>
         </section>
 
@@ -55,21 +56,21 @@
         <section id="finalExamCard" style="display: none;">
             <article>
                 <header>
-                    <h4>Exame Final de Certificação</h4>
+                    <h4 data-i18n="dash.finalTitle">Exame Final de Certificação</h4>
                 </header>
-                <p id="finalExamStatus">Carregando...</p>
-                <button id="startFinalExamBtn" role="button" style="display: none;">Iniciar Exame Final</button>
+                <p id="finalExamStatus" data-i18n="dash.loading">Carregando...</p>
+                <button id="startFinalExamBtn" role="button" style="display: none;" data-i18n="dash.finalStart">Iniciar Exame Final</button>
             </article>
         </section>
 
         <section>
             <article>
                 <header>
-                    <h4>Gerar Novo Simulado</h4>
+                    <h4 data-i18n="dash.newQuizTitle">Gerar Novo Simulado</h4>
                 </header>
                 <form id="quizForm">
                     <label for="topicSelect">
-                        Tema de Certificação AWS
+                        <span data-i18n="dash.topic">Tema de Certificação AWS</span>
                         <select id="topicSelect" required>
                             <option value="Cloud Concepts & Well-Architected">Cloud Concepts & Well-Architected</option>
                             <option value="Security, Identity & Compliance">Security, Identity & Compliance</option>
@@ -80,16 +81,16 @@
                             <option value="Management, Governance & DevOps">Management, Governance & DevOps</option>
                             <option value="Billing, Cost Management & Support">Billing, Cost Management & Support</option>
                             <option value="Application Integration & Serverless Architecture">Application Integration & Serverless Architecture</option>
-                            <option value="General / Otros Servicios">General / Outros Serviços</option>
+                            <option value="General / Otros Servicios" data-i18n="dash.topicGeneral">General / Outros Serviços</option>
                         </select>
                     </label>
 
                     <label for="questionCount">
-                        Quantidade de Perguntas
+                        <span data-i18n="dash.questionCount">Quantidade de Perguntas</span>
                         <input type="number" id="questionCount" min="1" max="10" value="3" required>
                     </label>
 
-                    <button type="submit" id="generateBtn">Iniciar Simulado</button>
+                    <button type="submit" id="generateBtn" data-i18n="dash.startQuiz">Iniciar Simulado</button>
                 </form>
             </article>
         </section>
@@ -97,15 +98,16 @@
         <section>
             <article>
                 <header>
-                    <h4>Histórico de Simulados</h4>
+                    <h4 data-i18n="dash.historyTitle">Histórico de Simulados</h4>
                 </header>
                 <div id="historyContainer">
-                    <p>Carregando histórico...</p>
+                    <p data-i18n="dash.loadingHistory">Carregando histórico...</p>
                 </div>
             </article>
         </section>
     </main>
 
+    <script src="js/i18n.js"></script>
     <script src="js/config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/api.js"></script>
@@ -136,9 +138,9 @@
             try {
                 const data = await ensureStudentProfile();
 
-                document.getElementById("userName").innerText = data.Name || "Aluno";
+                document.getElementById("userName").innerText = data.Name || t("dash.defaultName");
                 document.getElementById("userEmail").innerText = data.Email;
-                document.getElementById("userCohort").innerText = data.CohortID || "Sem turma";
+                document.getElementById("userCohort").innerText = data.CohortID || t("dash.noCohort");
 
                 // Diagnostic initial banner (Req. 11.4)
                 if (!data.HasTakenInitialTest) {
@@ -148,7 +150,7 @@
                 return data;
             } catch (err) {
                 console.error(err);
-                showError("Erro ao carregar perfil: " + err.message);
+                showError(t("dash.err.profile") + err.message);
                 return null;
             }
         }
@@ -160,7 +162,7 @@
                 const quizzes = data.quizzes || [];
 
                 if (quizzes.length === 0) {
-                    container.innerHTML = "<p>Nenhum simulado realizado ainda.</p>";
+                    container.innerHTML = `<p>${esc(t("dash.noHistory"))}</p>`;
                     return quizzes;
                 }
 
@@ -177,25 +179,20 @@
                     };
                 }
 
-                let html = "<table><thead><tr><th>Tipo</th><th>Tema</th><th>Status</th><th>Score</th><th>Data</th></tr></thead><tbody>";
+                let html = `<table><thead><tr><th>${t("dash.col.type")}</th><th>${t("dash.col.topic")}</th><th>${t("dash.col.status")}</th><th>${t("dash.col.score")}</th><th>${t("dash.col.date")}</th></tr></thead><tbody>`;
                 for (const q of quizzes) {
-                    const typeLabels = {
-                        'initial': 'Diagnóstico',
-                        'free': 'Simulado Livre',
-                        'final_exam': 'Exame Final'
-                    };
-                    const type = typeLabels[q.quiz_type] || q.quiz_type;
+                    const type = tEnum('quizType', q.quiz_type);
                     const score = q.score_percentage !== null && q.score_percentage !== undefined ? `${q.score_percentage}%` : '-';
-                    const date = q.completed_at ? new Date(q.completed_at).toLocaleDateString('pt-BR') : '-';
-                    html += `<tr><td>${type}</td><td>${esc(q.topic || '')}</td><td>${esc(q.status || '')}</td><td>${score}</td><td>${esc(date)}</td></tr>`;
+                    const date = q.completed_at ? new Date(q.completed_at).toLocaleDateString(getLocale()) : '-';
+                    html += `<tr><td>${esc(type)}</td><td>${esc(q.topic || '')}</td><td>${esc(tEnum('status', q.status))}</td><td>${score}</td><td>${esc(date)}</td></tr>`;
                 }
                 html += "</tbody></table>";
                 container.innerHTML = html;
                 return quizzes;
             } catch (err) {
                 console.error(err);
-                showError("Erro ao carregar histórico: " + err.message);
-                container.innerHTML = "<p>Erro ao carregar histórico.</p>";
+                showError(t("dash.err.history") + err.message);
+                container.innerHTML = `<p>${esc(t("dash.historyError"))}</p>`;
                 return [];
             }
         }
@@ -215,17 +212,17 @@
             let showBtn = false;
 
             if (completed) {
-                statusText = "Exame final já realizado. Entre em contato com seu instrutor para um novo intento.";
+                statusText = t("dash.finalDone");
             } else if (!releaseDate) {
-                statusText = "Bloqueado pelo professor.";
+                statusText = t("dash.finalLocked");
             } else {
                 const release = new Date(releaseDate);
                 if (isNaN(release.getTime())) {
-                    statusText = "Bloqueado pelo professor.";
+                    statusText = t("dash.finalLocked");
                 } else if (release > new Date()) {
-                    statusText = `Bloqueado pelo professor (disponível a partir de ${release.toLocaleString('pt-BR')}).`;
+                    statusText = t("dash.finalLockedUntil", { date: release.toLocaleString(getLocale()) });
                 } else {
-                    statusText = "Disponível";
+                    statusText = t("dash.finalAvailable");
                     showBtn = true;
                 }
             }
@@ -263,7 +260,7 @@
                         localStorage.setItem("active_quiz", JSON.stringify(quizData));
                         window.location.href = "quiz.html";
                     } catch (err) {
-                        showError("Erro ao gerar diagnóstico: " + err.message);
+                        showError(t("dash.err.initial") + err.message);
                     }
                 });
             }

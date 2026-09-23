@@ -22,7 +22,7 @@ async function login(email, password) {
     const data = await response.json();
 
     if (!response.ok) {
-        throw new Error(data.message || "Erro ao fazer login");
+        throw new Error(data.message || t("auth.err.login"));
     }
 
     const result = data.AuthenticationResult;
@@ -150,18 +150,18 @@ async function signUp(email, password, name) {
     if (!response.ok) {
         const code = data.__type || "";
         if (code.includes("UsernameExistsException")) {
-            throw new Error("Este e-mail já está registrado. Tente fazer login.");
+            throw new Error(t("auth.err.emailExists"));
         }
         if (code.includes("InvalidPasswordException")) {
-            throw new Error("A senha não atende aos requisitos. Mínimo 8 caracteres, uma maiúscula e um número.");
+            throw new Error(t("auth.err.passwordPolicy"));
         }
         if (code.includes("InvalidParameterException")) {
-            throw new Error("Dados inválidos. Verifique seu e-mail e senha.");
+            throw new Error(t("auth.err.invalidParams"));
         }
         if (code.includes("TooManyRequestsException")) {
-            throw new Error("Muitas tentativas. Aguarde alguns minutos.");
+            throw new Error(t("auth.err.tooManyAttempts"));
         }
-        throw new Error(data.message || "Erro ao criar a conta");
+        throw new Error(data.message || t("auth.err.signUp"));
     }
 
     return data.UserConfirmed;
@@ -188,15 +188,15 @@ async function confirmSignUp(email, code) {
     if (!response.ok) {
         const errCode = data.__type || "";
         if (errCode.includes("CodeMismatchException")) {
-            throw new Error("Código incorreto. Tente novamente.");
+            throw new Error(t("auth.err.codeMismatch"));
         }
         if (errCode.includes("ExpiredCodeException")) {
-            throw new Error("O código expirou. Solicite um novo.");
+            throw new Error(t("auth.err.codeExpired"));
         }
         if (errCode.includes("TooManyRequestsException")) {
-            throw new Error("Muitas tentativas. Aguarde alguns minutos.");
+            throw new Error(t("auth.err.tooManyAttempts"));
         }
-        throw new Error(data.message || "Erro ao confirmar a conta");
+        throw new Error(data.message || t("auth.err.confirm"));
     }
 
     return true;
@@ -221,9 +221,9 @@ async function resendConfirmationCode(email) {
 
     if (!response.ok) {
         if (data.__type?.includes("LimitExceededException")) {
-            throw new Error("Muitas solicitações. Tente mais tarde.");
+            throw new Error(t("auth.err.tooManyRequests"));
         }
-        throw new Error(data.message || "Erro ao reenviar o código");
+        throw new Error(data.message || t("auth.err.resend"));
     }
 
     return true;
@@ -260,15 +260,15 @@ async function forgotPassword(email) {
     if (!response.ok) {
         const code = data.__type || "";
         if (code.includes("UserNotFoundException")) {
-            throw new Error("Não existe uma conta com este e-mail.");
+            throw new Error(t("auth.err.userNotFound"));
         }
         if (code.includes("InvalidParameterException")) {
-            throw new Error("Formato de e-mail inválido.");
+            throw new Error(t("auth.err.invalidEmail"));
         }
         if (code.includes("LimitExceededException")) {
-            throw new Error("Muitas solicitações. Tente mais tarde.");
+            throw new Error(t("auth.err.tooManyRequests"));
         }
-        throw new Error(data.message || "Erro ao enviar código de recuperação");
+        throw new Error(data.message || t("auth.err.forgot"));
     }
 
     return true;
@@ -296,18 +296,18 @@ async function confirmForgotPassword(email, code, newPassword) {
     if (!response.ok) {
         const errCode = data.__type || "";
         if (errCode.includes("CodeMismatchException")) {
-            throw new Error("Código incorreto. Tente novamente.");
+            throw new Error(t("auth.err.codeMismatch"));
         }
         if (errCode.includes("ExpiredCodeException")) {
-            throw new Error("O código expirou. Solicite um novo.");
+            throw new Error(t("auth.err.codeExpired"));
         }
         if (errCode.includes("InvalidPasswordException")) {
-            throw new Error("A senha não atende aos requisitos. Mínimo 8 caracteres, uma maiúscula e um número.");
+            throw new Error(t("auth.err.passwordPolicy"));
         }
         if (errCode.includes("TooManyRequestsException")) {
-            throw new Error("Muitas tentativas. Aguarde alguns minutos.");
+            throw new Error(t("auth.err.tooManyAttempts"));
         }
-        throw new Error(data.message || "Erro ao redefinir a senha");
+        throw new Error(data.message || t("auth.err.reset"));
     }
 
     return true;

@@ -15,7 +15,7 @@ async function initTeacherDashboard() {
     
     // Check if user is teacher early and show appropriate message
     if (!isTeacher()) {
-        showError("Esta página é apenas para professores. Você será redirecionado para o painel do aluno.");
+        showError(t("teacher.err.onlyTeachers"));
         setTimeout(() => {
             window.location.href = "dashboard.html";
         }, 3000);
@@ -36,7 +36,7 @@ async function loadStudents() {
         if (!response || !response.students) {
             allStudents = [];
             totalStudents = 0;
-            showError("Erro ao carregar alunos.");
+            showError(t("teacher.err.loadStudents"));
             return;
         }
         allStudents = response.students;
@@ -46,13 +46,13 @@ async function loadStudents() {
         loadKPIs();
     } catch (err) {
         if (err.message.includes("403") || err.message.includes("Only teachers can list students")) {
-            showError("Acesso negado: Você precisa ser um professor para acessar esta página. Faça login com uma conta de professor.");
+            showError(t("teacher.err.forbidden"));
             // Redirect to dashboard after 3 seconds
             setTimeout(() => {
                 window.location.href = "dashboard.html";
             }, 3000);
         } else {
-            showError("Erro ao carregar alunos: " + err.message);
+            showError(t("teacher.err.loadStudentsDetail") + err.message);
         }
     }
 }
@@ -65,22 +65,22 @@ function renderStudentTable(students) {
         const failed = (student.failed_attempts || {});
         const failedFinalExam = failed.final_exam || 0;
         const releaseDate = student.final_exam_release_date
-            ? new Date(student.final_exam_release_date).toLocaleDateString("pt-BR")
-            : "Não configurada";
+            ? new Date(student.final_exam_release_date).toLocaleDateString(getLocale())
+            : t("teacher.notConfigured");
         const finalExamStatus = failedFinalExam > 0
-            ? `${releaseDate} · ${failedFinalExam} tentativa(s)` 
+            ? `${releaseDate} · ${t("teacher.attempts", { count: failedFinalExam })}`
             : releaseDate;
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td>${esc(student.name)}</td>
             <td>${esc(student.email)}</td>
             <td>${esc(student.cohort_id)}</td>
-            <td><span class="phase-badge" data-phase="${esc(student.current_phase || 'initial')}">${esc(student.current_phase || 'initial')}</span></td>
+            <td><span class="phase-badge" data-phase="${esc(student.current_phase || 'initial')}">${esc(tEnum('phase', student.current_phase || 'initial'))}</span></td>
             <td>${esc(finalExamStatus)}</td>
             <td>
-                <button class="btn-history" data-student="${esc(student.student_id)}">Historial</button>
-                <button class="btn-set-exam" data-student="${esc(student.student_id)}">Configurar data</button>
-                <button class="btn-reset-exam" data-student="${esc(student.student_id)}">Resetar tentativa</button>
+                <button class="btn-history" data-student="${esc(student.student_id)}">${esc(t("teacher.btn.history"))}</button>
+                <button class="btn-set-exam" data-student="${esc(student.student_id)}">${esc(t("teacher.btn.setExam"))}</button>
+                <button class="btn-reset-exam" data-student="${esc(student.student_id)}">${esc(t("teacher.btn.resetExam"))}</button>
             </td>
         `;
         tbody.appendChild(tr);
@@ -107,7 +107,7 @@ function renderCohortFilter() {
     if (!cohortSelect) return;
 
     const cohorts = [...new Set(allStudents.map(s => s.cohort_id).filter(Boolean))];
-    cohortSelect.innerHTML = '<option value="">Todas as turmas</option>';
+    cohortSelect.innerHTML = `<option value="">${esc(t("teacher.allCohorts"))}</option>`;
     cohorts.forEach(cohort => {
         const option = document.createElement('option');
         option.value = cohort;
@@ -140,7 +140,7 @@ async function loadCohorts() {
             // Don't show duplicate error message since loadStudents already showed it
             console.log("Teacher permission required for cohorts endpoint");
         } else {
-            showError("Erro ao carregar turmas: " + err.message);
+            showError(t("teacher.err.loadCohorts") + err.message);
         }
     }
 }
@@ -177,7 +177,7 @@ async function loadStudentQuizzes(studentId) {
 
         tbody.innerHTML = "";
         if (!response || !response.quizzes || response.quizzes.length === 0) {
-            tbody.innerHTML = "<tr><td colspan='6'>Nenhum quiz realizado ainda.</td></tr>";
+            tbody.innerHTML = `<tr><td colspan='6'>${esc(t("teacher.noQuizzes"))}</td></tr>`;
             return;
         }
 
@@ -186,15 +186,15 @@ async function loadStudentQuizzes(studentId) {
             const score = q.score_percentage !== null && q.score_percentage !== undefined ? q.score_percentage + '%' : '0%';
             const tr = document.createElement('tr');
             tr.innerHTML = `<td>${index + 1}</td>
-                <td>${esc(q.quiz_type || '')} - ${esc(q.topic || '-')}</td>
-                <td><span class="${status}">${status}</span></td>
+                <td>${esc(tEnum('quizType', q.quiz_type))} - ${esc(q.topic || '-')}</td>
+                <td><span class="${status}">${esc(tEnum('status', q.status || 'completed'))}</span></td>
                 <td>${esc(score)}</td>
-                <td>${esc(q.created_at ? new Date(q.created_at).toLocaleDateString('pt-BR') : '-')}</td>
-                <td><a href="results.html?quizId=${encodeURIComponent(q.quiz_id)}" target="_blank" rel="noopener">Ver detalhes</a></td>`;
+                <td>${esc(q.created_at ? new Date(q.created_at).toLocaleDateString(getLocale()) : '-')}</td>
+                <td><a href="results.html?quizId=${encodeURIComponent(q.quiz_id)}" target="_blank" rel="noopener">${esc(t("teacher.viewDetails"))}</a></td>`;
             tbody.appendChild(tr);
         });
     } catch (err) {
-        showError("Erro ao carregar histórico: " + err.message);
+        showError(t("teacher.err.loadHistory") + err.message);
     }
 }
 
@@ -205,7 +205,7 @@ async function setFinalExamRelease(studentId, date) {
         await apiCall("PUT", "/students/" + studentId + "/final-exam-release", { release_date: date });
         await loadStudents();
     } catch (err) {
-        showError("Erro ao configurar data: " + err.message);
+        showError(t("teacher.err.setDate") + err.message);
     }
 }
 
@@ -214,7 +214,7 @@ async function resetFinalExamAttempt(studentId) {
         await apiCall("DELETE", "/students/" + studentId + "/final-exam-attempt");
         await loadStudents();
     } catch (err) {
-        showError("Erro ao resetar tentativa: " + err.message);
+        showError(t("teacher.err.reset") + err.message);
     }
 }
 
@@ -235,19 +235,19 @@ function setupEvents() {
             }
             if (e.target.classList.contains('btn-set-exam')) {
                 const studentId = e.target.dataset.student;
-                const raw = prompt("Data de liberação do exame final (YYYY-MM-DD ou YYYY-MM-DDTHH:MM, hora local):");
+                const raw = prompt(t("teacher.promptDate"));
                 if (raw !== null) {
                     const iso = normalizeReleaseDate(raw.trim());
                     if (iso) {
                         setFinalExamRelease(studentId, iso);
                     } else {
-                        showError("Data inválida. Use YYYY-MM-DD ou YYYY-MM-DDTHH:MM.");
+                        showError(t("teacher.err.invalidDate"));
                     }
                 }
             }
             if (e.target.classList.contains('btn-reset-exam')) {
                 const studentId = e.target.dataset.student;
-                if (confirm("Resetar a tentativa do exame final deste aluno?")) {
+                if (confirm(t("teacher.confirmReset"))) {
                     resetFinalExamAttempt(studentId);
                 }
             }

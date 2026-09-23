@@ -355,6 +355,102 @@ th {
     font-size: 0.85rem;
 }
 
+/* ========== Mostrar/ocultar senha (index.html) ========== */
+.password-field {
+    position: relative;
+    display: block;
+}
+
+.password-field > input {
+    padding-right: 3rem;
+}
+
+.password-field > .password-toggle {
+    position: absolute;
+    top: 0;
+    right: 0.35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: calc(1rem * var(--pico-line-height) + var(--pico-form-element-spacing-vertical) * 2 + var(--pico-border-width) * 2);
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    color: var(--text-muted);
+}
+
+.password-field > .password-toggle:hover,
+.password-field > .password-toggle:focus-visible {
+    color: var(--accent);
+}
+
+.password-field > .password-toggle:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -4px;
+    border-radius: var(--radius);
+}
+
+/* ========== Selector de idioma ========== */
+.lang-switch {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--surface-2);
+}
+
+.lang-switch > button {
+    width: auto;
+    margin: 0;
+    padding: 0.3rem 0.7rem;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    line-height: 1.2;
+    box-shadow: none;
+}
+
+.lang-switch > button:hover {
+    color: var(--text);
+}
+
+.lang-switch > button[aria-pressed="true"] {
+    background: var(--accent);
+    color: var(--bg);
+}
+
+.lang-switch > button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+nav #langSwitcher {
+    display: flex;
+    align-items: center;
+}
+
+/* Login: selector en la esquina de la card */
+article > header {
+    position: relative;
+}
+
+.lang-switch-corner {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+}
+
+.lang-switch-corner + h3 {
+    margin-top: 1.25rem;
+}
+
 /* ========== Mobile ========== */
 @media (max-width: 767px) {
     :root[data-theme="dark"] {
