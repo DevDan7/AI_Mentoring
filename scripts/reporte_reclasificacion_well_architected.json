@@ -1,0 +1,366 @@
+{
+  "old_topic": "Cloud Concepts & Well-Architected",
+  "total": 51,
+  "waf_count": 17,
+  "general_count": 34,
+  "errors": [],
+  "results": [
+    {
+      "QuestionID": "7136f68546ea161b148ab17f670cbb16",
+      "QuestionText": "A company wants to test a new application. Which AWS principle will help the company test the application?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "c2f1c30eb61943276cdaed75d5564bc6",
+      "QuestionText": "Which design principle aligns with the performance efficiency pillar of the AWS Well-Architected Framework?",
+      "category": "well_architected_framework",
+      "new_topic": "AWS Well-Architected Framework",
+      "approved": null
+    },
+    {
+      "QuestionID": "dd5dbf5b6c5287b6399d42148a2e8b37",
+      "QuestionText": "A company is migrating to AWS Cloud. The company wants to understand and identify possible security misconfigurations or unexpected behaviors. The company wants to prioritize any protection controls it may need. Which security perspective feature of the AWS Cloud Adoption Framework (AWS CAF) will meet these requirements?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "57d145a9055db656752739715441ab86",
+      "QuestionText": "A company needs to execute part of its workload on AWS Cloud. The company needs to keep part of the workload in its own on-site data center for compliance reasons. Which AWS service will meet these requirements?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "d18f1a0988ee059cc0296df013ea3ea8",
+      "QuestionText": "Which perspective of the AWS Cloud Adoption Framework (AWS CAF) includes a resource for a well-designed data architecture and analytics?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "0f5bdb5c0b9df0a1114423a6ce48261c",
+      "QuestionText": "Which concept of the AWS Well-Architected Framework represents the ability of a system to remain functional when it encounters operational problems?",
+      "category": "well_architected_framework",
+      "new_topic": "AWS Well-Architected Framework",
+      "approved": null
+    },
+    {
+      "QuestionID": "fa09d3c82e459e0ae71cd5d8b1fddaa3",
+      "QuestionText": "A company wants to configure its workloads to perform their intended functions and recover quickly from failures. Which pillar of the AWS Well-Architected Framework aligns with these objectives?",
+      "category": "well_architected_framework",
+      "new_topic": "AWS Well-Architected Framework",
+      "approved": null
+    },
+    {
+      "QuestionID": "6116b9df729b36dbc18a3c610baca90b",
+      "QuestionText": "A company is planning to migrate to AWS Cloud. The company is undergoing an organizational transformation and wants to become more responsive to customer queries and feedback. Which task should the company perform to meet these requirements, according to the AWS Cloud Adoption Framework (AWS CAF)? (Choose two.) Select all applicable options.",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "bb2c4b44f84a22876a175d0d45cba774",
+      "QuestionText": "A company stores data in an Amazon S3 bucket. What is the responsibility of AWS?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "e314090eda104293a4c3756800553093",
+      "QuestionText": "A company is planning workloads in AWS Nuvem. The company wants workloads to perform their intended function correctly and consistently throughout their lifecycle. Which AWS Well-Architected Framework pillar does this objective represent?",
+      "category": "well_architected_framework",
+      "new_topic": "AWS Well-Architected Framework",
+      "approved": null
+    },
+    {
+      "QuestionID": "15d1821a6c31f96475b56d2310ad1295",
+      "QuestionText": "A company is learning about the perspectives of the AWS Cloud Adoption Framework (AWS CAF). Which perspective of the AWS CAF addresses the ability to manage strategy?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "582fc05c2a7575d1e6d5ede01eff0fb9",
+      "QuestionText": "Which design principle is related to the pillar of reliability according to the AWS Well-Architected Framework?",
+      "category": "well_architected_framework",
+      "new_topic": "AWS Well-Architected Framework",
+      "approved": null
+    },
+    {
+      "QuestionID": "42bae2e0f9ad7299d767f05c7c1a6d3a",
+      "QuestionText": "What benefits does a company obtain when migrating its IT architecture from local to AWS Cloud? (Choose two.)",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "fe953f61c5e9c78805c439cd56336463",
+      "QuestionText": "A company is designing workloads in the AWS Cloud. The company wants the workloads to perform their intended function correctly and consistently throughout their lifecycle. Which pillar of the AWS Well-Architected Framework does this objective represent?",
+      "category": "well_architected_framework",
+      "new_topic": "AWS Well-Architected Framework",
+      "approved": null
+    },
+    {
+      "QuestionID": "088decc6d9ae669fac0897a02c350bd6",
+      "QuestionText": "A company needs to have the capacity to configure infrastructure for new applications in minutes. What advantage of cloud computing in a cloud environment will help the company meet this requirement?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "e9af302cfab67cf6220b17c4f77a68a1",
+      "QuestionText": "A company is learning about the perspectives of the AWS Cloud Adoption Framework (AWS CAF). Which perspective of AWS CAF addresses the capability of strategy management?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "eac3f144a4ac24258c2940c6af98fdf8",
+      "QuestionText": "A company is learning about the perspectives of the AWS Cloud Adoption Framework (AWS CAF). Which perspective of the AWS CAF addresses the capability of strategy management?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "a5d531af479d9faa22366d68cd1470be",
+      "QuestionText": "A company wants to run its workloads on AWS Cloud effectively, reduce management overhead, and improve processes. Which pillar of the AWS Well-Architected Framework represents these requirements?",
+      "category": "well_architected_framework",
+      "new_topic": "AWS Well-Architected Framework",
+      "approved": null
+    },
+    {
+      "QuestionID": "8ff51b8b51f49b8b8bebb40663e563f7",
+      "QuestionText": "A company is planning to migrate to AWS Cloud. The company is undergoing an organizational transformation and wants to become more responsive to customer queries and feedback. Which tasks should the company perform to meet these requirements, according to the AWS Cloud Adoption Framework (AWS CAF)? (Choose two.)",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "4f35144f1880220b9b15462941cba2bf",
+      "QuestionText": "A company has migrated its workloads to AWS. The company wants to adopt AWS at scale and operate with greater efficiency and security. Which AWS service or framework should the company use for operational support?",
+      "category": "well_architected_framework",
+      "new_topic": "AWS Well-Architected Framework",
+      "approved": null
+    },
+    {
+      "QuestionID": "7f82a2aba4ef5adf5bfb339034c42f32",
+      "QuestionText": "A company wants to migrate to AWS. The company needs the capability to acquire resources when resources are necessary. The company also needs the capability to release those resources when resources are no longer necessary. Which concept of AWS architecture addresses these requirements?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "1def1fbce292a79d626caf8bad321bfb",
+      "QuestionText": "Which concept of the AWS Well-Architected Framework represents the capacity of a system to remain functional when it encounters operational problems?",
+      "category": "well_architected_framework",
+      "new_topic": "AWS Well-Architected Framework",
+      "approved": null
+    },
+    {
+      "QuestionID": "45327bc1ad839c392cd79f67bf6304fd",
+      "QuestionText": "A company developed a new internal application but has no way to determine or predict the demand that the application will create in terms of usage. Which benefit of AWS cloud computing is the company seeking?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "1d08bd4a65346a9bf4e68d76ea7066da",
+      "QuestionText": "A company wants to continuously improve processes and procedures to deliver value to its business. Which pillar of the AWS Well-Architected Framework represents this objective?",
+      "category": "well_architected_framework",
+      "new_topic": "AWS Well-Architected Framework",
+      "approved": null
+    },
+    {
+      "QuestionID": "037d6e1f8a225506147bd78c6b8a4621",
+      "QuestionText": "A company wants to run its workloads on AWS Cloud efficiently, reduce management overhead, and improve processes. Which pillar of the AWS Well-Architected Framework represents these requirements?",
+      "category": "well_architected_framework",
+      "new_topic": "AWS Well-Architected Framework",
+      "approved": null
+    },
+    {
+      "QuestionID": "972987784337de5019a9713d4ff678fe",
+      "QuestionText": "A company that operates on-premises servers decides to start a new business line. The company determines that additional servers are necessary for the new work tasks. What advantage of cloud computing in the cloud can help the company provision additional infrastructure as quickly as possible?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "f7e331e2eafd759f8bef0d161898a5cf",
+      "QuestionText": "Which perspective of the AWS Cloud Adoption Framework (AWS CAF) focuses on real-time insights and responds to questions about strategy?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "bb4908c0b72d32898808146b83694852",
+      "QuestionText": "Which item below is NOT part of the pillars of the Well-Architected Framework?",
+      "category": "well_architected_framework",
+      "new_topic": "AWS Well-Architected Framework",
+      "approved": null
+    },
+    {
+      "QuestionID": "139630c1d173c125a9e8dd3e086bfc37",
+      "QuestionText": "What benefits does a company gain by migrating from a local IT architecture to AWS Nuvem? (Choose two.)",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "7ba3d59ee3e8dd482f4f3acf972663ef",
+      "QuestionText": "Which perspective of the AWS Cloud Adoption Framework (AWS CAF) focuses on organizing a data products inventory in a data catalog?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "7ab7951e744b2444b11908e579dd2871",
+      "QuestionText": "A company is learning about the perspectives of the AWS Cloud Adoption Framework (AWS CAF). Which AWS CAF perspective addresses the ability to manage strategy?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "541b303ce44a5289a98d0e8636565cef",
+      "QuestionText": "Which design principle is related to the reliability pillar according to the AWS Well-Architected Framework?",
+      "category": "well_architected_framework",
+      "new_topic": "AWS Well-Architected Framework",
+      "approved": null
+    },
+    {
+      "QuestionID": "a568b269da3eadfd733030b3723e6eb6",
+      "QuestionText": "A company wants to test a new application. Which AWS principle will help the company test this application?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "1887bc182c473793fc2307c6c8af7c47",
+      "QuestionText": "Which of the following alternatives is an advantage that users experience when moving on-premises workloads to AWS Nuvem?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "a3e4614ccf2a45cada05846baabd0e82",
+      "QuestionText": "A company wants to migrate to AWS Cloud. The company needs the ability to acquire resources when they are necessary. The company also needs the ability to release these resources when they are no longer necessary. Which AWS Cloud architecture concept meets these requirements?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "acc755fa49c05de9d962145c9200fade",
+      "QuestionText": "A company wants to migrate to Amazon AWS. The company needs the capacity to acquire resources when they are necessary. The company also needs the capacity to release those resources when they are no longer necessary. Which architectural concept of Nuvem AWS meets these requirements?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "ba664d6397cc4c61665e27aad17ec08e",
+      "QuestionText": "Which option is an advantage of cloud computing at AWS that minimizes variable costs?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "ae9bd468407b58bade0fe77cf063e216",
+      "QuestionText": "A company is planning to migrate to AWS Cloud. The company is undergoing organizational transformation and wants to become more responsive to customer consultations and feedback. What task should the company perform to meet these requirements, according to the AWS Cloud Adoption Framework (AWS CAF)? (Choose two.)",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "a2f18d43986d3e241b8e39815f7d6b7e",
+      "QuestionText": "Which perspective of the AWS Cloud Adoption Framework (AWS CAF) focuses on real-time insights and answers questions about strategy?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "51c2ae0b2506f6408338ec081d69c6df",
+      "QuestionText": "Which design principle is aligned with the Performance Efficiency pillar of the AWS Well-Architected Framework?",
+      "category": "well_architected_framework",
+      "new_topic": "AWS Well-Architected Framework",
+      "approved": null
+    },
+    {
+      "QuestionID": "bc5e5d89dc3bdb85d351a62c6f42cbd0",
+      "QuestionText": "Which concept of the AWS Well-Architected Framework represents the ability of a system to remain functional when the system encounters operational problems?",
+      "category": "well_architected_framework",
+      "new_topic": "AWS Well-Architected Framework",
+      "approved": null
+    },
+    {
+      "QuestionID": "f5141f2e78b6d818792e4e2f2a7fa9f7",
+      "QuestionText": "A company developed a new internal application but does not know how to determine or predict the demand that the application will create in terms of usage. What benefit of cloud computing on AWS is the company seeking?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "f28331c82602f535d9898060aefdd3d8",
+      "QuestionText": "Which perspective of the AWS CAF addresses the capability of strategy management?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "021638d8ed929ef9fd2ec20965a1bb6a",
+      "QuestionText": "Which options are resources from the security perspective of the AWS Cloud Adoption Framework (AWS CAF)? Choose two.",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "b729692e7dd1a31509c89b253fec5295",
+      "QuestionText": "Which pillar of the AWS Well-Architected Framework focuses on the ability to automatically recover from service interruptions?",
+      "category": "well_architected_framework",
+      "new_topic": "AWS Well-Architected Framework",
+      "approved": null
+    },
+    {
+      "QuestionID": "b2296f6cc1e0e4ee3b6f10cb2add9add",
+      "QuestionText": "A company developed a new internal application. The company does not have a way to determine or predict the demand for usage that the application will generate. What benefit of cloud computing at the AWS level is the company looking for?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "18bcbd7af17148ede0b3f8dc62575da4",
+      "QuestionText": "A company needs to have the ability to configure infrastructure for new applications in minutes. Which advantage of cloud computing will help the company meet this requirement?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "d625dd9edccc0ac04f76019aebe85bad",
+      "QuestionText": "A company wants to provide low latency for its users throughout the world. Which AWS Nitro feature addresses this requirement?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "184e90c5ff984611a9ecc7f827e13325",
+      "QuestionText": "A company that operates local servers decides to start a new line of business. The company determines that additional servers are necessary for the new workloads. What advantage of cloud computing in the cloud can help the company provision additional infrastructure as quickly as possible?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    },
+    {
+      "QuestionID": "370d98fa4fccd485051771bf50a49514",
+      "QuestionText": "Which of the following is a design principle recommended for AWS Cloud architecture?",
+      "category": "well_architected_framework",
+      "new_topic": "AWS Well-Architected Framework",
+      "approved": null
+    },
+    {
+      "QuestionID": "1fb4fcf013c70958908a136e1e8232e5",
+      "QuestionText": "Which perspective of the AWS Cloud Adoption Framework (AWS CAF) focuses on organizing an inventory of data products in a data catalog?",
+      "category": "cloud_concepts_general",
+      "new_topic": "Cloud Concepts & Value Proposition",
+      "approved": null
+    }
+  ]
+}

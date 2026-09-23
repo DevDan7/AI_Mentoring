@@ -65,7 +65,7 @@ async function getStudent() {
 }
 
 async function generateQuiz(quizType, topic, numQuestions) {
-    const body = { quiz_type: quizType };
+    const body = { quiz_type: quizType, lang: getLang() };
     if (topic !== undefined && topic !== null) {
         body.topic = topic;
     }
@@ -76,7 +76,7 @@ async function generateQuiz(quizType, topic, numQuestions) {
 }
 
 async function generateFinalExam() {
-    return apiCall("POST", "/quizzes/generate", { quiz_type: "final_exam" });
+    return apiCall("POST", "/quizzes/generate", { quiz_type: "final_exam", lang: getLang() });
 }
 
 async function setFinalExamRelease(studentId, date) {
@@ -96,7 +96,7 @@ async function submitAnswer(quizId, questionId, givenAnswers) {
 }
 
 async function getQuizResults(quizId) {
-    return apiCall("GET", `/quizzes/${quizId}/results`);
+    return apiCall("GET", `/quizzes/${quizId}/results?lang=${getLang()}`);
 }
 
 async function getStudentQuizzes(studentId) {
@@ -104,11 +104,11 @@ async function getStudentQuizzes(studentId) {
 }
 
 async function generateInitialTest() {
-    return apiCall("POST", "/quizzes/generate", { quiz_type: "initial" });
+    return apiCall("POST", "/quizzes/generate", { quiz_type: "initial", lang: getLang() });
 }
 
 async function getQuiz(quizId) {
-    return apiCall("GET", `/quizzes/${quizId}`);
+    return apiCall("GET", `/quizzes/${quizId}?lang=${getLang()}`);
 }
 
 async function getQuizHistory() {
