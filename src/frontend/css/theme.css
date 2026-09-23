@@ -1,0 +1,372 @@
+/*
+ * AI Mentoring — tema oscuro sobre Pico.css v2.
+ * Se carga DESPUÉS de pico.min.css y requiere <html data-theme="dark">.
+ * Solo sobreescribe variables y estilos visuales; no depende de la lógica JS.
+ */
+
+/* ========== Paleta ========== */
+:root {
+    --bg: #0F1720;
+    --surface: #17212C;
+    --surface-2: #1F2B38;
+    --border: #2A3846;
+    --text: #E7ECF1;
+    --text-muted: #93A2B1;
+    --accent: #F2B705;
+    --accent-hover: #FFC933;
+    --success: #35D399;
+    --danger: #F87171;
+
+    --radius: 0.625rem;
+    --section-gap: 2rem;
+}
+
+/* ========== Variables de Pico (dark) ==========
+ * :root[data-theme="dark"] tiene más especificidad que [data-theme=dark] de Pico. */
+:root[data-theme="dark"] {
+    color-scheme: dark;
+
+    --pico-background-color: var(--bg);
+    --pico-color: var(--text);
+    --pico-muted-color: var(--text-muted);
+    --pico-muted-border-color: var(--border);
+    --pico-text-selection-color: rgba(242, 183, 5, 0.3);
+
+    --pico-h1-color: var(--text);
+    --pico-h2-color: var(--text);
+    --pico-h3-color: var(--text);
+    --pico-h4-color: var(--text);
+    --pico-h5-color: #CBD4DD;
+    --pico-h6-color: var(--text-muted);
+
+    --pico-primary: var(--accent);
+    --pico-primary-background: var(--accent);
+    --pico-primary-border: var(--accent);
+    --pico-primary-underline: rgba(242, 183, 5, 0.5);
+    --pico-primary-hover: var(--accent-hover);
+    --pico-primary-hover-background: var(--accent-hover);
+    --pico-primary-hover-border: var(--accent-hover);
+    --pico-primary-hover-underline: var(--accent-hover);
+    --pico-primary-focus: rgba(242, 183, 5, 0.35);
+    --pico-primary-inverse: var(--bg);
+
+    --pico-secondary: var(--text-muted);
+    --pico-secondary-background: var(--surface-2);
+    --pico-secondary-border: var(--border);
+    --pico-secondary-underline: rgba(147, 162, 177, 0.5);
+    --pico-secondary-hover: var(--text);
+    --pico-secondary-hover-background: #283748;
+    --pico-secondary-hover-border: #3A4B5D;
+    --pico-secondary-hover-underline: var(--text);
+    --pico-secondary-focus: rgba(147, 162, 177, 0.3);
+    --pico-secondary-inverse: var(--text);
+
+    --pico-card-background-color: var(--surface);
+    --pico-card-border-color: var(--border);
+    --pico-card-sectioning-background-color: var(--surface-2);
+    --pico-card-box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.18);
+
+    --pico-table-border-color: var(--border);
+    --pico-table-row-stripped-background-color: rgba(31, 43, 56, 0.5);
+
+    --pico-form-element-background-color: var(--bg);
+    --pico-form-element-selected-background-color: var(--surface-2);
+    --pico-form-element-border-color: var(--border);
+    --pico-form-element-color: var(--text);
+    --pico-form-element-placeholder-color: var(--text-muted);
+    --pico-form-element-active-background-color: var(--bg);
+    --pico-form-element-active-border-color: var(--accent);
+    --pico-form-element-focus-color: rgba(242, 183, 5, 0.35);
+    --pico-form-element-valid-border-color: var(--success);
+    --pico-form-element-valid-active-border-color: var(--success);
+    --pico-form-element-invalid-border-color: var(--danger);
+    --pico-form-element-invalid-active-border-color: var(--danger);
+
+    --pico-dropdown-background-color: var(--surface);
+    --pico-dropdown-border-color: var(--border);
+    --pico-dropdown-hover-background-color: var(--surface-2);
+
+    --pico-code-background-color: var(--surface-2);
+    --pico-code-color: var(--text);
+    --pico-mark-background-color: rgba(242, 183, 5, 0.25);
+    --pico-mark-color: var(--text);
+    --pico-ins-color: var(--success);
+    --pico-del-color: var(--danger);
+    --pico-progress-background-color: var(--surface-2);
+    --pico-progress-color: var(--accent);
+    --pico-switch-checked-background-color: var(--accent);
+
+    --pico-border-radius: var(--radius);
+    --pico-block-spacing-vertical: 1.5rem;
+    --pico-block-spacing-horizontal: 1.75rem;
+
+    /* Variables de pico.colors.css usadas en inline styles / JS.
+     * pico.min.css no las define, así que hoy esos colores no se aplican. */
+    --pico-color-red-500: var(--danger);
+    --pico-color-red-600: var(--danger);
+    --pico-color-red-700: #FCA5A5;
+    --pico-color-red-100: rgba(248, 113, 113, 0.12);
+    --pico-color-green-500: var(--success);
+    --pico-color-green-600: var(--success);
+    --pico-color-green-700: #6EE7B7;
+    --pico-color-green-100: rgba(53, 211, 153, 0.12);
+    --pico-color-blue-50: #172A3A;
+    --pico-color-yellow-50: #2A2515;
+    --pico-color-slate-500: var(--text-muted);
+}
+
+/* ========== Base ========== */
+body {
+    background: var(--bg);
+    color: var(--text);
+}
+
+::selection {
+    background: rgba(242, 183, 5, 0.3);
+    color: var(--text);
+}
+
+a:not([role="button"]):hover,
+a:not([role="button"]):focus-visible {
+    color: var(--accent-hover);
+}
+
+/* ========== Navegación ========== */
+body > nav {
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1rem;
+}
+
+body > nav strong {
+    color: var(--text);
+    letter-spacing: 0.01em;
+}
+
+/* ========== Espaciado entre secciones ========== */
+main > section,
+main > section > section {
+    margin-bottom: var(--section-gap);
+}
+
+main > section:last-child,
+main > section > section:last-child {
+    margin-bottom: 0;
+}
+
+main {
+    padding-bottom: 3rem;
+}
+
+/* ========== Cards (article) ========== */
+article {
+    border: 1px solid var(--border);
+}
+
+/* El espacio entre bloques lo da la <section>; evita sumar el margin del article. */
+main > section > article:last-child,
+main > section > section > article:last-child {
+    margin-bottom: 0;
+}
+
+article > header {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+}
+
+article > header h1,
+article > header h2,
+article > header h3,
+article > header h4,
+article > header h5,
+article > header h6 {
+    margin-bottom: 0;
+}
+
+article > header > * + * {
+    margin-top: 1rem;
+}
+
+/* Articles anidados (tablas del panel del profesor): panel interno, no card pesada. */
+article article {
+    --pico-block-spacing-vertical: 1rem;
+    --pico-block-spacing-horizontal: 1rem;
+    background: var(--bg);
+    box-shadow: none;
+}
+
+/* Banners destacados del dashboard */
+#initialTestBanner article {
+    border-left: 4px solid var(--accent);
+}
+
+#resumeFinalExamBanner article {
+    border-left: 4px solid var(--accent);
+}
+
+/* ========== Botones ========== */
+button,
+[role="button"],
+input[type="submit"] {
+    font-weight: 600;
+}
+
+/* ========== Formularios ========== */
+label {
+    color: var(--text);
+}
+
+/* ========== Tablas ========== */
+article:has(> table) {
+    overflow-x: auto;
+}
+
+table {
+    margin-bottom: 0;
+}
+
+thead th {
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+tbody tr:hover td {
+    background: rgba(31, 43, 56, 0.6);
+}
+
+td,
+th {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+}
+
+/* ========== Panel del profesor ========== */
+.kpi-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1rem;
+}
+
+.kpi-number {
+    color: var(--accent);
+}
+
+.kpi-label {
+    color: var(--text-muted);
+    opacity: 1;
+}
+
+.filtros {
+    align-items: end;
+}
+
+/* Botones de "Ações": mayor especificidad que el <style> inline de teacher.html. */
+#studentTable td:nth-child(4) {
+    white-space: nowrap;
+}
+
+#studentTable td:last-child {
+    min-width: 14rem;
+}
+
+#studentTable .btn-history,
+#studentTable .btn-set-exam,
+#studentTable .btn-reset-exam {
+    margin: 0.25rem 0.5rem 0.25rem 0 !important;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.8rem;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+
+#studentTable .btn-history {
+    background: transparent;
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+#studentTable .btn-history:hover {
+    background: rgba(242, 183, 5, 0.12);
+}
+
+#studentTable .btn-set-exam {
+    background: var(--surface-2);
+    border-color: var(--border);
+    color: var(--text);
+}
+
+#studentTable .btn-set-exam:hover {
+    background: #283748;
+    border-color: #3A4B5D;
+}
+
+#studentTable .btn-reset-exam {
+    background: transparent;
+    border-color: rgba(248, 113, 113, 0.6);
+    color: var(--danger);
+}
+
+#studentTable .btn-reset-exam:hover {
+    background: rgba(248, 113, 113, 0.12);
+    border-color: var(--danger);
+}
+
+.phase-badge {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.phase-badge[data-phase="free_practice"] {
+    border-color: rgba(242, 183, 5, 0.45);
+    color: var(--accent);
+}
+
+.phase-badge[data-phase="final_exam"] {
+    border-color: rgba(53, 211, 153, 0.45);
+    color: var(--success);
+}
+
+#historySection header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+#historySection header > * + * {
+    margin-top: 0;
+}
+
+#closeHistoryBtn {
+    width: auto;
+    margin-bottom: 0;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.85rem;
+}
+
+/* ========== Mobile ========== */
+@media (max-width: 767px) {
+    :root[data-theme="dark"] {
+        --pico-block-spacing-vertical: 1.25rem;
+        --pico-block-spacing-horizontal: 1rem;
+    }
+
+    :root {
+        --section-gap: 1.5rem;
+    }
+
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
