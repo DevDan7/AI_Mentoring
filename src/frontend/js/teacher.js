@@ -171,13 +171,13 @@ async function selectStudent(studentId) {
 
 async function loadStudentQuizzes(studentId) {
     try {
-        const response = await apiCall("GET", "/students/" + studentId + "/quizzes");
+        const response = await getStudentQuizzes(studentId);
         const tbody = document.getElementById('historyTable');
         if (!tbody) return;
 
         tbody.innerHTML = "";
         if (!response || !response.quizzes || response.quizzes.length === 0) {
-            tbody.innerHTML = "<tr><td colspan='5'>Nenhum quiz realizado ainda.</td></tr>";
+            tbody.innerHTML = "<tr><td colspan='6'>Nenhum quiz realizado ainda.</td></tr>";
             return;
         }
 
@@ -189,7 +189,8 @@ async function loadStudentQuizzes(studentId) {
                 <td>${esc(q.quiz_type || '')} - ${esc(q.topic || '-')}</td>
                 <td><span class="${status}">${status}</span></td>
                 <td>${esc(score)}</td>
-                <td>${esc(q.created_at ? new Date(q.created_at).toLocaleDateString('pt-BR') : '-')}</td>`;
+                <td>${esc(q.created_at ? new Date(q.created_at).toLocaleDateString('pt-BR') : '-')}</td>
+                <td><a href="results.html?quizId=${encodeURIComponent(q.quiz_id)}" target="_blank" rel="noopener">Ver detalhes</a></td>`;
             tbody.appendChild(tr);
         });
     } catch (err) {
