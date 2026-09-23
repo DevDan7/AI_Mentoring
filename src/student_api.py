@@ -135,8 +135,11 @@ def get_cohort_capacity(cohort_id):
 
 
 def create_student(event, claims):
+    if is_teacher(claims):
+        return build_response(403, {'message': 'Professores não podem criar perfil de aluno'})
+
     data = json.loads(event.get('body', '{}'))
-    
+
     # Identidad verificada por el Authorizer (no se confía en el body para email o ID)
     student_id = claims.get('sub')
     email = claims.get('email', data.get('email'))

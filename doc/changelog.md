@@ -6,6 +6,29 @@
 
 ## 2026-09
 
+### 23 Sep — Fix: el profesor no debe poder "convertirse" en alumno
+- **Problema**: al usar "Realizar Outro Simulado" desde el perfil de profesor, la cuenta
+  pasaba a comportarse como alumno.
+- **Causa raíz**: 3 puntos sin guarda de rol. (1) `results.html` tenía links estáticos
+  ("Realizar Outro Simulado", "Voltar ao Painel" x2) apuntando siempre a `dashboard.html`
+  sin chequear `isTeacher()`. (2) `dashboard.html` (`initDashboard`) nunca llamaba
+  `isTeacher()` para redirigir, a diferencia de `teacher.js` que sí lo hace en sentido
+  inverso. (3) `create_student()` (`student_api.py`) era el único endpoint de escritura de
+  perfil sin la guarda `is_teacher(claims)` que sí tienen el resto — permitía que
+  `ensureStudentProfile()` (`api.js`) creara un `StudentID` para cualquier cuenta
+  autenticada, incluidas las del grupo `Teachers`.
+- **Solución**: guarda `if is_teacher(claims): return 403` en `create_student()`; redirect
+  a `teacher.html` en `dashboard.html` si `isTeacher()`; links de `results.html` ahora
+  apuntan dinámicamente a `teacher.html` o `dashboard.html` según el rol. Test nuevo en
+  `test_phase_system.py` (`test_create_student_rejected_for_teacher`). 80/80 tests en
+  verde.
+- **Limpieza de datos**: se borraron (con confirmación explícita, 0 quizzes asociados en
+  cada caso) los 3 registros `Students` que habían quedado de cuentas Teacher de prueba
+  (`danvcode07@gmail.com`, `test-profesor@example.com`, `profesor.test@example.com`),
+  creados antes de este fix por el mismo mecanismo.
+- Archivos: `src/student_api.py`, `src/frontend/dashboard.html`, `src/frontend/results.html`,
+  `tests/test_phase_system.py`.
+
 ### 22 Sep — Fix: exámenes finales repetidos entre intentos + detalle do professor
 - **Problema 1 — preguntas repetidas**: `generate_final_exam()` (`quiz_engine.py`) traía
   candidatos por tema con `questions_table.query(IndexName='TopicIndex', Limit=count*2)`

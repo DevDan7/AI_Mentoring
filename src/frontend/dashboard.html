@@ -119,6 +119,11 @@
             const token = await checkAuth();
             if (!token) return;
 
+            if (isTeacher()) {
+                window.location.href = "teacher.html";
+                return;
+            }
+
             const profile = await loadProfile();
             const historyData = await loadHistory();
             setupBanners();
