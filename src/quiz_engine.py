@@ -71,7 +71,8 @@ def lambda_handler(event, context):
     """Enrutador principal para el motor de simulados (formato API Gateway v2.0)"""
     route_key = event.get('routeKey')
     path_params = event.get('pathParameters', {})
-    
+    query_params = event.get('queryStringParameters') or {}
+
     # Extraer claims validados del JWT de Cognito por API Gateway
     claims = event.get('requestContext', {}).get('authorizer', {}).get('jwt', {}).get('claims', {})
     student_id = claims.get('sub')
@@ -84,17 +85,22 @@ def lambda_handler(event, context):
         except json.JSONDecodeError:
             return build_response(400, {'error': 'Invalid JSON in request body'})
 
+    # Idioma solicitado para el contenido de la BD (enunciados/opciones/explicaciones).
+    # 'en' por defecto; solo se traduce a 'pt' si la pregunta ya tiene traducción, ver
+    # clean_question(). Body para POST, query string para GET.
+    lang = body.get('lang') or query_params.get('lang') or 'en'
+
     # Enrutamiento basado en route_key
     if route_key == 'POST /quizzes/generate':
-        return generate_quiz(student_id, body)
+        return generate_quiz(student_id, body, lang)
     elif route_key == 'POST /quizzes/submit':
         return submit_answer(student_id, body)
     elif route_key == 'GET /quizzes/{quizId}/results':
         quiz_id = path_params.get('quizId')
-        return get_results(quiz_id, student_id, claims)
+        return get_results(quiz_id, student_id, claims, lang)
     elif route_key == 'GET /quizzes/{quizId}':
         quiz_id = path_params.get('quizId')
-        return get_quiz(quiz_id, student_id)
+        return get_quiz(quiz_id, student_id, lang)
     elif route_key == 'POST /quizzes/{quizId}/complete':
         quiz_id = path_params.get('quizId')
         return complete_quiz(quiz_id, student_id)
@@ -183,25 +189,33 @@ def check_student_access(student_id):
     return None
 
 
-def clean_question(q):
-    """Limpia una pregunta de DynamoDB ocultando is_correct y explanation."""
+def clean_question(q, lang='en'):
+    """Limpia una pregunta de DynamoDB ocultando is_correct y explanation.
+
+    Si lang=='pt' y existe la traducción (QuestionText_pt / Options[*].text_pt), la
+    devuelve en el mismo campo ('statement'/'text') que ya usa el frontend -- así no hace
+    falta tocar quiz.html/results.html, solo qué idioma se pide. Si falta la traducción
+    (pregunta vieja aún no traducida, o campo vacío), cae a inglés sin romper nada.
+    """
     raw_options = q.get('Options', {})
     cleaned_options = {}
     for key, opt in raw_options.items():
+        text = opt.get('text_pt') or opt.get('text', '') if lang == 'pt' else opt.get('text', '')
         cleaned_options[key] = {
-            'text': opt.get('text', ''),
+            'text': text,
             'keywords': opt.get('keywords', '')
         }
+    statement = q.get('QuestionText_pt') or q.get('QuestionText', '') if lang == 'pt' else q.get('QuestionText', '')
     return {
         'question_id': q['QuestionID'],
         'topic': q['Topic'],
         'type': q.get('QuestionType', 'single'),
-        'statement': q.get('QuestionText', ''),
+        'statement': statement,
         'options': cleaned_options
     }
 
 
-def generate_quiz(student_id, body):
+def generate_quiz(student_id, body, lang='en'):
     # Verificar acceso del estudiante
     access_error = check_student_access(student_id)
     if access_error:
@@ -230,9 +244,9 @@ def generate_quiz(student_id, body):
         })
 
     if quiz_type == 'initial':
-        return generate_initial_quiz(student_id)
+        return generate_initial_quiz(student_id, lang)
     elif quiz_type == 'final_exam':
-        return generate_final_exam(student_id)
+        return generate_final_exam(student_id, lang)
 
     # Práctica Libre por Tema
     topic = body.get('topic')
@@ -256,7 +270,7 @@ def generate_quiz(student_id, body):
 
     for q in questions:
         question_ids.append(q['QuestionID'])
-        cleaned_questions.append(clean_question(q))
+        cleaned_questions.append(clean_question(q, lang))
 
     quiz_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
@@ -280,7 +294,7 @@ def generate_quiz(student_id, body):
     })
 
 
-def generate_initial_quiz(student_id):
+def generate_initial_quiz(student_id, lang='en'):
     """Genera un quiz diagnóstico con 20 preguntas distribuidas por temas."""
     question_ids = []
     cleaned_questions = []
@@ -294,7 +308,7 @@ def generate_initial_quiz(student_id):
         questions = response_query.get('Items', [])
         for q in questions:
             question_ids.append(q['QuestionID'])
-            cleaned_questions.append(clean_question(q))
+            cleaned_questions.append(clean_question(q, lang))
 
     if not question_ids:
         return build_response(404, {'error': 'No questions found for initial test'})
@@ -359,7 +373,7 @@ def compute_active_questions(all_questions, answered):
     return [qid for qid in all_questions if qid not in answered_set]
 
 
-def resume_quiz(quiz):
+def resume_quiz(quiz, lang='en'):
     """Retorna un quiz en progreso con las preguntas ya respondidas excluidas."""
     quiz_id = quiz['QuizID']
     results_response = quiz_results_table.query(
@@ -373,7 +387,7 @@ def resume_quiz(quiz):
         q_response = questions_table.get_item(Key={'QuestionID': qid})
         q = q_response.get('Item')
         if q:
-            cleaned_questions.append(clean_question(q))
+            cleaned_questions.append(clean_question(q, lang))
 
     return build_response(200, {
         'quiz_id': quiz['QuizID'],
@@ -385,7 +399,7 @@ def resume_quiz(quiz):
     })
 
 
-def generate_final_exam(student_id):
+def generate_final_exam(student_id, lang='en'):
     """Genera examen final de 65 preguntas con anti-repetición y manejo de quiz en progreso."""
     student_response = students_table.get_item(Key={'StudentID': student_id})
     student = student_response.get('Item', {})
@@ -427,7 +441,7 @@ def generate_final_exam(student_id):
     # Reanudar examen final en progreso si existe (no crear uno nuevo)
     in_progress_quiz = next((q for q in exams if q.get('Status') == 'in_progress'), None)
     if in_progress_quiz:
-        return resume_quiz(in_progress_quiz)
+        return resume_quiz(in_progress_quiz, lang)
 
     answered_ids = get_student_answered_question_ids(student_id)
 
@@ -456,7 +470,7 @@ def generate_final_exam(student_id):
                 break
             if q['QuestionID'] not in answered_ids and q['QuestionID'] not in question_ids:
                 question_ids.append(q['QuestionID'])
-                cleaned_questions.append(clean_question(q))
+                cleaned_questions.append(clean_question(q, lang))
                 selected += 1
 
         if selected < count:
@@ -465,7 +479,7 @@ def generate_final_exam(student_id):
                     break
                 if q['QuestionID'] not in question_ids:
                     question_ids.append(q['QuestionID'])
-                    cleaned_questions.append(clean_question(q))
+                    cleaned_questions.append(clean_question(q, lang))
                     selected += 1
 
     if not question_ids:
@@ -493,7 +507,7 @@ def generate_final_exam(student_id):
     })
 
 
-def get_quiz(quiz_id, student_id):
+def get_quiz(quiz_id, student_id, lang='en'):
     """Obtiene un quiz con todas sus preguntas y las que ya fueron respondidas."""
     quiz_response = quizzes_table.get_item(Key={'QuizID': quiz_id})
     quiz = quiz_response.get('Item')
@@ -518,7 +532,7 @@ def get_quiz(quiz_id, student_id):
         q_response = questions_table.get_item(Key={'QuestionID': qid})
         q = q_response.get('Item')
         if q:
-            cleaned_questions.append(clean_question(q))
+            cleaned_questions.append(clean_question(q, lang))
 
     return build_response(200, {
         'quiz_id': quiz['QuizID'],
@@ -708,7 +722,7 @@ def submit_answer(student_id, body):
     })
 
 
-def get_results(quiz_id, student_id, claims=None):
+def get_results(quiz_id, student_id, claims=None, lang='en'):
     quiz_response = quizzes_table.get_item(Key={'QuizID': quiz_id})
     quiz = quiz_response.get('Item')
 
@@ -769,15 +783,21 @@ def get_results(quiz_id, student_id, claims=None):
                 k.strip().upper() for k, opt in options.items()
                 if isinstance(opt, dict) and opt.get('is_correct', False)
             ]
+            explanation_key = 'explanation_pt' if lang == 'pt' else 'explanation'
             explanation = next(
-                (opt.get('explanation', '') for k, opt in options.items()
+                (opt.get(explanation_key) or opt.get('explanation', '')
+                 for k, opt in options.items()
                  if isinstance(opt, dict) and opt.get('is_correct', False)),
                 ''
+            )
+            statement = (
+                q.get('QuestionText_pt') or q.get('QuestionText', '')
+                if lang == 'pt' else q.get('QuestionText', '')
             )
 
             answers.append({
                 'question_id': question_id,
-                'statement': q.get('QuestionText', ''),
+                'statement': statement,
                 'given_answers': result.get('GivenAnswers', []),
                 'correct_answers': correct_answers_for_question,
                 'is_correct': result.get('IsCorrect', False),
