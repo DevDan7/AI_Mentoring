@@ -32,7 +32,7 @@ async function loadConfig() {
     } catch (err) {
         const errorEl = document.getElementById('errorMsg');
         if (errorEl) {
-            errorEl.textContent = "Não foi possível carregar a configuração. Verifique sua conexão com a internet.";
+            errorEl.textContent = t("common.configError");
             errorEl.style.display = 'block';
         }
         throw err;
