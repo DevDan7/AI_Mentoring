@@ -3,132 +3,141 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mentoring - Entrar</title>
+    <title data-i18n="login.pageTitle">AI Mentoring - Entrar</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <link rel="stylesheet" href="css/theme.css">
 </head>
-<body>
+<body data-lang-no-reload>
     <main class="container">
         <article style="max-width: 450px; margin: 4rem auto;">
             <header>
+                <div id="langSwitcher" class="lang-switch-corner"></div>
                 <h3 style="text-align: center;">☁️ AI Mentoring Cloud</h3>
-                <p style="text-align: center; color: var(--pico-color-slate-500);">Plataforma de Simulados e MENTORIA AWS</p>
+                <p style="text-align: center; color: var(--pico-color-slate-500);" data-i18n="login.subtitle">Plataforma de Simulados e MENTORIA AWS</p>
             </header>
 
             <!-- ========== FORMULÁRIO DE LOGIN ========== -->
             <form id="loginForm">
                 <label for="email">
-                    E-mail
-                    <input type="email" id="email" name="email" placeholder="seu-email@exemplo.com" required>
+                    <span data-i18n="login.email">E-mail</span>
+                    <input type="email" id="email" name="email" placeholder="seu-email@exemplo.com" data-i18n-placeholder="login.emailPlaceholder" required>
                 </label>
 
                 <label for="password">
-                    Senha
-                    <input type="password" id="password" name="password" placeholder="••••••••" required>
+                    <span data-i18n="login.password">Senha</span>
+                    <span class="password-field">
+                        <input type="password" id="password" name="password" placeholder="••••••••" required>
+                        <button type="button" class="password-toggle" data-target="password" aria-pressed="false" aria-label="Mostrar senha" data-i18n-aria-label="login.showPassword"></button>
+                    </span>
                 </label>
 
-                <button type="submit" id="submitBtn">Entrar</button>
+                <button type="submit" id="submitBtn" data-i18n="login.submit">Entrar</button>
 
                 <p style="text-align: center; margin-top: 1rem; font-size: 0.9rem;">
-                    <a href="#" id="showForgotPassword">Esqueceu sua senha?</a>
+                    <a href="#" id="showForgotPassword" data-i18n="login.forgot">Esqueceu sua senha?</a>
                 </p>
                 <p style="text-align: center; margin-top: 0.5rem; font-size: 0.9rem;">
-                    Não tem conta? <a href="#" id="showRegister">Registre-se aqui</a>
+                    <span data-i18n="login.noAccount">Não tem conta?</span> <a href="#" id="showRegister" data-i18n="login.registerHere">Registre-se aqui</a>
                 </p>
             </form>
 
             <!-- ========== FORMULÁRIO DE REGISTRO ========== -->
             <form id="registerForm" style="display: none;">
                 <label for="regName">
-                    Nome Completo
-                    <input type="text" id="regName" name="regName" placeholder="Seu nome" required>
+                    <span data-i18n="register.name">Nome Completo</span>
+                    <input type="text" id="regName" name="regName" placeholder="Seu nome" data-i18n-placeholder="register.namePlaceholder" required>
                 </label>
 
                 <label for="regEmail">
-                    E-mail
-                    <input type="email" id="regEmail" name="regEmail" placeholder="seu-email@exemplo.com" required>
+                    <span data-i18n="login.email">E-mail</span>
+                    <input type="email" id="regEmail" name="regEmail" placeholder="seu-email@exemplo.com" data-i18n-placeholder="login.emailPlaceholder" required>
                 </label>
 
                 <label for="regPassword">
-                    Senha
-                    <input type="password" id="regPassword" name="regPassword" placeholder="Mínimo 8 caracteres" required>
-                    <small style="color: var(--pico-color-slate-500);">
+                    <span data-i18n="login.password">Senha</span>
+                    <span class="password-field">
+                        <input type="password" id="regPassword" name="regPassword" placeholder="Mínimo 8 caracteres" data-i18n-placeholder="register.passwordPlaceholder" required>
+                        <button type="button" class="password-toggle" data-target="regPassword" aria-pressed="false" aria-label="Mostrar senha" data-i18n-aria-label="login.showPassword"></button>
+                    </span>
+                    <small style="color: var(--pico-color-slate-500);" data-i18n="register.passwordHint">
                         Mínimo 8 caracteres, uma maiúscula e um número
                     </small>
                 </label>
 
-                <button type="submit" id="registerBtn">Criar Conta</button>
+                <button type="submit" id="registerBtn" data-i18n="register.submit">Criar Conta</button>
 
                 <p style="text-align: center; margin-top: 1rem; font-size: 0.9rem;">
-                    Já tem conta? <a href="#" id="showLoginFromRegister">Entre aqui</a>
+                    <span data-i18n="register.haveAccount">Já tem conta?</span> <a href="#" id="showLoginFromRegister" data-i18n="register.loginHere">Entre aqui</a>
                 </p>
             </form>
 
             <!-- ========== FORMULÁRIO DE CONFIRMAÇÃO ========== -->
             <form id="confirmForm" style="display: none;">
                 <p style="text-align: center;">
-                    Enviamos um código de verificação para <strong id="confirmEmailDisplay"></strong>.
-                    Insira o código para confirmar sua conta.
+                    <span data-i18n="confirm.sentTo">Enviamos um código de verificação para</span> <strong id="confirmEmailDisplay"></strong><span data-i18n="confirm.instructions">. Insira o código para confirmar sua conta.</span>
                 </p>
 
                 <label for="confirmCode">
-                    Código de Verificação
+                    <span data-i18n="confirm.code">Código de Verificação</span>
                     <input type="text" id="confirmCode" name="confirmCode" placeholder="123456" required
                            maxlength="6" pattern="[0-9]{6}" inputmode="numeric">
                 </label>
 
-                <button type="submit" id="confirmBtn">Confirmar Conta</button>
+                <button type="submit" id="confirmBtn" data-i18n="confirm.submit">Confirmar Conta</button>
 
                 <p style="text-align: center; margin-top: 1rem; font-size: 0.9rem;">
-                    <a href="#" id="resendCode">Reenviar código</a>
+                    <a href="#" id="resendCode" data-i18n="confirm.resend">Reenviar código</a>
                 </p>
                 <p style="text-align: center; margin-top: 0.5rem; font-size: 0.9rem;">
-                    <a href="#" id="showLoginFromConfirm">Voltar ao login</a>
+                    <a href="#" id="showLoginFromConfirm" data-i18n="confirm.backToLogin">Voltar ao login</a>
                 </p>
             </form>
 
             <!-- ========== FORMULÁRIO RECUPERAR SENHA ========== -->
             <form id="forgotForm" style="display: none;">
-                <p style="text-align: center;">
+                <p style="text-align: center;" data-i18n="forgot.instructions">
                     Insira seu e-mail e enviaremos um código para redefinir sua senha.
                 </p>
 
                 <label for="forgotEmail">
-                    E-mail
-                    <input type="email" id="forgotEmail" name="forgotEmail" placeholder="seu-email@exemplo.com" required>
+                    <span data-i18n="login.email">E-mail</span>
+                    <input type="email" id="forgotEmail" name="forgotEmail" placeholder="seu-email@exemplo.com" data-i18n-placeholder="login.emailPlaceholder" required>
                 </label>
 
-                <button type="submit" id="forgotBtn">Enviar Código</button>
+                <button type="submit" id="forgotBtn" data-i18n="forgot.submit">Enviar Código</button>
 
                 <p style="text-align: center; margin-top: 1rem; font-size: 0.9rem;">
-                    <a href="#" id="showLoginFromForgot">Voltar ao login</a>
+                    <a href="#" id="showLoginFromForgot" data-i18n="confirm.backToLogin">Voltar ao login</a>
                 </p>
             </form>
 
             <!-- ========== FORMULÁRIO REDEFINIR SENHA ========== -->
             <form id="resetPasswordForm" style="display: none;">
                 <p style="text-align: center;">
-                    Insira o código enviado para <strong id="resetEmailDisplay"></strong> e sua nova senha.
+                    <span data-i18n="reset.sentTo">Insira o código enviado para</span> <strong id="resetEmailDisplay"></strong> <span data-i18n="reset.instructions">e sua nova senha.</span>
                 </p>
 
                 <label for="resetCode">
-                    Código de Verificação
+                    <span data-i18n="confirm.code">Código de Verificação</span>
                     <input type="text" id="resetCode" name="resetCode" placeholder="123456" required
                            maxlength="6" pattern="[0-9]{6}" inputmode="numeric">
                 </label>
 
                 <label for="newPassword">
-                    Nova Senha
-                    <input type="password" id="newPassword" name="newPassword" placeholder="Mínimo 8 caracteres" required>
-                    <small style="color: var(--pico-color-slate-500);">
+                    <span data-i18n="reset.newPassword">Nova Senha</span>
+                    <span class="password-field">
+                        <input type="password" id="newPassword" name="newPassword" placeholder="Mínimo 8 caracteres" data-i18n-placeholder="register.passwordPlaceholder" required>
+                        <button type="button" class="password-toggle" data-target="newPassword" aria-pressed="false" aria-label="Mostrar senha" data-i18n-aria-label="login.showPassword"></button>
+                    </span>
+                    <small style="color: var(--pico-color-slate-500);" data-i18n="register.passwordHint">
                         Mínimo 8 caracteres, uma maiúscula e um número
                     </small>
                 </label>
 
-                <button type="submit" id="resetBtn">Redefinir Senha</button>
+                <button type="submit" id="resetBtn" data-i18n="reset.submit">Redefinir Senha</button>
 
                 <p style="text-align: center; margin-top: 1rem; font-size: 0.9rem;">
-                    <a href="#" id="resendResetCode">Reenviar código</a>
+                    <a href="#" id="resendResetCode" data-i18n="confirm.resend">Reenviar código</a>
                 </p>
             </form>
 
@@ -141,6 +150,7 @@
         </article>
     </main>
 
+    <script src="js/i18n.js"></script>
     <script src="js/config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/api.js"></script>
@@ -170,7 +180,32 @@ if (token && !isTokenExpired(token)) {
             document.getElementById("resetPasswordForm").style.display = "none";
             document.getElementById("errorMessage").style.display = "none";
             document.getElementById("successMessage").style.display = "none";
+            resetPasswordToggles();
         }
+
+        // ========== Mostrar/ocultar senha ==========
+        const EYE_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+        const EYE_OFF_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+
+        function setPasswordVisible(btn, visible) {
+            const input = document.getElementById(btn.dataset.target);
+            input.type = visible ? "text" : "password";
+            btn.setAttribute("aria-pressed", String(visible));
+            btn.dataset.i18nAriaLabel = visible ? "login.hidePassword" : "login.showPassword";
+            btn.setAttribute("aria-label", t(btn.dataset.i18nAriaLabel));
+            btn.innerHTML = visible ? EYE_OFF_ICON : EYE_ICON;
+        }
+
+        function resetPasswordToggles() {
+            document.querySelectorAll(".password-toggle").forEach(btn => setPasswordVisible(btn, false));
+        }
+
+        document.querySelectorAll(".password-toggle").forEach(btn => {
+            setPasswordVisible(btn, false);
+            btn.addEventListener("click", () => {
+                setPasswordVisible(btn, btn.getAttribute("aria-pressed") !== "true");
+            });
+        });
 
         // Helper: mostrar login
         function showLogin() {
@@ -251,7 +286,7 @@ if (token && !isTokenExpired(token)) {
             // Validação client-side de senha
             const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
             if (!passwordRegex.test(password)) {
-                errorDiv.innerText = "A senha deve ter no mínimo 8 caracteres, uma maiúscula e um número.";
+                errorDiv.innerText = t("register.passwordInvalid");
                 errorDiv.style.display = "block";
                 return;
             }
@@ -262,7 +297,7 @@ if (token && !isTokenExpired(token)) {
                 try {
                     const capacity = await checkCohortCapacityPublic(pendingCohortId);
                     if (capacity.is_full) {
-                        errorDiv.innerText = "Turma lotada. Entre em contato com o professor para verificar vagas.";
+                        errorDiv.innerText = t("register.cohortFull");
                         errorDiv.style.display = "block";
                         return;
                     }
@@ -307,7 +342,7 @@ if (token && !isTokenExpired(token)) {
             try {
                 await confirmSignUp(email, code);
                 hideAll();
-                showSuccess("Conta confirmada! Agora faça login.");
+                showSuccess(t("confirm.success"));
                 showLogin();
             } catch (err) {
                 errorDiv.innerText = err.message;
@@ -327,7 +362,7 @@ if (token && !isTokenExpired(token)) {
 
             try {
                 await resendConfirmationCode(email);
-                successDiv.innerText = "Código reenviado. Verifique seu e-mail.";
+                successDiv.innerText = t("confirm.resent");
                 successDiv.style.display = "block";
                 errorDiv.style.display = "none";
                 setTimeout(() => { successDiv.style.display = "none"; }, 5000);
@@ -375,7 +410,7 @@ if (token && !isTokenExpired(token)) {
             // Validação client-side de senha
             const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
             if (!passwordRegex.test(newPassword)) {
-                errorDiv.innerText = "A senha deve ter no mínimo 8 caracteres, uma maiúscula e um número.";
+                errorDiv.innerText = t("register.passwordInvalid");
                 errorDiv.style.display = "block";
                 return;
             }
@@ -387,7 +422,7 @@ if (token && !isTokenExpired(token)) {
             try {
                 await confirmForgotPassword(email, code, newPassword);
                 hideAll();
-                showSuccess("Senha atualizada! Agora faça login.");
+                showSuccess(t("reset.success"));
                 showLogin();
             } catch (err) {
                 errorDiv.innerText = err.message;
@@ -407,7 +442,7 @@ if (token && !isTokenExpired(token)) {
 
             try {
                 await forgotPassword(email);
-                successDiv.innerText = "Código reenviado. Verifique seu e-mail.";
+                successDiv.innerText = t("confirm.resent");
                 successDiv.style.display = "block";
                 errorDiv.style.display = "none";
                 setTimeout(() => { successDiv.style.display = "none"; }, 5000);
