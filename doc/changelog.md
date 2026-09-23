@@ -6,6 +6,49 @@
 
 ## 2026-09
 
+### 23 Sep — Traducir preguntas al PT-BR + "Ver detalhes" en el historial del alumno
+- **Problema 1**: el selector de idioma (PT-BR/EN, rama `feature/i18n-password-toggle`)
+  traduce toda la interfaz estática, pero por diseño explícito (comentario en `i18n.js`)
+  no traduce el contenido de la BD — enunciados y opciones de los simulados quedaban
+  siempre en inglés aunque la UI estuviera en PT-BR. Confirmado en `quiz.html`: el
+  enunciado se renderiza tal cual viene de la API, que viene tal cual de
+  `MentoringQuestions` (`QuestionText`, siempre en inglés).
+- **Solución**: pre-traducir y guardar en DynamoDB (no traducir al vuelo — más rápido,
+  consistente, sin latencia extra por request). Nuevos atributos aditivos
+  `QuestionText_pt` y `Options[*].text_pt`/`explanation_pt` (nunca se pisan los campos en
+  inglés, quedan como fallback si falta traducción). El scoring no se afecta: las
+  respuestas se identifican por clave (A/B/C...), nunca por texto.
+  - `scripts/traducir_preguntas_pt.py` (nuevo): traduce el banco existente vía Bedrock
+    (mismo modelo que `processor.py`), reporte primero, `--apply` separado con backup.
+  - `src/processor.py`: el prompt de extracción ya existente ahora también pide la
+    traducción PT-BR en la misma llamada (sin costo extra) — las fotos nuevas quedan
+    traducidas desde el ingreso.
+  - `src/quiz_engine.py`: `clean_question(q, lang)` devuelve el campo traducido si existe
+    y cae a inglés si falta; `generate_quiz`, `generate_final_exam`, `resume_quiz`,
+    `get_quiz`, `get_results` propagan `lang` (body para POST, query string `?lang=` para
+    GET) desde el cliente.
+  - `src/frontend/js/api.js`: `generateQuiz`, `generateFinalExam`, `generateInitialTest`,
+    `getQuiz`, `getQuizResults` mandan `lang: getLang()` — sin cambios en
+    `quiz.html`/`results.html`, ya renderizan `statement`/`options[key].text` tal cual
+    venga del backend.
+- **Problema 2**: en `dashboard.html` (perfil del alumno), el historial de simulados no
+  tenía link a detalle pregunta-por-pregunta — a diferencia de `teacher.html`, donde ya
+  se agregó "Ver detalhes" (22-Sep). Mismo fix aplicado en `loadHistory()`: nueva columna
+  con link a `results.html?quizId=...` para simulados completados.
+- Test nuevo: `TestCleanQuestionLang` (`en` default, `pt` con traducción, `pt` con
+  fallback a inglés) y `test_lang_pt_localizes_statement_and_explanation` en
+  `tests/test_quiz_engine.py`. 84/84 tests en verde.
+- **Requiere `terraform apply`**: redeploy de código de `quiz-engine` y `processor`, sin
+  cambios de IAM.
+- **Ejecutado**: `traducir_preguntas_pt.py` corrido contra el banco real — **203/203
+  preguntas traducidas** (backup previo `scripts/backup_pre_traduccion_pt_20260923_145524.json`).
+  2 reintentos necesarios por `ThrottlingException` de Bedrock (12 preguntas) y 1 error de
+  parseo transitorio (respuesta con contenido extra tras el JSON) — todos resueltos
+  manualmente y verificados: `0` preguntas sin `QuestionText_pt` tras el `--apply`.
+- Archivos: `scripts/traducir_preguntas_pt.py` (nuevo), `src/processor.py`,
+  `src/quiz_engine.py`, `src/frontend/js/api.js`, `src/frontend/dashboard.html`,
+  `tests/test_quiz_engine.py`.
+
 ### 23 Sep — Fix: el profesor no debe poder "convertirse" en alumno
 - **Problema**: al usar "Realizar Outro Simulado" desde el perfil de profesor, la cuenta
   pasaba a comportarse como alumno.
