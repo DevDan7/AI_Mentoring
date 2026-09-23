@@ -99,6 +99,10 @@ async function getQuizResults(quizId) {
     return apiCall("GET", `/quizzes/${quizId}/results`);
 }
 
+async function getStudentQuizzes(studentId) {
+    return apiCall("GET", `/students/${studentId}/quizzes`);
+}
+
 async function generateInitialTest() {
     return apiCall("POST", "/quizzes/generate", { quiz_type: "initial" });
 }

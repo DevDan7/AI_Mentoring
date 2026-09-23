@@ -5,6 +5,7 @@ enriquecimiento de get_results() (statement/correct_answers/explanation,
 domain_breakdown solo para final_exam) y persistencia/idempotencia de submit_answer().
 """
 import json
+import random
 import sys
 import os
 import unittest
@@ -133,6 +134,48 @@ class TestGenerateFinalExamResume(unittest.TestCase):
 
         # No debe llamar a resume_quiz ni crear quiz
         mock_quizzes.put_item.assert_not_called()
+
+
+class TestGenerateFinalExamRandomization(unittest.TestCase):
+    """Bug reportado en testing E2E (22-Sep): dos exámenes finales generados para el
+    mismo alumno (p.ej. tras un reset del profesor) traían las mismas preguntas en el
+    mismo orden, porque TopicIndex es HASH-only (sin sort key) y DynamoDB devuelve
+    siempre el mismo orden. Fix: random.shuffle() sobre los candidatos antes de elegir."""
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_two_generations_produce_different_question_order(
+        self, mock_questions, mock_results, mock_quizzes, mock_students
+    ):
+        import quiz_engine
+
+        student = make_student_item()
+        mock_students.get_item.return_value = {'Item': student}
+        mock_quizzes.query.return_value = {'Items': []}
+        mock_results.query.return_value = {'Items': []}
+
+        # Pool en orden fijo (simula lo que devuelve TopicIndex sin sort key).
+        pool = [make_question_item(f'q{i}', topic='Cloud Concepts & Well-Architected')
+                for i in range(60)]
+        mock_questions.query.return_value = {'Items': pool}
+
+        with mock.patch.object(
+            quiz_engine, 'FINAL_EXAM_DISTRIBUTION',
+            {'Cloud Concepts & Well-Architected': 16}
+        ):
+            random.seed(1)
+            body_a = json.loads(quiz_engine.generate_final_exam('student-123')['body'])
+            random.seed(2)
+            body_b = json.loads(quiz_engine.generate_final_exam('student-123')['body'])
+
+        ids_a = [q['question_id'] for q in body_a['questions']]
+        ids_b = [q['question_id'] for q in body_b['questions']]
+
+        self.assertEqual(len(ids_a), 16)
+        self.assertEqual(len(set(ids_a)), 16)  # sin duplicados dentro del examen
+        self.assertNotEqual(ids_a, ids_b)
 
 
 class TestGetResultsEnrichment(unittest.TestCase):

@@ -6,6 +6,37 @@
 
 ## 2026-09
 
+### 22 Sep — Fix: exámenes finales repetidos entre intentos + detalle do professor
+- **Problema 1 — preguntas repetidas**: `generate_final_exam()` (`quiz_engine.py`) traía
+  candidatos por tema con `questions_table.query(IndexName='TopicIndex', Limit=count*2)`
+  sin ningún shuffle. El GSI `TopicIndex` es HASH-only (sin sort key) → DynamoDB devuelve
+  siempre el mismo orden (de inserción). Sumado a que `get_student_answered_question_ids()`
+  solo excluye preguntas de quizzes `Status='completed'` (un `reset` no cuenta como
+  respondido, a propósito), un examen regenerado tras un reset del profesor traía
+  prácticamente el mismo set de 65 preguntas en el mismo orden que el intento anterior.
+  Verificado con datos reales: el examen completado de `bomjob8@gmail.com` no tenía
+  `QuestionID` duplicados dentro del mismo intento (64/64 únicos) ni había duplicados de
+  contenido en el banco (`detectar_duplicados_contenido.py` → 0 grupos) — la dedupe
+  intra-examen ya funcionaba bien; el problema era la falta de variedad entre intentos.
+- **Solución**: `random.shuffle()` sobre los candidatos de cada tema antes de seleccionar,
+  y `Limit` subido de `count*2` a `count*3` para más margen. Sin nueva dependencia
+  (`random` es stdlib). Test nuevo en `tests/test_quiz_engine.py`
+  (`TestGenerateFinalExamRandomization`) que genera el examen dos veces con distinta
+  semilla y confirma que el orden de `QuestionID`s difiere.
+- **Problema 2 — el profesor no ve el detalle pregunta-por-pregunta**: `teacher.html` solo
+  mostraba score/status por intento (`get_student_quizzes()` en `student_api.py` nunca
+  tocó `QuizResults`/`MentoringQuestions`). El backend ya soportaba esto: `get_results()`
+  (`GET /quizzes/{quizId}/results`) ya permitía a un profesor ver el detalle completo de
+  cualquier alumno (`is_teacher(claims)`, sin cambios de IAM/Terraform necesarios).
+- **Solución**: nuevo link "Ver detalhes" por fila en `teacher.js` → `results.html?quizId=…`
+  (reutiliza 100% del render existente, sin cambios de backend). Cleanup menor: se agregó
+  `getStudentQuizzes()` a `api.js` para seguir el patrón de wrappers ya usado en el resto
+  del archivo (antes `teacher.js` llamaba `apiCall()` inline para esa ruta).
+- **Requiere `terraform apply`**: el cambio en `quiz_engine.py` cambia el
+  `source_code_hash` de la Lambda `quiz-engine` → redeploy de código, sin cambios de IAM.
+- Archivos: `src/quiz_engine.py`, `src/frontend/js/api.js`, `src/frontend/js/teacher.js`,
+  `src/frontend/teacher.html`, `tests/test_quiz_engine.py`.
+
 ### 22 Sep — Validación manual E2E completa del examen final (turma-beta-01)
 - **Resultado**: alumno `bomjob8@gmail.com` completó el examen final de 65 preguntas sin
   error 500 (confirma el fix tz-naive de `FinalExamReleaseDate`, PR #112, en producción
