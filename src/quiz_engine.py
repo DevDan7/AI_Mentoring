@@ -2,6 +2,7 @@ import json
 import uuid
 import os
 import re
+import random
 import boto3
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -440,11 +441,17 @@ def generate_final_exam(student_id):
         response = questions_table.query(
             IndexName='TopicIndex',
             KeyConditionExpression=Key('Topic').eq(topic),
-            Limit=count * 2
+            Limit=count * 3
         )
+        # TopicIndex es HASH-only (sin sort key): DynamoDB devuelve los ítems siempre
+        # en el mismo orden (de inserción). Sin shuffle, dos generaciones para el mismo
+        # tema traen literalmente las mismas primeras `count` preguntas -> exámenes
+        # idénticos entre intentos (p.ej. tras un reset del profesor, ver changelog).
+        candidates = response.get('Items', [])
+        random.shuffle(candidates)
 
         selected = 0
-        for q in response.get('Items', []):
+        for q in candidates:
             if selected >= count:
                 break
             if q['QuestionID'] not in answered_ids and q['QuestionID'] not in question_ids:
@@ -453,7 +460,7 @@ def generate_final_exam(student_id):
                 selected += 1
 
         if selected < count:
-            for q in response.get('Items', []):
+            for q in candidates:
                 if selected >= count:
                     break
                 if q['QuestionID'] not in question_ids:
