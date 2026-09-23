@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mentoring - Painel do Professor</title>
+    <title data-i18n="teacher.pageTitle">AI Mentoring - Painel do Professor</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <link rel="stylesheet" href="css/theme.css">
     <style>
@@ -18,8 +18,9 @@
     <nav class="container">
         <ul>
             <li><strong>☁️ AI Mentoring Cloud</strong></li>
-            <li><span>Professor</span></li>
-            <li><a href="#" id="logoutBtn" role="button">Sair</a></li>
+            <li><span data-i18n="teacher.role">Professor</span></li>
+            <li id="langSwitcher"></li>
+            <li><a href="#" id="logoutBtn" role="button" data-i18n="common.logout">Sair</a></li>
         </ul>
     </nav>
 
@@ -30,24 +31,24 @@
         <section>
             <article>
                 <header>
-                    <h4>Indicadores</h4>
+                    <h4 data-i18n="teacher.kpis">Indicadores</h4>
                 </header>
                 <div class="grid kpi-grid">
                     <div class="kpi-card">
                         <div class="kpi-number" id="kpiTotal">0</div>
-                        <div class="kpi-label">Total de Alunos</div>
+                        <div class="kpi-label" data-i18n="teacher.kpiTotal">Total de Alunos</div>
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-number" id="kpiInitial">0</div>
-                        <div class="kpi-label">Diagnóstico</div>
+                        <div class="kpi-label" data-i18n="teacher.kpiInitial">Diagnóstico</div>
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-number" id="kpiFreePractice">0</div>
-                        <div class="kpi-label">Prática Livre</div>
+                        <div class="kpi-label" data-i18n="teacher.kpiFree">Prática Livre</div>
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-number" id="kpiFinalExam">0</div>
-                        <div class="kpi-label">Exame Final</div>
+                        <div class="kpi-label" data-i18n="teacher.kpiFinal">Exame Final</div>
                     </div>
                 </div>
             </article>
@@ -59,16 +60,16 @@
             <section class="section active">
                 <article>
                     <header>
-                        <h4>Alunos</h4>
+                        <h4 data-i18n="teacher.students">Alunos</h4>
                         <div class="grid filtros">
                             <div>
-                                <label>Turma</label>
+                                <label data-i18n="teacher.cohort">Turma</label>
                                 <select id="cohortFilter">
-                                    <option value="">Todas</option>
+                                    <option value="" data-i18n="teacher.all">Todas</option>
                                 </select>
                             </div>
                             <div>
-                                <input type="text" id="searchInput" placeholder="Buscar nome ou e-mail" />
+                                <input type="text" id="searchInput" placeholder="Buscar nome ou e-mail" data-i18n-placeholder="teacher.search" />
                             </div>
                         </div>
                     </header>
@@ -76,12 +77,12 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Nome</th>
-                                    <th>Email</th>
-                                    <th>Turma</th>
-                                    <th>Fase Atual</th>
-                                    <th>Exame Final</th>
-                                    <th>Ações</th>
+                                    <th data-i18n="teacher.col.name">Nome</th>
+                                    <th data-i18n="teacher.col.email">Email</th>
+                                    <th data-i18n="teacher.col.cohort">Turma</th>
+                                    <th data-i18n="teacher.col.phase">Fase Atual</th>
+                                    <th data-i18n="teacher.col.finalExam">Exame Final</th>
+                                    <th data-i18n="teacher.col.actions">Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="studentTable">
@@ -96,18 +97,18 @@
             <section id="historySection" class="section" style="display: none;">
                 <article>
                     <header>
-                        <h4>Histórico do Aluno</h4>
-                        <button id="closeHistoryBtn" role="button">Fechar</button>
+                        <h4 data-i18n="teacher.historyTitle">Histórico do Aluno</h4>
+                        <button id="closeHistoryBtn" role="button" data-i18n="teacher.close">Fechar</button>
                     </header>
                     <table>
                         <thead>
                             <tr>
                                 <th>#</th>
-                                <th>Tipo / Tema</th>
-                                <th>Status</th>
-                                <th>Score</th>
-                                <th>Data</th>
-                                <th>Detalhes</th>
+                                <th data-i18n="teacher.col.typeTopic">Tipo / Tema</th>
+                                <th data-i18n="dash.col.status">Status</th>
+                                <th data-i18n="dash.col.score">Score</th>
+                                <th data-i18n="dash.col.date">Data</th>
+                                <th data-i18n="teacher.col.details">Detalhes</th>
                             </tr>
                         </thead>
                         <tbody id="historyTable">
@@ -122,16 +123,16 @@
         <section class="section" style="display: none;">
             <article>
                 <header>
-                    <h4>Turmas</h4>
+                    <h4 data-i18n="teacher.cohortsTitle">Turmas</h4>
                 </header>
                 <article>
                     <table>
                         <thead>
                             <tr>
-                                <th>Turma</th>
-                                <th>Nome</th>
-                                <th>Alunos</th>
-                                <th>Máximo</th>
+                                <th data-i18n="teacher.col.cohort">Turma</th>
+                                <th data-i18n="teacher.col.cohortName">Nome</th>
+                                <th data-i18n="teacher.col.students">Alunos</th>
+                                <th data-i18n="teacher.col.max">Máximo</th>
                                 <th>%</th>
                             </tr>
                         </thead>
@@ -144,6 +145,7 @@
         </section>
     </main>
 
+    <script src="js/i18n.js"></script>
     <script src="js/config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/api.js"></script>

@@ -32,7 +32,7 @@ async function apiCall(method, path, body) {
     try {
         response = await fetch(`${CONFIG.apiUrl}${path}`, options);
     } catch (networkErr) {
-        showError("Erro de conexão. Verifique sua internet e tente novamente.");
+        showError(t("common.connectionError"));
         throw networkErr;
     }
 
@@ -46,14 +46,14 @@ async function apiCall(method, path, body) {
         try {
             response = await fetch(`${CONFIG.apiUrl}${path}`, options);
         } catch (networkErr) {
-            showError("Erro de conexão. Verifique sua internet e tente novamente.");
+            showError(t("common.connectionError"));
             throw networkErr;
         }
     }
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        showError(error.message || `Erro ${response.status}`);
+        showError(error.message || t("common.httpError", { status: response.status }));
         throw new Error(error.message || `Error ${response.status}`);
     }
 

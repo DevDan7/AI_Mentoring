@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mentoring - Resultados</title>
+    <title data-i18n="results.pageTitle">AI Mentoring - Resultados</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <link rel="stylesheet" href="css/theme.css">
 </head>
@@ -13,7 +13,8 @@
             <li><strong>☁️ AI Mentoring Cloud</strong></li>
         </ul>
         <ul>
-            <li><a href="dashboard.html" id="navBackLink" role="button" class="secondary outline">Voltar ao Painel</a></li>
+            <li id="langSwitcher"></li>
+            <li><a href="dashboard.html" id="navBackLink" role="button" class="secondary outline" data-i18n="common.backToDashboard">Voltar ao Painel</a></li>
         </ul>
     </nav>
 
@@ -22,47 +23,47 @@
 
         <div id="loadingState" class="center" style="margin-top: 3rem;">
             <progress></progress>
-            <p>Carregando resultados...</p>
+            <p data-i18n="results.loading">Carregando resultados...</p>
         </div>
 
         <div id="errorState" style="display: none;">
             <article>
-                <header><h4 style="color: var(--pico-color-red-500);">Erro</h4></header>
-                <p id="errorMessage">Não foi possível carregar os resultados.</p>
-                <a href="dashboard.html" id="errorBackLink" role="button">Voltar ao Painel</a>
+                <header><h4 style="color: var(--pico-color-red-500);" data-i18n="results.error">Erro</h4></header>
+                <p id="errorMessage" data-i18n="results.loadError">Não foi possível carregar os resultados.</p>
+                <a href="dashboard.html" id="errorBackLink" role="button" data-i18n="common.backToDashboard">Voltar ao Painel</a>
             </article>
         </div>
 
         <div id="resultsState" style="display: none;">
             <article>
                 <header>
-                    <h3 style="text-align: center;">Resumo do Simulado</h3>
+                    <h3 style="text-align: center;" data-i18n="results.summary">Resumo do Simulado</h3>
                 </header>
 
                 <div class="grid" style="text-align: center; margin-bottom: 2rem;">
                     <div>
                         <h2 id="scorePercentage" style="margin-bottom: 0;">0%</h2>
-                        <small>Pontuação Final</small>
+                        <small data-i18n="results.score">Pontuação Final</small>
                     </div>
                     <div>
                         <h2 id="correctCount" style="margin-bottom: 0; color: var(--pico-color-green-500);">0</h2>
-                        <small>Corretas</small>
+                        <small data-i18n="results.correctCount">Corretas</small>
                     </div>
                     <div>
                         <h2 id="totalCount" style="margin-bottom: 0;">0</h2>
-                        <small>Total de Perguntas</small>
+                        <small data-i18n="results.total">Total de Perguntas</small>
                     </div>
                 </div>
 
                 <!-- Desglose por dominio, solo para final_exam -->
                 <div id="domainBreakdownSection" style="display: none; margin-bottom: 2rem;">
-                    <h4>Desempenho por Domínio</h4>
+                    <h4 data-i18n="results.domainTitle">Desempenho por Domínio</h4>
                     <table>
                         <thead>
                             <tr>
-                                <th>Domínio</th>
-                                <th>Corretas</th>
-                                <th>Total</th>
+                                <th data-i18n="results.col.domain">Domínio</th>
+                                <th data-i18n="results.col.correct">Corretas</th>
+                                <th data-i18n="results.col.total">Total</th>
                                 <th>%</th>
                             </tr>
                         </thead>
@@ -70,16 +71,17 @@
                     </table>
                 </div>
 
-                <h4>Detalhamento das Respostas</h4>
+                <h4 data-i18n="results.answersTitle">Detalhamento das Respostas</h4>
                 <div id="answersContainer"></div>
 
                 <div style="margin-top: 2rem; text-align: center;">
-                    <a href="dashboard.html" id="retakeLink" role="button">Realizar Outro Simulado</a>
+                    <a href="dashboard.html" id="retakeLink" role="button" data-i18n="results.retake">Realizar Outro Simulado</a>
                 </div>
             </article>
         </div>
     </main>
 
+    <script src="js/i18n.js"></script>
     <script src="js/config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/api.js"></script>
@@ -106,7 +108,7 @@
             const quizId = urlParams.get('quizId') || localStorage.getItem('last_quiz_id');
 
             if (!quizId) {
-                showError("Não foi encontrado um ID de simulado válido.");
+                showError(t("results.noQuizId"));
                 return;
             }
 
@@ -144,7 +146,7 @@
                 container.innerHTML = "";
 
                 if (answersList.length === 0) {
-                    container.innerHTML = "<p>Não há respostas registradas para este simulado.</p>";
+                    container.innerHTML = `<p>${esc(t("results.noAnswers"))}</p>`;
                 } else {
                     answersList.forEach((item, index) => {
                         const card = document.createElement("article");
@@ -155,16 +157,16 @@
 
                         card.innerHTML = `
                             <header style="padding: 0.5rem 1rem;">
-                                <strong>Pergunta ${index + 1}</strong> —
+                                <strong>${esc(t("common.question"))} ${index + 1}</strong> —
                                 <span style="color: ${isCorrect ? 'var(--pico-color-green-600)' : 'var(--pico-color-red-600)'}; font-weight: bold;">
-                                    ${isCorrect ? 'Correta ✅' : 'Incorreta ❌'}
+                                    ${esc(isCorrect ? t("results.correct") : t("results.incorrect"))}
                                 </span>
                             </header>
                             <div style="padding: 0.5rem 1rem;">
-                                <p style="margin-bottom: 0.25rem;"><strong>Enunciado:</strong> ${esc(item.statement || '')}</p>
-                                <p style="margin-bottom: 0.25rem;"><strong>Resposta enviada:</strong> ${esc((item.given_answers || []).join(', ')) || '-'}</p>
-                                <p style="margin-bottom: 0.25rem;"><strong>Resposta correta:</strong> ${esc((item.correct_answers || []).join(', ')) || '-'}</p>
-                                <p style="margin-bottom: 0.25rem;"><strong>Explicação:</strong> ${esc(item.explanation || '')}</p>
+                                <p style="margin-bottom: 0.25rem;"><strong>${esc(t("results.statement"))}</strong> ${esc(item.statement || '')}</p>
+                                <p style="margin-bottom: 0.25rem;"><strong>${esc(t("results.given"))}</strong> ${esc((item.given_answers || []).join(', ')) || '-'}</p>
+                                <p style="margin-bottom: 0.25rem;"><strong>${esc(t("results.expected"))}</strong> ${esc((item.correct_answers || []).join(', ')) || '-'}</p>
+                                <p style="margin-bottom: 0.25rem;"><strong>${esc(t("results.explanation"))}</strong> ${esc(item.explanation || '')}</p>
                             </div>
                         `;
                         container.appendChild(card);
@@ -179,7 +181,7 @@
                 showError(err.message);
                 const errorEl = document.getElementById("errorMessage");
                 if (errorEl) {
-                    errorEl.textContent = err.message || "Não foi possível carregar os resultados.";
+                    errorEl.textContent = err.message || t("results.loadError");
                 }
                 document.getElementById("loadingState").style.display = "none";
                 document.getElementById("errorState").style.display = "";
