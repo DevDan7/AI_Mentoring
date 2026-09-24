@@ -24,8 +24,8 @@ gh pr status, gh pr view, gh pr checks, gh run list, gh run view
 git add, git commit, git push, git checkout -b,
 gh pr create, gh pr merge, git branch -d / -D,
 cualquier variante de terraform apply/destroy.
-(Lo exige CLAUDE.md: Claude no ejecuta git de escritura en este repo. El usuario los
-corre tras aprobarlos.)
+(Vos solo proponés. Según CLAUDE.md, el agente principal puede ejecutar tu bloque únicamente
+cuando el usuario lo autoriza explícitamente; si no, el usuario lo corre a mano.)
 
 ## Proceso
 1. Corré `git status` y `git diff` (y `git diff --staged` si hay algo staged) para
