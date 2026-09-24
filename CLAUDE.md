@@ -8,8 +8,18 @@ This file covers commands and architecture; read `AGENTS.md` for the rest.
 
 ## Critical workflow rules
 
-- **NEVER run `git add`, `git commit`, `git push`, `terraform apply`, or `terraform destroy`.** At the end
-  of any task that changes files or infra, output ready-to-run commands for the user to execute manually.
+- **Git/gh write commands** (`git switch -c`/`checkout -b`, `git add`, `git commit`, `git push`, `gh pr create`,
+  `gh pr merge`, `git branch -d/-D`) run **only with the user's explicit authorization in the current message**
+  (e.g. "ejecutá los comandos git", "commit y push", "mergeá el PR"). Authorization covers that task only and does
+  not carry over. Without it, keep the default: output ready-to-run commands for the user to execute manually.
+  - Before executing, show the command block: files included/excluded and the commit message. Never `git add -A`
+    or `git add .` blindly — name the files.
+  - `gh pr merge` only after `gh pr checks` is green, with explicit authorization for that merge.
+  - `.claude/settings.json` enforces this: those commands are `ask` (the user approves each one in the permission
+    prompt, also from the phone via Remote Control).
+- **Always forbidden, even if asked:** direct push to `main`, force-push, `git reset --hard`, `terraform apply`,
+  `terraform destroy` (also `deny` in `.claude/settings.json`). At the end of infra tasks, output the Terraform
+  commands for the user to run manually.
 - Data migration scripts (`scripts/migrate_*.py`) are manual-only — never wire them into CI/CD.
 - Secrets/personal data only via `terraform.tfvars` (gitignored) or `sensitive = true` Terraform variables —
   never in committed code or `.tfstate`.

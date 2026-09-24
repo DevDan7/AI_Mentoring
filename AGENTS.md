@@ -169,7 +169,7 @@ Before committing:
 - Do not include temporary files.
 - Keep commits small and descriptive.
 
-Do not `git push` automatically unless requested.
+Do not run `git push` (or any git write command) without explicit user authorization — see §17 Git Operations.
 
 ---
 
@@ -301,8 +301,14 @@ A task is considered complete when:
 ## 17. Workflow Rules
 
 ### Git Operations
-- NEVER execute `git add`, `git commit`, `git push`, or any git write operation.
-- At the end of every task that modifies files, deliver ready git commands with appropriate messages for manual execution.
+- Git/gh write operations (`git switch -c`/`checkout -b`, `git add`, `git commit`, `git push`, `gh pr create`,
+  `gh pr merge`, `git branch -d/-D`) are executed ONLY when the user explicitly authorizes them in the current
+  message. Authorization is per task and does not carry over.
+- Before executing, show the full command block (files included/excluded, commit message). Never `git add -A` / `.`.
+- `gh pr merge` only after CI checks pass (`gh pr checks`) and with explicit authorization for that merge.
+- ALWAYS forbidden: direct push to `main`, force-push, `git reset --hard` (enforced as `deny` in `.claude/settings.json`).
+- Without authorization (default), at the end of every task that modifies files, deliver ready git commands with
+  appropriate messages for manual execution.
 - Output format at task end:
   ```
   ## Git Commands to Execute:
