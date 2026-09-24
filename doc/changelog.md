@@ -6,6 +6,26 @@
 
 ## 2026-09
 
+### 23 Sep — Fix: feedback inmediato del simulado no traducía la explicación
+- **Problema**: reportado con capturas — al cambiar la interfaz a PT-BR, el enunciado y
+  las opciones ya salían traducidos (fix del mismo día), pero el cuadro de feedback
+  inmediato en `quiz.html` ("Correto ✅"/"Incorreto ❌" + explicación, tras "Confirmar
+  Resposta") mostraba la explicación siempre en inglés.
+- **Causa raíz**: `submit_answer()` (`quiz_engine.py`) fue la única función de contenido
+  de BD que quedó afuera del trabajo de traducción — nunca recibió el parámetro `lang`
+  (a diferencia de `generate_quiz`, `generate_final_exam`, `resume_quiz`, `get_quiz`,
+  `get_results`, que sí lo tienen), así que siempre leía `Options[*].explanation`
+  (inglés), nunca `explanation_pt`. Tampoco `submitAnswer()` (`api.js`) mandaba `lang` en
+  el body.
+- **Solución**: mismo patrón que el resto — `submit_answer(student_id, body, lang)`
+  localiza la explicación con fallback a inglés si falta la traducción; `api.js` manda
+  `lang: getLang()`.
+- Test nuevo: `test_lang_pt_returns_translated_explanation` y
+  `test_lang_pt_falls_back_to_english_explanation_when_missing` en `test_quiz_engine.py`.
+  87/87 tests en verde.
+- **Requiere `terraform apply`**: redeploy de código de `quiz-engine`, sin cambios de IAM.
+- Archivos: `src/quiz_engine.py`, `src/frontend/js/api.js`, `tests/test_quiz_engine.py`.
+
 ### 23 Sep — Traducir preguntas al PT-BR + "Ver detalhes" en el historial del alumno
 - **Problema 1**: el selector de idioma (PT-BR/EN, rama `feature/i18n-password-toggle`)
   traduce toda la interfaz estática, pero por diseño explícito (comentario en `i18n.js`)

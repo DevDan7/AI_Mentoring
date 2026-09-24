@@ -535,6 +535,66 @@ class TestSubmitAnswer(unittest.TestCase):
     @mock.patch('quiz_engine.questions_table')
     @mock.patch('quiz_engine.quiz_results_table')
     @mock.patch('quiz_engine.quizzes_table')
+    def test_lang_pt_returns_translated_explanation(
+        self, mock_quizzes, mock_results, mock_questions, mock_students
+    ):
+        """Bug reportado (23-Sep, capturas): el feedback inmediato de quiz.html
+        mostraba la explicación siempre en inglés, aunque la UI estuviera en PT-BR."""
+        import quiz_engine
+
+        mock_students.get_item.return_value = {
+            'Item': make_student_item(phase='free_practice', release_delta_days=None)
+        }
+        question = make_question_item('q1')
+        question['Options']['A']['explanation_pt'] = 'Porque A'
+        mock_questions.get_item.return_value = {'Item': question}
+        mock_results.query.return_value = {'Items': []}
+        mock_quizzes.get_item.return_value = {
+            'Item': {
+                'QuizID': 'quiz-1', 'StudentID': 'student-123', 'QuizType': 'free',
+                'Questions': ['q1'], 'Status': 'in_progress',
+            }
+        }
+
+        response = quiz_engine.submit_answer('student-123', {
+            'quiz_id': 'quiz-1', 'question_id': 'q1', 'given_answers': ['A']
+        }, lang='pt')
+
+        body = json.loads(response['body'])
+        self.assertEqual(body['explanation'], 'Porque A')
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.questions_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    def test_lang_pt_falls_back_to_english_explanation_when_missing(
+        self, mock_quizzes, mock_results, mock_questions, mock_students
+    ):
+        import quiz_engine
+
+        mock_students.get_item.return_value = {
+            'Item': make_student_item(phase='free_practice', release_delta_days=None)
+        }
+        mock_questions.get_item.return_value = {'Item': make_question_item('q1')}  # sin _pt
+        mock_results.query.return_value = {'Items': []}
+        mock_quizzes.get_item.return_value = {
+            'Item': {
+                'QuizID': 'quiz-1', 'StudentID': 'student-123', 'QuizType': 'free',
+                'Questions': ['q1'], 'Status': 'in_progress',
+            }
+        }
+
+        response = quiz_engine.submit_answer('student-123', {
+            'quiz_id': 'quiz-1', 'question_id': 'q1', 'given_answers': ['A']
+        }, lang='pt')
+
+        body = json.loads(response['body'])
+        self.assertEqual(body['explanation'], 'Because A')
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.questions_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.quizzes_table')
     def test_persists_correct_answers(self, mock_quizzes, mock_results, mock_questions, mock_students):
         import quiz_engine
 
