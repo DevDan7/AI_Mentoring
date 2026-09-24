@@ -468,6 +468,9 @@ function setLang(lang) {
     }
     applyTranslations();
     renderLangSwitcher();
+    // Aviso para páginas con contenido de BD ya cargado en memoria (ej. quiz.html)
+    // que necesitan volver a pedirlo al backend en el nuevo idioma. Sin listener, no-op.
+    document.dispatchEvent(new CustomEvent('i18n:langchange', { detail: { lang } }));
 }
 
 function renderLangSwitcher() {

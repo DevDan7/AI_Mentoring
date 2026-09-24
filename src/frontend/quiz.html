@@ -228,6 +228,21 @@
                 }
             });
 
+            // El body tiene data-lang-no-reload: cambiar de idioma no recarga la página
+            // (para no perder el progreso), pero el enunciado/opciones ya cargados en
+            // quizData quedan en el idioma con que se pidieron la primera vez. Al cambiar
+            // de idioma, se vuelven a pedir del backend (getQuiz ya manda el lang actual).
+            document.addEventListener('i18n:langchange', async () => {
+                if (currentIndex < 0 || currentIndex >= quizData.questions.length) return;
+                try {
+                    const refreshed = await getQuiz(quizData.quiz_id);
+                    quizData.questions = refreshed.questions;
+                    renderQuestion(currentIndex);
+                } catch (err) {
+                    console.error('No se pudo re-traducir el simulado:', err);
+                }
+            });
+
             document.getElementById("nextBtn").addEventListener("click", () => {
                 currentIndex++;
                 if (currentIndex >= quizData.questions.length) {
