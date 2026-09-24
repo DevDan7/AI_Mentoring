@@ -6,6 +6,23 @@
 
 ## 2026-09
 
+### 24 Sep — Fix: cambiar de idioma en pleno simulado no traducía las preguntas
+- **Problema**: en el perfil del alumno, cambiar el selector de PT a EN (o viceversa)
+  mientras se estaba haciendo un simulado no traducía el enunciado ni las opciones ya en
+  pantalla.
+- **Causa raíz**: `quiz.html` tiene `<body data-lang-no-reload>` a propósito, para no
+  perder el progreso del simulado al tocar el selector — `setLang()` (`i18n.js`), en esa
+  rama, solo re-traduce los textos estáticos (`data-i18n`) y nunca vuelve a pedir el quiz
+  al backend. El enunciado/opciones quedan fijos en el idioma con que se pidieron la
+  primera vez.
+- **Solución**: `setLang()` ahora dispara un evento `i18n:langchange` (no-op para
+  cualquier página sin listener). `quiz.html` lo escucha y vuelve a pedir
+  `getQuiz(quizId)` (ya manda el idioma actual) para refrescar el texto de las preguntas
+  sin perder qué pregunta está activa ni las respuestas ya enviadas al backend.
+- **Requiere `terraform apply`**: no — este fix es 100% frontend (Amplify auto-deploya en
+  push a `main`, sin Lambda involucrada).
+- Archivos: `src/frontend/js/i18n.js`, `src/frontend/quiz.html`.
+
 ### 23 Sep — Fix: feedback inmediato del simulado no traducía la explicación
 - **Problema**: reportado con capturas — al cambiar la interfaz a PT-BR, el enunciado y
   las opciones ya salían traducidos (fix del mismo día), pero el cuadro de feedback
