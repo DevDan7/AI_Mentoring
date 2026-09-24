@@ -240,9 +240,32 @@
                     // Si ya respondió la pregunta actual, no se re-renderiza: renderQuestion()
                     // resetea answered/feedback y permitiría reenviar la misma respuesta.
                     // La siguiente pregunta ya saldrá en el nuevo idioma.
-                    if (!answered) renderQuestion(currentIndex);
+                    if (!answered) {
+                        renderQuestion(currentIndex);
+                        return;
+                    }
                 } catch (err) {
                     console.error('No se pudo re-traducir el simulado:', err);
+                    return;
+                }
+
+                // Pregunta ya respondida: el feedback quedó grabado en el idioma con el que
+                // se envió el submit. Se re-traduce pidiendo los resultados ya guardados con
+                // el nuevo lang (get_results es de solo lectura, no reenvía la respuesta).
+                try {
+                    const q = quizData.questions[currentIndex];
+                    const results = await getQuizResults(quizData.quiz_id);
+                    const answer = (results.answers || []).find(a => a.question_id === q.question_id);
+                    if (!answer) return;
+
+                    const feedback = document.getElementById("feedbackMsg");
+                    if (answer.is_correct) {
+                        feedback.innerHTML = `<strong>${esc(t("quiz.correct"))}</strong>`;
+                    } else {
+                        feedback.innerHTML = `<strong>${esc(t("quiz.incorrect"))}</strong> ${esc(answer.explanation || '')}`;
+                    }
+                } catch (err) {
+                    console.error('No se pudo re-traducir el feedback de la respuesta:', err);
                 }
             });
 
