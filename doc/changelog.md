@@ -6,6 +6,17 @@
 
 ## 2026-09
 
+### 24 Sep — Fix: cambiar de idioma reabría una pregunta ya respondida
+- **Problema**: tras responder una pregunta (feedback visible, botón "Siguiente"), cambiar
+  de idioma volvía a mostrarla sin responder: desaparecía el feedback y reaparecía
+  "Enviar", permitiendo reenviar la misma pregunta.
+- **Causa raíz**: el listener `i18n:langchange` (fix anterior) llamaba siempre a
+  `renderQuestion()`, que resetea `answered`, feedback y botones.
+- **Solución**: solo se re-renderiza si `!answered`. Los datos traducidos igual se guardan
+  en `quizData.questions`, así que la siguiente pregunta sale en el nuevo idioma.
+- **Requiere `terraform apply`**: no — solo frontend.
+- Archivos: `src/frontend/quiz.html`.
+
 ### 24 Sep — Fix: cambiar de idioma en pleno simulado no traducía las preguntas
 - **Problema**: en el perfil del alumno, cambiar el selector de PT a EN (o viceversa)
   mientras se estaba haciendo un simulado no traducía el enunciado ni las opciones ya en
