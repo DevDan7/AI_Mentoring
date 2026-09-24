@@ -91,7 +91,8 @@ async function submitAnswer(quizId, questionId, givenAnswers) {
     return apiCall("POST", "/quizzes/submit", {
         quiz_id: quizId,
         question_id: questionId,
-        given_answers: givenAnswers
+        given_answers: givenAnswers,
+        lang: getLang()
     });
 }
 

@@ -94,7 +94,7 @@ def lambda_handler(event, context):
     if route_key == 'POST /quizzes/generate':
         return generate_quiz(student_id, body, lang)
     elif route_key == 'POST /quizzes/submit':
-        return submit_answer(student_id, body)
+        return submit_answer(student_id, body, lang)
     elif route_key == 'GET /quizzes/{quizId}/results':
         quiz_id = path_params.get('quizId')
         return get_results(quiz_id, student_id, claims, lang)
@@ -635,7 +635,7 @@ def grade_answer(given, correct):
     return set(given) == set(correct)
 
 
-def submit_answer(student_id, body):
+def submit_answer(student_id, body, lang='en'):
     """Verifica la respuesta soportando single y multiple choice.
     given_answers es una lista de letras (ej: ["A"] o ["A", "C"]).
     La calificación es correcta solo si el set de respuestas coincide exactamente con las opciones correctas."""
@@ -666,8 +666,10 @@ def submit_answer(student_id, body):
     is_correct = grade_answer(normalized_given, correct_options)
 
     # Recoger la explicación de la primera opción correcta encontrada
+    explanation_key = 'explanation_pt' if lang == 'pt' else 'explanation'
     explanation = next(
-        (opt.get('explanation', '') for k, opt in options.items() if opt.get('is_correct', False)),
+        (opt.get(explanation_key) or opt.get('explanation', '')
+         for k, opt in options.items() if opt.get('is_correct', False)),
         ''
     )
 
