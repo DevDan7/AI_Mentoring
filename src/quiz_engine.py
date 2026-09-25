@@ -258,19 +258,38 @@ def generate_quiz(student_id, body, lang='en'):
     response_query = questions_table.query(
         IndexName='TopicIndex',
         KeyConditionExpression=Key('Topic').eq(topic),
-        Limit=count
+        Limit=count * 3
     )
-    questions = response_query.get('Items', [])
+    # TopicIndex no tiene sort key: sin shuffle, DynamoDB devuelve siempre el mismo
+    # orden de inserción y el alumno recibe las mismas preguntas en cada práctica.
+    candidates = response_query.get('Items', [])
+    random.shuffle(candidates)
 
-    if not questions:
+    if not candidates:
         return build_response(404, {'error': f'No questions found for topic: {topic}'})
+
+    answered_ids = get_student_answered_question_ids(student_id)
 
     question_ids = []
     cleaned_questions = []
 
-    for q in questions:
-        question_ids.append(q['QuestionID'])
-        cleaned_questions.append(clean_question(q, lang))
+    selected = 0
+    for q in candidates:
+        if selected >= count:
+            break
+        if q['QuestionID'] not in answered_ids:
+            question_ids.append(q['QuestionID'])
+            cleaned_questions.append(clean_question(q, lang))
+            selected += 1
+
+    if selected < count:
+        for q in candidates:
+            if selected >= count:
+                break
+            if q['QuestionID'] not in question_ids:
+                question_ids.append(q['QuestionID'])
+                cleaned_questions.append(clean_question(q, lang))
+                selected += 1
 
     quiz_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
@@ -296,19 +315,27 @@ def generate_quiz(student_id, body, lang='en'):
 
 def generate_initial_quiz(student_id, lang='en'):
     """Genera un quiz diagnóstico con 20 preguntas distribuidas por temas."""
-    question_ids = []
-    cleaned_questions = []
-
+    topic_buckets = []
     for topic, count in INITIAL_TEST_DISTRIBUTION.items():
+        if count == 0:
+            continue
         response_query = questions_table.query(
             IndexName='TopicIndex',
             KeyConditionExpression=Key('Topic').eq(topic),
-            Limit=count
+            Limit=count * 3
         )
-        questions = response_query.get('Items', [])
-        for q in questions:
-            question_ids.append(q['QuestionID'])
-            cleaned_questions.append(clean_question(q, lang))
+        # TopicIndex no tiene sort key: sin shuffle, DynamoDB devuelve siempre el
+        # mismo orden de inserción y el diagnóstico sale idéntico entre alumnos.
+        candidates = response_query.get('Items', [])
+        random.shuffle(candidates)
+        bucket = [(q['QuestionID'], clean_question(q, lang)) for q in candidates[:count]]
+        topic_buckets.append(bucket)
+
+    # Se intercalan los temas (round-robin) para que el orden final no agrupe
+    # todo un tema al principio del quiz (p.ej. las 6 de Cloud Concepts primero).
+    interleaved = interleave_by_topic(topic_buckets)
+    question_ids = [qid for qid, _ in interleaved]
+    cleaned_questions = [cq for _, cq in interleaved]
 
     if not question_ids:
         return build_response(404, {'error': 'No questions found for initial test'})
@@ -360,6 +387,22 @@ def get_student_answered_question_ids(student_id):
             answered_ids.add(r['QuestionID'])
 
     return answered_ids
+
+
+def interleave_by_topic(topic_buckets):
+    """Combina listas de preguntas por tema en una sola, alternando entre temas
+    (round-robin) para que el orden de salida no agrupe un tema entero al principio."""
+    result = []
+    iterators = [iter(bucket) for bucket in topic_buckets]
+    while iterators:
+        next_round = []
+        for it in iterators:
+            item = next(it, None)
+            if item is not None:
+                result.append(item)
+                next_round.append(it)
+        iterators = next_round
+    return result
 
 
 def can_generate_final_exam(completed_count):
@@ -445,8 +488,8 @@ def generate_final_exam(student_id, lang='en'):
 
     answered_ids = get_student_answered_question_ids(student_id)
 
-    question_ids = []
-    cleaned_questions = []
+    topic_buckets = []
+    chosen_ids = set()
 
     for topic, count in FINAL_EXAM_DISTRIBUTION.items():
         if count == 0:
@@ -464,23 +507,32 @@ def generate_final_exam(student_id, lang='en'):
         candidates = response.get('Items', [])
         random.shuffle(candidates)
 
+        bucket = []
         selected = 0
         for q in candidates:
             if selected >= count:
                 break
-            if q['QuestionID'] not in answered_ids and q['QuestionID'] not in question_ids:
-                question_ids.append(q['QuestionID'])
-                cleaned_questions.append(clean_question(q, lang))
+            if q['QuestionID'] not in answered_ids and q['QuestionID'] not in chosen_ids:
+                bucket.append((q['QuestionID'], clean_question(q, lang)))
+                chosen_ids.add(q['QuestionID'])
                 selected += 1
 
         if selected < count:
             for q in candidates:
                 if selected >= count:
                     break
-                if q['QuestionID'] not in question_ids:
-                    question_ids.append(q['QuestionID'])
-                    cleaned_questions.append(clean_question(q, lang))
+                if q['QuestionID'] not in chosen_ids:
+                    bucket.append((q['QuestionID'], clean_question(q, lang)))
+                    chosen_ids.add(q['QuestionID'])
                     selected += 1
+
+        topic_buckets.append(bucket)
+
+    # Se intercalan los temas (round-robin) para que el orden final no agrupe
+    # todo un tema al principio del examen (p.ej. las 16 de Cloud Concepts primero).
+    interleaved = interleave_by_topic(topic_buckets)
+    question_ids = [qid for qid, _ in interleaved]
+    cleaned_questions = [cq for _, cq in interleaved]
 
     if not question_ids:
         return build_response(404, {'error': 'No questions found for final exam'})
