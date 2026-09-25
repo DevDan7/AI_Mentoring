@@ -219,10 +219,12 @@ class TestGenerateQuizPhaseRestriction(unittest.TestCase):
         response = quiz_engine.lambda_handler(event, None)
 
         self.assertEqual(response['statusCode'], 201)
-        # El topic es obligatorio y la query usa el parámetro num_questions
+        # El topic es obligatorio y la query usa el parámetro num_questions.
+        # Limit = num_questions * 3: se sobre-pide para poder barajar y filtrar
+        # anti-repetición antes de recortar a la cantidad pedida (ver quiz_engine.generate_quiz).
         mock_questions.query.assert_called_once()
         query_kwargs = mock_questions.query.call_args[1]
-        self.assertEqual(query_kwargs['Limit'], 5)
+        self.assertEqual(query_kwargs['Limit'], 15)
 
     @mock.patch('quiz_engine.students_table')
     @mock.patch('quiz_engine.quizzes_table')
