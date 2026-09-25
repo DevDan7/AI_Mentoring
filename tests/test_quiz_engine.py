@@ -206,6 +206,99 @@ class TestGenerateFinalExamRandomization(unittest.TestCase):
         self.assertNotEqual(ids_a, ids_b)
 
 
+class TestInterleaveByTopic(unittest.TestCase):
+    """Bug reportado (24-Sep): las primeras ~16 preguntas del examen/diagnóstico salían
+    todas del mismo tema porque los buckets por tema se concatenaban sin intercalar."""
+
+    def test_interleaves_round_robin(self):
+        import quiz_engine
+
+        buckets = [['a1', 'a2', 'a3'], ['b1'], ['c1', 'c2']]
+        result = quiz_engine.interleave_by_topic(buckets)
+        self.assertEqual(result, ['a1', 'b1', 'c1', 'a2', 'c2', 'a3'])
+
+    def test_empty_buckets_are_skipped(self):
+        import quiz_engine
+
+        buckets = [[], ['b1', 'b2'], []]
+        result = quiz_engine.interleave_by_topic(buckets)
+        self.assertEqual(result, ['b1', 'b2'])
+
+
+class TestGenerateFinalExamTopicDistribution(unittest.TestCase):
+    """El orden final del examen no debe agrupar un tema entero al principio."""
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_first_questions_are_not_all_same_topic(
+        self, mock_questions, mock_results, mock_quizzes, mock_students
+    ):
+        import quiz_engine
+
+        student = make_student_item()
+        mock_students.get_item.return_value = {'Item': student}
+        mock_quizzes.query.return_value = {'Items': []}
+        mock_results.query.return_value = {'Items': []}
+
+        def query_side_effect(**kwargs):
+            topic = kwargs['KeyConditionExpression']._values[1]
+            n = kwargs['Limit']
+            pool = [make_question_item(f'{topic[:3]}-{i}', topic=topic) for i in range(n)]
+            return {'Items': pool}
+
+        mock_questions.query.side_effect = query_side_effect
+
+        distribution = {
+            'Cloud Concepts & Well-Architected': 16,
+            'Security, Identity & Compliance': 20,
+        }
+        with mock.patch.object(quiz_engine, 'FINAL_EXAM_DISTRIBUTION', distribution):
+            body = json.loads(quiz_engine.generate_final_exam('student-123')['body'])
+
+        topics = [q['topic'] for q in body['questions']]
+        self.assertEqual(len(topics), 36)
+        # Ya no deben ser los primeros 16 preguntas del mismo tema.
+        self.assertTrue(len(set(topics[:16])) > 1)
+
+
+class TestGenerateQuizFreePracticeAntiRepetition(unittest.TestCase):
+    """Bug reportado (24-Sep): la práctica libre repetía siempre las mismas preguntas
+    porque TopicIndex (sin sort key) devuelve el mismo orden y no había anti-repetición
+    ni shuffle. Fix: pool ampliado + shuffle + exclusión de answered_ids con fallback."""
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_excludes_already_answered_questions(
+        self, mock_questions, mock_results, mock_quizzes, mock_students
+    ):
+        import quiz_engine
+
+        student = make_student_item()
+        mock_students.get_item.return_value = {'Item': student}
+
+        pool = [make_question_item(f'q{i}') for i in range(15)]
+        mock_questions.query.return_value = {'Items': pool}
+
+        completed_quiz = {'QuizID': 'quiz-old', 'StudentID': 'student-123', 'Status': 'completed'}
+        mock_quizzes.query.return_value = {'Items': [completed_quiz]}
+        answered = [make_result_item(quiz_id='quiz-old', question_id=f'q{i}') for i in range(10)]
+        mock_results.query.return_value = {'Items': answered}
+
+        body = json.loads(quiz_engine.generate_quiz(
+            'student-123', {'quiz_type': 'free', 'topic': 'Cloud Concepts & Well-Architected', 'num_questions': 5}
+        )['body'])
+
+        returned_ids = [q['question_id'] for q in body['questions']]
+        self.assertEqual(len(returned_ids), 5)
+        # Las 10 primeras (q0..q9) ya fueron respondidas; deben evitarse mientras
+        # el pool alcance para completar la cantidad pedida sin repetir.
+        self.assertTrue(all(qid not in [f'q{i}' for i in range(10)] for qid in returned_ids))
+
+
 class TestGetResultsEnrichment(unittest.TestCase):
     """Tarea 9.2: get_results() enriquecido (statement, correct_answers, explanation)."""
 
