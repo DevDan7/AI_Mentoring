@@ -53,11 +53,11 @@ def make_final_exam_item(quiz_id='fin-123', student_id='student-123', status='in
     }
 
 
-def make_question_item(question_id='q1', topic='Cloud Concepts & Well-Architected'):
+def make_question_item(question_id='q1', topic='Cloud Concepts & Well-Architected', text=None):
     return {
         'QuestionID': question_id,
         'Topic': topic,
-        'QuestionText': f'Statement {question_id}?',
+        'QuestionText': text if text is not None else f'Statement {question_id}?',
         'Options': {
             'A': {'text': 'Option A', 'is_correct': True, 'explanation': 'Because A'},
             'B': {'text': 'Option B', 'is_correct': False, 'explanation': 'No B'}
@@ -225,6 +225,110 @@ class TestInterleaveByTopic(unittest.TestCase):
         self.assertEqual(result, ['b1', 'b2'])
 
 
+class TestIsNearDuplicate(unittest.TestCase):
+    """Bug reportado (25-Sep): el examen final traía varias preguntas casi-idénticas
+    reformuladas (3 variantes de Inspector, 2 de GuardDuty, 2 de WAF/SQLi) porque
+    MentoringQuestions las tiene como QuestionID distintos. Mismo método/umbral que
+    scripts/detectar_casi_duplicados_contenido.py (difflib.SequenceMatcher, 0.85)."""
+
+    def test_reworded_question_is_flagged_as_duplicate(self):
+        import quiz_engine
+
+        a = 'What is the primary purpose of Amazon Inspector?'
+        b = 'What is the main purpose of Amazon Inspector?'
+        self.assertTrue(quiz_engine.is_near_duplicate(a, b))
+
+    def test_unrelated_questions_are_not_duplicates(self):
+        import quiz_engine
+
+        a = 'What is the primary purpose of Amazon Inspector?'
+        b = 'Which AWS service provides a content delivery network?'
+        self.assertFalse(quiz_engine.is_near_duplicate(a, b))
+
+    def test_empty_text_is_never_a_duplicate(self):
+        import quiz_engine
+
+        self.assertFalse(quiz_engine.is_near_duplicate('', 'Some question?'))
+        self.assertFalse(quiz_engine.is_near_duplicate(None, None))
+
+
+class TestGenerateFinalExamAntiSimilarity(unittest.TestCase):
+    """El examen no debe elegir dos preguntas casi-idénticas del mismo tema cuando
+    hay alternativas distintas disponibles, pero tampoco debe salir corto si el
+    banco no tiene suficientes preguntas únicas para completar la cuota."""
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_prefers_distinct_questions_over_near_duplicates(
+        self, mock_questions, mock_results, mock_quizzes, mock_students
+    ):
+        import quiz_engine
+
+        student = make_student_item()
+        mock_students.get_item.return_value = {'Item': student}
+        mock_quizzes.query.return_value = {'Items': []}
+        mock_results.query.return_value = {'Items': []}
+
+        # 3 reformulaciones de la misma pregunta (Inspector) + 3 preguntas distintas.
+        pool = [
+            make_question_item('insp-1', text='What is the primary purpose of Amazon Inspector?'),
+            make_question_item('insp-2', text='What is the main purpose of Amazon Inspector?'),
+            make_question_item('insp-3', text='What is the core purpose of Amazon Inspector?'),
+            make_question_item('waf', text='How does AWS WAF protect web applications?'),
+            make_question_item('guardduty', text='What does Amazon GuardDuty monitor?'),
+            make_question_item('s3', text='Which service provides durable object storage?'),
+        ]
+        mock_questions.query.return_value = {'Items': pool}
+
+        with mock.patch.object(
+            quiz_engine, 'FINAL_EXAM_DISTRIBUTION',
+            {'Cloud Concepts & Well-Architected': 3}
+        ):
+            body = json.loads(quiz_engine.generate_final_exam('student-123')['body'])
+
+        ids = [q['question_id'] for q in body['questions']]
+        self.assertEqual(len(ids), 3)
+        # Con 3 preguntas distintas disponibles (waf, guardduty, s3), no debería
+        # necesitar más de una variante de Inspector para llegar a la cuota.
+        inspector_count = sum(1 for qid in ids if qid.startswith('insp-'))
+        self.assertLessEqual(inspector_count, 1)
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_fallback_fills_quota_even_if_only_near_duplicates_available(
+        self, mock_questions, mock_results, mock_quizzes, mock_students
+    ):
+        import quiz_engine
+
+        student = make_student_item()
+        mock_students.get_item.return_value = {'Item': student}
+        mock_quizzes.query.return_value = {'Items': []}
+        mock_results.query.return_value = {'Items': []}
+
+        # Solo 3 preguntas en el banco, las 3 son la misma reformulada (como
+        # Security en producción: pool corto y con casi-duplicados).
+        pool = [
+            make_question_item('insp-1', text='What is the primary purpose of Amazon Inspector?'),
+            make_question_item('insp-2', text='What is the main purpose of Amazon Inspector?'),
+            make_question_item('insp-3', text='What is the core purpose of Amazon Inspector?'),
+        ]
+        mock_questions.query.return_value = {'Items': pool}
+
+        with mock.patch.object(
+            quiz_engine, 'FINAL_EXAM_DISTRIBUTION',
+            {'Cloud Concepts & Well-Architected': 3}
+        ):
+            body = json.loads(quiz_engine.generate_final_exam('student-123')['body'])
+
+        # El examen nunca debe salir corto: si no hay 3 preguntas únicas, se
+        # completa igual con las casi-duplicadas que queden.
+        self.assertEqual(len(body['questions']), 3)
+
+
 class TestGenerateFinalExamTopicDistribution(unittest.TestCase):
     """El orden final del examen no debe agrupar un tema entero al principio."""
 
@@ -280,7 +384,26 @@ class TestGenerateQuizFreePracticeAntiRepetition(unittest.TestCase):
         student = make_student_item()
         mock_students.get_item.return_value = {'Item': student}
 
-        pool = [make_question_item(f'q{i}') for i in range(15)]
+        # Textos bien distintos entre sí (no casi-duplicados) para no disparar el
+        # filtro de similaridad de generate_quiz al elegir entre los no respondidos.
+        distinct_texts = [
+            'What is the AWS shared responsibility model?',
+            'Which service provides object storage?',
+            'What does an Auto Scaling group do?',
+            'How does Amazon RDS handle automated backups?',
+            'What is a VPC used for?',
+            'Which service is used for serverless compute?',
+            'What is the purpose of IAM roles?',
+            'How does CloudFront reduce latency?',
+            'What is Amazon SQS used for?',
+            'Which billing tool tracks daily spend?',
+            'What is Amazon Inspector used for?',
+            'How does AWS WAF protect applications?',
+            'What is the purpose of AWS Config?',
+            'Which service orchestrates containers?',
+            'What does Amazon GuardDuty detect?',
+        ]
+        pool = [make_question_item(f'q{i}', text=distinct_texts[i]) for i in range(15)]
         mock_questions.query.return_value = {'Items': pool}
 
         completed_quiz = {'QuizID': 'quiz-old', 'StudentID': 'student-123', 'Status': 'completed'}
