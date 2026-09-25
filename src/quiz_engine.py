@@ -3,6 +3,8 @@ import uuid
 import os
 import re
 import random
+import difflib
+import unicodedata
 import boto3
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -272,16 +274,24 @@ def generate_quiz(student_id, body, lang='en'):
 
     question_ids = []
     cleaned_questions = []
+    chosen_texts = []
 
     selected = 0
+    # Pase 1: sin preguntas ya respondidas ni casi-duplicadas de otra ya elegida
+    # en esta misma tanda de práctica (misma pregunta reformulada dos veces).
     for q in candidates:
         if selected >= count:
             break
-        if q['QuestionID'] not in answered_ids:
+        text = q.get('QuestionText', '')
+        if (q['QuestionID'] not in answered_ids
+                and not any(is_near_duplicate(text, other) for other in chosen_texts)):
             question_ids.append(q['QuestionID'])
             cleaned_questions.append(clean_question(q, lang))
+            chosen_texts.append(text)
             selected += 1
 
+    # Pase 2 (fallback): completar la cantidad pedida igual si el tema no tiene
+    # suficientes preguntas únicas — nunca dejar la práctica con menos preguntas.
     if selected < count:
         for q in candidates:
             if selected >= count:
@@ -316,6 +326,11 @@ def generate_quiz(student_id, body, lang='en'):
 def generate_initial_quiz(student_id, lang='en'):
     """Genera un quiz diagnóstico con 20 preguntas distribuidas por temas."""
     topic_buckets = []
+    chosen_texts = []
+
+    def is_dup_of_chosen(text):
+        return any(is_near_duplicate(text, other) for other in chosen_texts)
+
     for topic, count in INITIAL_TEST_DISTRIBUTION.items():
         if count == 0:
             continue
@@ -328,7 +343,27 @@ def generate_initial_quiz(student_id, lang='en'):
         # mismo orden de inserción y el diagnóstico sale idéntico entre alumnos.
         candidates = response_query.get('Items', [])
         random.shuffle(candidates)
-        bucket = [(q['QuestionID'], clean_question(q, lang)) for q in candidates[:count]]
+
+        bucket = []
+        # Pase 1: evitar casi-duplicadas de otras ya elegidas en este diagnóstico.
+        for q in candidates:
+            if len(bucket) >= count:
+                break
+            if not is_dup_of_chosen(q.get('QuestionText', '')):
+                bucket.append((q['QuestionID'], clean_question(q, lang)))
+                chosen_texts.append(q.get('QuestionText', ''))
+
+        # Pase 2 (fallback): completar la cuota igual si el tema no tiene
+        # suficientes preguntas únicas — nunca dejar el quiz corto.
+        if len(bucket) < count:
+            chosen_ids_here = {qid for qid, _ in bucket}
+            for q in candidates:
+                if len(bucket) >= count:
+                    break
+                if q['QuestionID'] not in chosen_ids_here:
+                    bucket.append((q['QuestionID'], clean_question(q, lang)))
+                    chosen_texts.append(q.get('QuestionText', ''))
+
         topic_buckets.append(bucket)
 
     # Se intercalan los temas (round-robin) para que el orden final no agrupe
@@ -403,6 +438,27 @@ def interleave_by_topic(topic_buckets):
                 next_round.append(it)
         iterators = next_round
     return result
+
+
+SIMILARITY_THRESHOLD = 0.85
+
+
+def _normalize_for_similarity(text):
+    """Mismo criterio de normalización que scripts/detectar_casi_duplicados_contenido.py."""
+    normalized = unicodedata.normalize('NFKD', text or '').encode('ascii', 'ignore').decode()
+    normalized = re.sub(r'[^a-z0-9\s]', '', normalized.lower())
+    return re.sub(r'\s+', ' ', normalized).strip()
+
+
+def is_near_duplicate(text_a, text_b, threshold=SIMILARITY_THRESHOLD):
+    """Detecta si dos enunciados son casi-duplicados (misma pregunta reformulada),
+    con el mismo método fuzzy (difflib.SequenceMatcher) ya validado en
+    scripts/detectar_casi_duplicados_contenido.py, para no elegir dos preguntas
+    casi-idénticas dentro del mismo quiz."""
+    a, b = _normalize_for_similarity(text_a), _normalize_for_similarity(text_b)
+    if not a or not b:
+        return False
+    return difflib.SequenceMatcher(None, a, b).ratio() >= threshold
 
 
 def can_generate_final_exam(completed_count):
@@ -490,6 +546,10 @@ def generate_final_exam(student_id, lang='en'):
 
     topic_buckets = []
     chosen_ids = set()
+    chosen_texts = []
+
+    def is_dup_of_chosen(text):
+        return any(is_near_duplicate(text, other) for other in chosen_texts)
 
     for topic, count in FINAL_EXAM_DISTRIBUTION.items():
         if count == 0:
@@ -509,14 +569,21 @@ def generate_final_exam(student_id, lang='en'):
 
         bucket = []
         selected = 0
+        # Pase 1: sin repetir preguntas ya vistas por el alumno ni casi-duplicadas
+        # de otra ya elegida en este examen (p.ej. 3 variantes de "¿qué es Inspector?").
         for q in candidates:
             if selected >= count:
                 break
-            if q['QuestionID'] not in answered_ids and q['QuestionID'] not in chosen_ids:
+            if (q['QuestionID'] not in answered_ids and q['QuestionID'] not in chosen_ids
+                    and not is_dup_of_chosen(q.get('QuestionText', ''))):
                 bucket.append((q['QuestionID'], clean_question(q, lang)))
                 chosen_ids.add(q['QuestionID'])
+                chosen_texts.append(q.get('QuestionText', ''))
                 selected += 1
 
+        # Pase 2 (fallback): si el tema no tiene suficientes preguntas únicas, se
+        # completa la cuota igual ignorando anti-repetición y anti-similaridad —
+        # nunca debe quedar el examen corto por falta de contenido en el banco.
         if selected < count:
             for q in candidates:
                 if selected >= count:
@@ -524,6 +591,7 @@ def generate_final_exam(student_id, lang='en'):
                 if q['QuestionID'] not in chosen_ids:
                     bucket.append((q['QuestionID'], clean_question(q, lang)))
                     chosen_ids.add(q['QuestionID'])
+                    chosen_texts.append(q.get('QuestionText', ''))
                     selected += 1
 
         topic_buckets.append(bucket)
