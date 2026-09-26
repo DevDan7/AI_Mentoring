@@ -6,9 +6,10 @@ import random
 import difflib
 import unicodedata
 import boto3
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from boto3.dynamodb.conditions import Key, Attr
+from botocore.exceptions import ClientError
 
 # Configuración de Entorno
 dynamodb = boto3.resource('dynamodb')
@@ -563,6 +564,64 @@ def generate_final_exam(student_id, lang='en'):
     if in_progress_quiz:
         return resume_quiz(in_progress_quiz, lang)
 
+    # Bloqueo atómico contra condición de carrera: si el alumno dispara varias
+    # requests casi simultáneas (doble tap, reintento de red en mobile), sin esto
+    # cada una lee "no hay examen en curso" antes de que la otra termine de
+    # escribir, y las dos crean un examen final -> duplicados fantasma vacíos
+    # (bug reportado 26-Sep: 2 exámenes "in_progress" con 0/65 respondidas).
+    lock_token = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    stale_before = (now - timedelta(seconds=20)).isoformat()
+    try:
+        students_table.update_item(
+            Key={'StudentID': student_id},
+            UpdateExpression='SET FinalExamGenerationLock = :token, FinalExamGenerationLockAt = :now',
+            ConditionExpression=(
+                'attribute_not_exists(FinalExamGenerationLock) OR FinalExamGenerationLockAt < :stale'
+            ),
+            ExpressionAttributeValues={
+                ':token': lock_token,
+                ':now': now.isoformat(),
+                ':stale': stale_before,
+            }
+        )
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+            return build_response(409, {
+                'error': 'Já existe uma geração de exame final em andamento para este aluno. '
+                         'Aguarde alguns segundos e tente novamente.'
+            })
+        raise
+
+    try:
+        # Volver a chequear con datos frescos por si otra request creó el examen
+        # mientras se esperaba el lock (double-check locking).
+        recheck_response = quizzes_table.query(
+            IndexName='StudentIndex',
+            KeyConditionExpression=Key('StudentID').eq(student_id),
+            FilterExpression=Attr('QuizType').eq('final_exam')
+        )
+        recheck_exams = recheck_response.get('Items', [])
+        existing_in_progress = next((q for q in recheck_exams if q.get('Status') == 'in_progress'), None)
+        if existing_in_progress:
+            return resume_quiz(existing_in_progress, lang)
+        if any(q.get('Status') == 'completed' for q in recheck_exams):
+            return build_response(403, {
+                'error': 'Você já realizou o exame final. Contate seu instrutor para um novo intento.'
+            })
+
+        return _create_final_exam_quiz(student_id, lang)
+    finally:
+        students_table.update_item(
+            Key={'StudentID': student_id},
+            UpdateExpression='REMOVE FinalExamGenerationLock, FinalExamGenerationLockAt'
+        )
+
+
+def _create_final_exam_quiz(student_id, lang='en'):
+    """Selecciona las 65 preguntas y crea el quiz. Se asume que ya se tiene el
+    lock de generación (ver generate_final_exam) y que no hay otro examen final
+    en curso o completado para este alumno."""
     answered_ids = get_student_answered_question_ids(student_id)
 
     topic_buckets = []
