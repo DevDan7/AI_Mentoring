@@ -284,6 +284,102 @@ class TestIsNearDuplicate(unittest.TestCase):
         self.assertFalse(quiz_engine.is_near_duplicate(None, None))
 
 
+class TestGenerateFinalExamConcurrencyLock(unittest.TestCase):
+    """Bug reportado (26-Sep): 3 requests casi simultáneas (doble tap / reintento de
+    red) generaron 3 exámenes finales distintos para el mismo alumno, porque cada
+    una leía "no hay examen en curso" antes de que la otra terminara de escribir.
+    Fix: lock atómico (ConditionExpression) en Students antes de crear el quiz."""
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_concurrent_request_gets_409_instead_of_duplicate_quiz(
+        self, mock_questions, mock_results, mock_quizzes, mock_students
+    ):
+        import quiz_engine
+        from botocore.exceptions import ClientError
+
+        student = make_student_item()
+        mock_students.get_item.return_value = {'Item': student}
+        mock_quizzes.query.return_value = {'Items': []}
+        mock_results.query.return_value = {'Items': []}
+        mock_questions.query.return_value = {'Items': []}
+
+        # Otra request ya tiene el lock: la escritura condicional falla.
+        mock_students.update_item.side_effect = ClientError(
+            {'Error': {'Code': 'ConditionalCheckFailedException', 'Message': 'locked'}},
+            'UpdateItem'
+        )
+
+        response = quiz_engine.generate_final_exam('student-123')
+
+        self.assertEqual(response['statusCode'], 409)
+        # No debe haber intentado crear ningún quiz.
+        mock_quizzes.put_item.assert_not_called()
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_lock_is_released_after_successful_generation(
+        self, mock_questions, mock_results, mock_quizzes, mock_students
+    ):
+        import quiz_engine
+
+        student = make_student_item()
+        mock_students.get_item.return_value = {'Item': student}
+        mock_quizzes.query.return_value = {'Items': []}
+        mock_results.query.return_value = {'Items': []}
+        pool = [make_question_item(f'q{i}', topic='Cloud Concepts & Well-Architected')
+                for i in range(60)]
+        mock_questions.query.return_value = {'Items': pool}
+
+        with mock.patch.object(
+            quiz_engine, 'FINAL_EXAM_DISTRIBUTION',
+            {'Cloud Concepts & Well-Architected': 16}
+        ):
+            response = quiz_engine.generate_final_exam('student-123')
+
+        self.assertEqual(response['statusCode'], 201)
+        mock_quizzes.put_item.assert_called_once()
+        # Primera llamada: adquirir el lock. Última llamada: liberarlo (REMOVE).
+        update_calls = mock_students.update_item.call_args_list
+        self.assertGreaterEqual(len(update_calls), 2)
+        self.assertIn('REMOVE', update_calls[-1].kwargs['UpdateExpression'])
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_recheck_after_lock_resumes_quiz_created_by_other_request(
+        self, mock_questions, mock_results, mock_quizzes, mock_students
+    ):
+        """Double-check locking: si otra request creó el examen justo antes de que
+        esta obtuviera el lock, se debe reanudar ese examen, no crear uno nuevo."""
+        import quiz_engine
+
+        student = make_student_item()
+        mock_students.get_item.return_value = {'Item': student}
+        mock_results.query.return_value = {'Items': []}
+        mock_questions.get_item.return_value = {}  # resume_quiz: preguntas no encontradas, ok para este test
+
+        in_progress_quiz = make_final_exam_item(status='in_progress')
+        # Primera query (antes del lock): todavía no existe el examen.
+        # Segunda query (después del lock, double-check): ya lo creó otra request.
+        mock_quizzes.query.side_effect = [
+            {'Items': []},
+            {'Items': [in_progress_quiz]},
+        ]
+
+        response = quiz_engine.generate_final_exam('student-123')
+
+        self.assertEqual(response['statusCode'], 200)
+        body = json.loads(response['body'])
+        self.assertEqual(body['quiz_id'], in_progress_quiz['QuizID'])
+        mock_quizzes.put_item.assert_not_called()
+
+
 class TestGenerateFinalExamAntiSimilarity(unittest.TestCase):
     """El examen no debe elegir dos preguntas casi-idénticas del mismo tema cuando
     hay alternativas distintas disponibles, pero tampoco debe salir corto si el

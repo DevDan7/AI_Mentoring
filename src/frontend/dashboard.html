@@ -233,12 +233,22 @@
             statusEl.textContent = statusText;
             btn.style.display = showBtn ? "" : "none";
             btn.onclick = async () => {
+                // Bloquear el botón de inmediato: sin esto, un doble-tap (frecuente
+                // en mobile) o una red lenta podían disparar 2-3 requests casi
+                // simultáneas y crear varios exámenes finales duplicados en el
+                // backend (bug reportado 26-Sep). El backend también tiene un
+                // lock atómico como segunda barrera, pero esto evita el caso común.
+                if (btn.disabled) return;
+                btn.disabled = true;
+                btn.ariaBusy = "true";
                 try {
                     const quizData = await generateFinalExam();
                     localStorage.setItem("active_quiz", JSON.stringify(quizData));
                     window.location.href = "quiz.html";
                 } catch (err) {
                     showError(err.message);
+                    btn.disabled = false;
+                    btn.ariaBusy = "false";
                 }
             };
 
