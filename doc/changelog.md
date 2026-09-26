@@ -6,6 +6,123 @@
 
 ## 2026-09
 
+### 26 Sep — Fix: exámenes finales duplicados por condición de carrera
+- **Problema**: al completar 2 exámenes finales, el dashboard mostraba varios registros
+  "Em andamento" además del completado, y entrar a uno de ellos arrancaba desde 0
+  preguntas respondidas — el examen real (con score) seguía intacto, pero convivía con
+  2-3 exámenes "fantasma" vacíos para el mismo alumno.
+- **Causa raíz**: confirmado con logs de CloudWatch — 3 invocaciones del Lambda
+  `quiz-engine` corrieron casi simultáneas (arranque en frío, ~12s cada una, solapadas en
+  el tiempo). `generate_final_exam()` no tenía ningún bloqueo: cada invocación leía "¿hay
+  un examen en curso?" antes de que las otras terminaran de escribir el suyo, así que las
+  3 pasaban el chequeo y las 3 creaban un examen final nuevo. Disparador probable: el
+  botón "Iniciar Exame Final" en `dashboard.html` no se deshabilitaba al hacer clic (a
+  diferencia del botón de responder pregunta en `quiz.html`), por lo que un doble-tap en
+  mobile o una red lenta podían mandar varias requests casi juntas.
+- **Solución (defensa en dos capas)**:
+  1. Frontend: `dashboard.html` deshabilita el botón inmediatamente al hacer clic
+     (`btn.disabled = true` antes del `await`), re-habilitándolo solo si falla.
+  2. Backend: `generate_final_exam()` adquiere un lock atómico en `Students`
+     (`UpdateExpression` con `ConditionExpression` que solo permite escribir si no hay
+     lock vigente o si quedó viejo por más de 20s, para no bloquear el alumno para
+     siempre si una invocación se cae a mitad de camino). Si otra request ya tiene el
+     lock, devuelve `409` pidiendo reintentar en unos segundos, en vez de crear un
+     duplicado. Con el lock adquirido, se vuelve a chequear (double-check locking) por si
+     otra request ya creó/completó el examen mientras se esperaba, antes de generar uno
+     nuevo. El lock se libera siempre (`finally`) al terminar.
+  3. La generación de las 65 preguntas se extrajo a `_create_final_exam_quiz()` (mismo
+     código de antes, sin cambios de lógica), solo para poder envolverla en el lock sin
+     duplicar el resto de `generate_final_exam()`.
+- Tests nuevos: `TestGenerateFinalExamConcurrencyLock` (3 casos: request concurrente
+  recibe 409 y no crea duplicado, el lock se libera tras generar con éxito, y el
+  double-check-locking reanuda el examen creado por la otra request en vez de duplicar).
+  102/102 tests en verde.
+- **Requiere `terraform apply`**: redeploy de código de `quiz-engine` (sin cambios de
+  esquema DynamoDB — el lock usa atributos nuevos y libres en el ítem existente de
+  `Students`, no requiere migración).
+- Archivos: `src/quiz_engine.py`, `src/frontend/dashboard.html`, `tests/test_quiz_engine.py`.
+- **Nota aparte, no resuelta en este fix**: `apiCall()` (`api.js`) lee `error.message` de
+  las respuestas de error, pero `quiz_engine.py` devuelve el texto en la clave `error`
+  (convención distinta a `student_api.py`, que sí usa `message`). Esto hace que todos los
+  mensajes de error de `quiz_engine.py` — incluido el 409 nuevo — caigan al genérico
+  "Erro {status}" en vez de mostrar el texto explicativo. Es un problema preexistente,
+  más amplio que este fix; queda pendiente unificar la convención de ambos Lambdas.
+
+### 26 Sep — Fix: la explicación solo se mostraba para la opción correcta
+- **Problema**: durante el examen, responder correcto no mostraba ninguna explicación
+  (solo el badge verde); responder incorrecto mostraba la explicación de la opción
+  correcta (no la elegida), lo que se percibía como ambiguo o desconectado del error.
+- **Causa raíz**: `submit_answer()` y `get_results()` (`quiz_engine.py`) siempre
+  devolvían un único string con la explicación de la opción marcada `is_correct`,
+  aunque la BD ya tiene `explanation`/`explanation_pt` en cada opción (correcta e
+  incorrecta). El frontend además ocultaba esa explicación por completo cuando la
+  respuesta era correcta.
+- **Solución**: `build_option_breakdown()` nuevo en `quiz_engine.py`, usado por ambos
+  endpoints, devuelve el desglose completo (texto + `is_correct` + explicación) de las
+  4 opciones en el idioma pedido. Nuevo `src/frontend/js/explanations.js` (compartido
+  entre `quiz.html` y `results.html`) renderiza siempre "Explicação geral" (opción
+  correcta) + "Outras opções e por que não são as melhores" (cada incorrecta),
+  estandarizando el mismo formato en el feedback en vivo del examen y en el detalle
+  posterior.
+- Tests nuevos: `TestBuildOptionBreakdown` (3 casos) + verificación del campo `options`
+  en los tests existentes de `submit_answer`/`get_results`. 99/99 tests en verde en ese
+  momento.
+- **Requiere `terraform apply`**: redeploy de código de `quiz-engine`, sin cambios de IAM
+  ni esquema.
+- Archivos: `src/quiz_engine.py`, `src/frontend/js/i18n.js`, `src/frontend/js/explanations.js`
+  (nuevo), `src/frontend/quiz.html`, `src/frontend/results.html`, `tests/test_quiz_engine.py`.
+
+### 25/26 Sep — Fix: preguntas casi-duplicadas dentro de un mismo examen/simulado
+- **Problema**: el examen final traía varias preguntas que, con `QuestionID` distinto,
+  preguntaban esencialmente lo mismo reformulado (3 variantes de "¿qué es Amazon
+  Inspector?", 2 de GuardDuty, 2 de WAF/SQL-injection).
+- **Causa raíz**: `scripts/detectar_casi_duplicados_contenido.py` ya había detectado 69
+  pares casi-duplicados en la base (`difflib.SequenceMatcher`, umbral 0.85) el 23-Sep,
+  pero nunca se revisaron/limpiaron a mano; la selección de preguntas en
+  `generate_final_exam`/`generate_initial_quiz`/`generate_quiz` tampoco comparaba
+  contenido entre las preguntas ya elegidas.
+- **Solución**: `is_near_duplicate()` nuevo en `quiz_engine.py` (mismo método/umbral que
+  el detector offline), aplicado al elegir preguntas en las tres funciones de
+  generación — evita elegir una casi-duplicada de otra ya elegida en el mismo quiz, con
+  *fallback* que completa la cuota igual si el tema no tiene suficientes preguntas
+  únicas (nunca deja el quiz/examen corto). Además se detectó que "Security, Identity &
+  Compliance" tenía déficit real de preguntas únicas (19 en banco, 20 requeridas por el
+  examen, ~8-9 casi-duplicadas) — se prepararon y subieron 28 preguntas nuevas al banco
+  (`scripts/subir_preguntas_aprobadas.py`, con flujo de revisión humana en
+  `scripts/build_review_html.py`), cubriendo ese vacío y otros servicios ausentes (DAX,
+  Glue, ElastiCache, Amazon Detective, CloudTrail, Security Groups, VPC Peering,
+  DocumentDB, KMS, Secrets Manager, Shield Advanced, Macie, SCPs, ACM, IAM Access
+  Analyzer, Cognito, RDS Proxy, EFS, Athena, EMR, Kinesis, CloudFormation, Systems
+  Manager, Trusted Advisor, Step Functions). Banco: 203 → 231 preguntas.
+- Tests nuevos: `TestIsNearDuplicate`, `TestGenerateFinalExamAntiSimilarity` (2 casos).
+- **Requiere `terraform apply`**: redeploy de código de `quiz-engine`. La carga de
+  preguntas nuevas fue vía script manual (`scripts/subir_preguntas_aprobadas.py`, con
+  `--dry-run` y confirmación explícita), no vía Terraform/CI.
+- Archivos: `src/quiz_engine.py`, `tests/test_quiz_engine.py`; nuevos
+  `scripts/reset_student.py`, `scripts/build_review_html.py`,
+  `scripts/subir_preguntas_aprobadas.py` (herramientas, no lógica de producto).
+
+### 25 Sep — Fix: distribución de preguntas concentrada por tema en un mismo quiz
+- **Problema**: en el examen final y el diagnóstico inicial, las primeras ~16 preguntas
+  salían casi todas del mismo tema (ej. "Cloud Concepts & Well-Architected"), aunque el
+  banco tenía preguntas de sobra en otros temas. En la práctica libre, un alumno que
+  repetía el mismo tema recibía siempre exactamente las mismas preguntas.
+- **Causa raíz**: las tres funciones de generación armaban las preguntas por tema y las
+  concatenaban en bloques contiguos (sin intercalar el orden final entre temas). La
+  práctica libre además usaba `Limit=count` directo sobre `TopicIndex` (GSI sin sort
+  key, siempre devuelve el mismo orden de inserción) sin `random.shuffle` ni chequeo de
+  anti-repetición.
+- **Solución**: `interleave_by_topic()` nuevo (round-robin) usado en `generate_final_exam`
+  y `generate_initial_quiz` para que el orden final no agrupe un tema entero al
+  principio. `generate_quiz` (práctica libre) ahora sobre-pide (`Limit=count*3`),
+  baraja, y excluye preguntas ya respondidas (reutilizando
+  `get_student_answered_question_ids`, ya usada en el examen final), con el mismo
+  *fallback* que completa la cuota si no alcanzan preguntas nuevas.
+- Tests nuevos: `TestInterleaveByTopic`, `TestGenerateFinalExamTopicDistribution`,
+  `TestGenerateQuizFreePracticeAntiRepetition`. 91/91 tests en verde.
+- **Requiere `terraform apply`**: redeploy de código de `quiz-engine`.
+- Archivos: `src/quiz_engine.py`, `tests/test_quiz_engine.py`, `tests/test_phase_system.py`.
+
 ### 24 Sep — Fix: cambiar de idioma reabría una pregunta ya respondida
 - **Problema**: tras responder una pregunta (feedback visible, botón "Siguiente"), cambiar
   de idioma volvía a mostrarla sin responder: desaparecía el feedback y reaparecía
