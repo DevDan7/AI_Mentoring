@@ -60,6 +60,7 @@
     </main>
 
     <script src="js/i18n.js"></script>
+    <script src="js/explanations.js"></script>
     <script src="js/config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/api.js"></script>
@@ -209,8 +210,9 @@
                     } else {
                         feedback.style.background = "var(--pico-color-red-100)";
                         feedback.style.color = "var(--pico-color-red-700)";
-                        feedback.innerHTML = `<strong>${esc(t("quiz.incorrect"))}</strong> ${esc(result.explanation || '')}`;
+                        feedback.innerHTML = `<strong>${esc(t("quiz.incorrect"))}</strong>`;
                     }
+                    feedback.innerHTML += renderExplanationBlock(result.options);
                     feedback.style.display = "block";
 
                     if (!answeredIds.includes(q.question_id)) {
@@ -259,11 +261,8 @@
                     if (!answer) return;
 
                     const feedback = document.getElementById("feedbackMsg");
-                    if (answer.is_correct) {
-                        feedback.innerHTML = `<strong>${esc(t("quiz.correct"))}</strong>`;
-                    } else {
-                        feedback.innerHTML = `<strong>${esc(t("quiz.incorrect"))}</strong> ${esc(answer.explanation || '')}`;
-                    }
+                    feedback.innerHTML = `<strong>${esc(answer.is_correct ? t("quiz.correct") : t("quiz.incorrect"))}</strong>`;
+                    feedback.innerHTML += renderExplanationBlock(answer.options);
                 } catch (err) {
                     console.error('No se pudo re-traducir el feedback de la respuesta:', err);
                 }

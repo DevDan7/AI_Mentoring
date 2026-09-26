@@ -110,6 +110,38 @@ class TestCleanQuestionLang(unittest.TestCase):
         self.assertEqual(cleaned['options']['A']['text'], 'Option A')
 
 
+class TestBuildOptionBreakdown(unittest.TestCase):
+    """Bug reportado (26-Sep): al responder correcto no se mostraba ninguna
+    explicación, y al responder incorrecto solo se mostraba la de la opción
+    correcta (no la elegida). Fix: devolver el desglose de TODAS las opciones."""
+
+    def test_returns_all_options_with_explanation_and_is_correct(self):
+        import quiz_engine
+        q = make_question_item()
+        breakdown = quiz_engine.build_option_breakdown(q['Options'])
+        self.assertEqual(len(breakdown), 2)
+        by_key = {o['key']: o for o in breakdown}
+        self.assertTrue(by_key['A']['is_correct'])
+        self.assertEqual(by_key['A']['explanation'], 'Because A')
+        self.assertFalse(by_key['B']['is_correct'])
+        self.assertEqual(by_key['B']['explanation'], 'No B')
+
+    def test_lang_pt_falls_back_to_english_explanation_when_missing(self):
+        import quiz_engine
+        q = make_question_item()
+        q['Options']['A']['text_pt'] = 'Opção A'
+        # Sin explanation_pt: debe caer a la explicación en inglés.
+        breakdown = quiz_engine.build_option_breakdown(q['Options'], lang='pt')
+        by_key = {o['key']: o for o in breakdown}
+        self.assertEqual(by_key['A']['text'], 'Opção A')
+        self.assertEqual(by_key['A']['explanation'], 'Because A')
+
+    def test_non_dict_options_returns_empty_list(self):
+        import quiz_engine
+        self.assertEqual(quiz_engine.build_option_breakdown(['legacy', 'list']), [])
+        self.assertEqual(quiz_engine.build_option_breakdown(None), [])
+
+
 class TestGenerateFinalExamResume(unittest.TestCase):
     """Tarea 9.2: reanudación del examen final en progreso."""
 
@@ -495,6 +527,13 @@ class TestGetResultsEnrichment(unittest.TestCase):
 
         self.assertEqual(answer['statement'], 'Enunciado q1?')
         self.assertEqual(answer['explanation'], 'Porque A')
+        # Desglose completo también en get_results (para la página de resultados).
+        self.assertEqual(len(answer['options']), 2)
+        by_key = {o['key']: o for o in answer['options']}
+        self.assertTrue(by_key['A']['is_correct'])
+        self.assertEqual(by_key['A']['explanation'], 'Porque A')
+        self.assertFalse(by_key['B']['is_correct'])
+        self.assertEqual(by_key['B']['explanation'], 'No B')
 
     @mock.patch('quiz_engine.students_table')
     @mock.patch('quiz_engine.quizzes_table')
@@ -778,6 +817,14 @@ class TestSubmitAnswer(unittest.TestCase):
 
         body = json.loads(response['body'])
         self.assertEqual(body['explanation'], 'Porque A')
+        # El desglose completo debe incluir ambas opciones (correcta e incorrecta),
+        # no solo la elegida ni solo la correcta como string plano.
+        self.assertEqual(len(body['options']), 2)
+        by_key = {o['key']: o for o in body['options']}
+        self.assertTrue(by_key['A']['is_correct'])
+        self.assertEqual(by_key['A']['explanation'], 'Porque A')
+        self.assertFalse(by_key['B']['is_correct'])
+        self.assertEqual(by_key['B']['explanation'], 'No B')
 
     @mock.patch('quiz_engine.students_table')
     @mock.patch('quiz_engine.questions_table')
