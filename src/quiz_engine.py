@@ -217,6 +217,27 @@ def clean_question(q, lang='en'):
     }
 
 
+def build_option_breakdown(options, lang='en'):
+    """Devuelve cada opción (letra, texto, si es correcta, explicación) en el idioma
+    pedido, para mostrar por qué cada alternativa es o no la correcta."""
+    if not isinstance(options, dict):
+        return []
+    text_key = 'text_pt' if lang == 'pt' else 'text'
+    explanation_key = 'explanation_pt' if lang == 'pt' else 'explanation'
+    breakdown = []
+    for key in sorted(options.keys()):
+        opt = options[key]
+        if not isinstance(opt, dict):
+            continue
+        breakdown.append({
+            'key': key,
+            'text': opt.get(text_key) or opt.get('text', ''),
+            'is_correct': bool(opt.get('is_correct', False)),
+            'explanation': opt.get(explanation_key) or opt.get('explanation', ''),
+        })
+    return breakdown
+
+
 def generate_quiz(student_id, body, lang='en'):
     # Verificar acceso del estudiante
     access_error = check_student_access(student_id)
@@ -785,13 +806,11 @@ def submit_answer(student_id, body, lang='en'):
 
     is_correct = grade_answer(normalized_given, correct_options)
 
-    # Recoger la explicación de la primera opción correcta encontrada
-    explanation_key = 'explanation_pt' if lang == 'pt' else 'explanation'
-    explanation = next(
-        (opt.get(explanation_key) or opt.get('explanation', '')
-         for k, opt in options.items() if opt.get('is_correct', False)),
-        ''
-    )
+    # Desglose de todas las opciones (correcta e incorrectas) con su explicación,
+    # para que el frontend siempre pueda mostrar por qué cada alternativa es o no
+    # la mejor, responda bien o mal el alumno.
+    options_breakdown = build_option_breakdown(options, lang)
+    explanation = next((o['explanation'] for o in options_breakdown if o['is_correct']), '')
 
     # No sobrescribir una respuesta ya enviada para el mismo quiz + pregunta
     existing_response = quiz_results_table.query(
@@ -806,7 +825,8 @@ def submit_answer(student_id, body, lang='en'):
             'result_id': result['ResultID'],
             'quiz_id': quiz_id,
             'is_correct': result.get('IsCorrect', False),
-            'explanation': explanation
+            'explanation': explanation,
+            'options': options_breakdown
         })
 
     result_id = str(uuid.uuid4())
@@ -840,7 +860,8 @@ def submit_answer(student_id, body, lang='en'):
         'result_id': result_id,
         'quiz_id': quiz_id,
         'is_correct': is_correct,
-        'explanation': explanation
+        'explanation': explanation,
+        'options': options_breakdown
     })
 
 
@@ -905,13 +926,8 @@ def get_results(quiz_id, student_id, claims=None, lang='en'):
                 k.strip().upper() for k, opt in options.items()
                 if isinstance(opt, dict) and opt.get('is_correct', False)
             ]
-            explanation_key = 'explanation_pt' if lang == 'pt' else 'explanation'
-            explanation = next(
-                (opt.get(explanation_key) or opt.get('explanation', '')
-                 for k, opt in options.items()
-                 if isinstance(opt, dict) and opt.get('is_correct', False)),
-                ''
-            )
+            options_breakdown = build_option_breakdown(options, lang)
+            explanation = next((o['explanation'] for o in options_breakdown if o['is_correct']), '')
             statement = (
                 q.get('QuestionText_pt') or q.get('QuestionText', '')
                 if lang == 'pt' else q.get('QuestionText', '')
@@ -923,7 +939,8 @@ def get_results(quiz_id, student_id, claims=None, lang='en'):
                 'given_answers': result.get('GivenAnswers', []),
                 'correct_answers': correct_answers_for_question,
                 'is_correct': result.get('IsCorrect', False),
-                'explanation': explanation
+                'explanation': explanation,
+                'options': options_breakdown
             })
         except Exception as exc:
             print(f'get_results: skipping malformed result {result.get("QuestionID", "<unknown>")}: {exc}')
@@ -933,7 +950,8 @@ def get_results(quiz_id, student_id, claims=None, lang='en'):
                 'given_answers': result.get('GivenAnswers', []),
                 'correct_answers': [],
                 'is_correct': result.get('IsCorrect', False),
-                'explanation': ''
+                'explanation': '',
+                'options': []
             })
 
     response = {

@@ -162,6 +162,8 @@ const I18N = {
         "results.given": "Resposta enviada:",
         "results.expected": "Resposta correta:",
         "results.explanation": "Explicação:",
+        "explanation.general": "Explicação geral",
+        "explanation.otherOptions": "Outras opções e por que não são as melhores",
 
         // Panel del profesor
         "teacher.pageTitle": "AI Mentoring - Painel do Professor",
@@ -360,6 +362,8 @@ const I18N = {
         "results.given": "Your answer:",
         "results.expected": "Correct answer:",
         "results.explanation": "Explanation:",
+        "explanation.general": "General explanation",
+        "explanation.otherOptions": "Other options and why they aren't the best",
 
         "teacher.pageTitle": "AI Mentoring - Instructor Dashboard",
         "teacher.role": "Instructor",
