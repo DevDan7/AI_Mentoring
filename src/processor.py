@@ -83,7 +83,9 @@ def find_near_duplicate(table, topic, question_text):
         existing_text = normalize_for_similarity(existing.get("QuestionText", ""))
         if not existing_text:
             continue
-        ratio = SequenceMatcher(None, normalized_new, existing_text).ratio()
+        # autojunk=False: por defecto SequenceMatcher degrada el ratio en textos de
+        # 200+ caracteres (típico en enunciados), ver nota en quiz_engine.is_near_duplicate.
+        ratio = SequenceMatcher(None, normalized_new, existing_text, autojunk=False).ratio()
         if ratio >= NEAR_DUPLICATE_THRESHOLD:
             return existing.get("QuestionID"), ratio
     return None

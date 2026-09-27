@@ -283,6 +283,25 @@ class TestIsNearDuplicate(unittest.TestCase):
         self.assertFalse(quiz_engine.is_near_duplicate('', 'Some question?'))
         self.assertFalse(quiz_engine.is_near_duplicate(None, None))
 
+    def test_long_reworded_question_is_flagged_despite_autojunk(self):
+        """Bug reportado (26-Sep): con enunciados de 200+ caracteres (el tamaño
+        típico de una pregunta real de examen), difflib.SequenceMatcher SIN
+        autojunk=False trata caracteres comunes (como el espacio) como "ruido" y
+        degrada el ratio de ~0.93 a ~0.25 -- dos preguntas casi-idénticas ("empresa
+        não sabe prever a demanda...", con distinta clave de respuesta) pasaron el
+        filtro y salieron ambas en el mismo examen. Caso real encontrado en producción."""
+        import quiz_engine
+
+        a = ('A company developed a new internal application but has no way to '
+             'determine or predict the demand that the application will create '
+             'in terms of usage. Which benefit of AWS cloud computing is the '
+             'company seeking?')
+        b = ('A company developed a new internal application but does not know '
+             'how to determine or predict the demand that the application will '
+             'create in terms of usage. What benefit of cloud computing on AWS '
+             'is the company seeking?')
+        self.assertTrue(quiz_engine.is_near_duplicate(a, b))
+
 
 class TestGenerateFinalExamConcurrencyLock(unittest.TestCase):
     """Bug reportado (26-Sep): 3 requests casi simultáneas (doble tap / reintento de
