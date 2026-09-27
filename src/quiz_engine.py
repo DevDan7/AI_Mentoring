@@ -476,11 +476,19 @@ def is_near_duplicate(text_a, text_b, threshold=SIMILARITY_THRESHOLD):
     """Detecta si dos enunciados son casi-duplicados (misma pregunta reformulada),
     con el mismo método fuzzy (difflib.SequenceMatcher) ya validado en
     scripts/detectar_casi_duplicados_contenido.py, para no elegir dos preguntas
-    casi-idénticas dentro del mismo quiz."""
+    casi-idénticas dentro del mismo quiz.
+
+    autojunk=False es crítico: por defecto SequenceMatcher trata como "ruido" a
+    cualquier carácter que aparezca en más del 1% de una cadena de 200+ caracteres
+    (típico en un enunciado de examen) -- eso incluye el espacio " ", degradando el
+    ratio a ~0.25 incluso entre dos preguntas idénticas en un 90%. Bug encontrado
+    26-Sep: 2 preguntas casi-idénticas ("empresa não sabe prever a demanda...")
+    con distinta clave de respuesta correcta salieron ambas en el mismo examen sin
+    ser detectadas como casi-duplicadas por este motivo."""
     a, b = _normalize_for_similarity(text_a), _normalize_for_similarity(text_b)
     if not a or not b:
         return False
-    return difflib.SequenceMatcher(None, a, b).ratio() >= threshold
+    return difflib.SequenceMatcher(None, a, b, autojunk=False).ratio() >= threshold
 
 
 def can_generate_final_exam(completed_count):

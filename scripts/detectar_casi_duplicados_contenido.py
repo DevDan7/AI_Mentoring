@@ -79,7 +79,11 @@ def main() -> None:
         # Descarte rápido: si difieren mucho en longitud no puede superar el umbral.
         if abs(len(norm_a) - len(norm_b)) > max(len(norm_a), len(norm_b)) * (1 - threshold) * 2:
             continue
-        ratio = SequenceMatcher(None, norm_a, norm_b).ratio()
+        # autojunk=False: por defecto SequenceMatcher degrada el ratio en textos de
+        # 200+ caracteres (típico en enunciados) -- bug encontrado 26-Sep, ver
+        # quiz_engine.is_near_duplicate. Sin esto el reporte subestima masivamente
+        # los pares reales.
+        ratio = SequenceMatcher(None, norm_a, norm_b, autojunk=False).ratio()
         if ratio >= threshold and norm_a != norm_b:  # los idénticos ya los cubre el otro script
             pairs.append((ratio, item_a, item_b))
 
