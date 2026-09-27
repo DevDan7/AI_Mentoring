@@ -55,7 +55,8 @@ def is_near_duplicate(a, b, threshold=SIMILARITY_THRESHOLD):
     na, nb = normalize_for_similarity(a), normalize_for_similarity(b)
     if not na or not nb:
         return False
-    return difflib.SequenceMatcher(None, na, nb).ratio() >= threshold
+    # autojunk=False: ver nota en quiz_engine.is_near_duplicate (bug 26-Sep).
+    return difflib.SequenceMatcher(None, na, nb, autojunk=False).ratio() >= threshold
 
 
 def build_item(q):

@@ -6,6 +6,61 @@
 
 ## 2026-09
 
+### 26 Sep — Fix crítico: `difflib.SequenceMatcher` con `autojunk` degradaba TODO el
+### sistema anti-casi-duplicados + corrección de contenido puntual
+- **Problema**: revisando un examen final real, el usuario detectó que 2 de 3
+  preguntas prácticamente idénticas ("empresa não sabe/possui como determinar ou
+  prever a demanda de uso...") salieron en el mismo examen, con la particularidad
+  de que **una de las tres tenía la clave de respuesta correcta equivocada**
+  (marcaba "Cost-effective" en vez de "Scalable and high performance" para la
+  misma pregunta que las otras dos sí resuelven bien). También encontró 2
+  preguntas que mencionan "AWS Nitro" sin sentido (las opciones no tienen nada
+  que ver con Nitro).
+- **Causa raíz (la importante)**: `difflib.SequenceMatcher(None, a, b)` sin
+  `autojunk=False` trata como "ruido" cualquier carácter que aparezca en más del
+  1% de una cadena de 200+ caracteres — y el espacio " " cae en esa categoría en
+  cualquier oración. Como los enunciados de examen típicamente superan los 200
+  caracteres, esto degradaba el ratio de similitud de ~0.93 a ~0.25 para pares
+  genuinamente casi-idénticos, haciendo que el filtro `is_near_duplicate()`
+  (agregado el 25-Sep) casi nunca detectara nada en producción. El bug estaba
+  presente en **4 lugares**: `src/quiz_engine.py` (filtro en tiempo real),
+  `src/processor.py` (chequeo al ingerir fotos nuevas), `scripts/
+  detectar_casi_duplicados_contenido.py` (auditor offline) y `scripts/
+  subir_preguntas_aprobadas.py` (script de carga usado el 25-Sep). El reporte de
+  69 pares del 25-Sep estaba, por lo tanto, muy subestimado.
+- **Solución**: se agregó `autojunk=False` a las 4 llamadas a `SequenceMatcher`.
+  Test de regresión nuevo (`test_long_reworded_question_is_flagged_despite_autojunk`)
+  reproduce el caso real (texto de 200+ caracteres) para que este bug no vuelva.
+- **Corrección de contenido puntual** (`scripts/corregir_contenido_puntual_20260926.py`,
+  con backup previo y confirmación explícita): se corrigieron 4 ítems reales en
+  `MentoringQuestions`:
+  1. Clave de respuesta incorrecta en la pregunta de "prever demanda" (ahora D).
+  2. y 3. "AWS Nitro" mal usado en 2 enunciados sin relación con Nitro → "AWS".
+  4. Contaminación de traducción: palabra "Fornece" (PT) filtrada en el campo en
+     inglés de una pregunta sobre bloqueo de SQL injection.
+- **Re-auditoría con el fix aplicado**: se volvió a correr
+  `detectar_casi_duplicados_contenido.py` contra el banco actual (231 preguntas):
+  pasó de **69 a 99 pares casi-duplicados detectados** (umbral 0.85), varios con
+  similitud 0.98-0.99 (prácticamente el mismo enunciado). 27 de esos 99 pares
+  además tienen `Topic` distinto entre sí (posible mala clasificación temática,
+  no evaluado en este fix). El reporte actualizado queda en
+  `scripts/reporte_casi_duplicados_contenido.json`.
+- **Deuda técnica pendiente** (no resuelta en este fix, requiere revisión humana
+  del contenido, no es automatizable con seguridad):
+  1. Revisar y curar los 99 pares del reporte actualizado con
+     `scripts/limpiar_casi_duplicados_contenido.py` (workflow ya existente:
+     marcar `approved_remove` a mano por par, nunca borra solo).
+  2. Revisar los 27 pares con `Topic` cruzado — puede indicar preguntas mal
+     clasificadas al momento de la ingesta (`src/processor.py`).
+  3. Evaluar si conviene bajar `SIMILARITY_THRESHOLD` (hoy 0.85) dado que varios
+     pares genuinamente idénticos rondan 0.80-0.85 con la nueva medición correcta.
+- **Requiere `terraform apply`**: redeploy de código de `quiz-engine` y
+  `mentoring-exam-processor` (ambos usan `SequenceMatcher`).
+- Archivos: `src/quiz_engine.py`, `src/processor.py`,
+  `scripts/detectar_casi_duplicados_contenido.py`,
+  `scripts/subir_preguntas_aprobadas.py`, `tests/test_quiz_engine.py`; nuevo
+  `scripts/corregir_contenido_puntual_20260926.py`.
+
 ### 26 Sep — Fix: exámenes finales duplicados por condición de carrera
 - **Problema**: al completar 2 exámenes finales, el dashboard mostraba varios registros
   "Em andamento" además del completado, y entrar a uno de ellos arrancaba desde 0

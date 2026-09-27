@@ -1,7 +1,7 @@
 {
-  "total_items": 203,
+  "total_items": 231,
   "threshold": 0.85,
-  "pairs_found": 69,
+  "pairs_found": 99,
   "pairs": [
     {
       "pair": 1,
@@ -41,6 +41,24 @@
     },
     {
       "pair": 3,
+      "similarity": 0.9866,
+      "a": {
+        "QuestionID": "bc95598b0ab5d5f11d67cb819c0925a6",
+        "Topic": "General / Otros Servicios",
+        "FileName": "question_089.png",
+        "QuestionText": "A company planning to migrate to AWS Cloud is located in an isolated area with limited Internet connectivity. The company needs to perform local data processing on-site. The company needs a solution that can operate without a stable Internet connection. Which AWS service will meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "5afbd1b6152fd6dd34fda2dface51561",
+        "Topic": "Networking & Content Delivery",
+        "FileName": "question_023.png",
+        "QuestionText": "A company planning to migrate to AWS Cloud is located in an isolated area with limited internet connectivity. The company needs to perform local data processing on-premises. The company needs a solution that can operate without a stable internet connection. Which AWS service will meet these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 4,
       "similarity": 0.9856,
       "a": {
         "QuestionID": "7136f68546ea161b148ab17f670cbb16",
@@ -58,7 +76,7 @@
       "approved_remove": null
     },
     {
-      "pair": 4,
+      "pair": 5,
       "similarity": 0.9849,
       "a": {
         "QuestionID": "b6911ff9bc54cfc67e1e5f02e66b5259",
@@ -76,7 +94,7 @@
       "approved_remove": null
     },
     {
-      "pair": 5,
+      "pair": 6,
       "similarity": 0.9845,
       "a": {
         "QuestionID": "6f8e5cb0bf1ab2c29079a0c8144d279f",
@@ -94,7 +112,25 @@
       "approved_remove": null
     },
     {
-      "pair": 6,
+      "pair": 7,
+      "similarity": 0.9807,
+      "a": {
+        "QuestionID": "b6911ff9bc54cfc67e1e5f02e66b5259",
+        "Topic": "Billing, Cost Management & Support",
+        "FileName": "question_028.png",
+        "QuestionText": "A company migrated its entire infrastructure to AWS Cloud. To plan each quarter, the finance team wants to track cost and usage data for all resources from previous months. The finance team wants to automatically generate reports containing this data. Which AWS service or resource should the finance team use to meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "839bf5a42578c6531c1327b7a1896bf7",
+        "Topic": "Billing, Cost Management & Support",
+        "FileName": "question_086.png",
+        "QuestionText": "A company has migrated its entire infrastructure to AWS Cloud. To plan ahead each quarter, the finance team wants to track cost and usage data of all resources from previous months. The finance team wants to automatically generate reports containing this data. Which AWS service or resource should the finance team use to meet these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 8,
       "similarity": 0.9803,
       "a": {
         "QuestionID": "f8782c574c6111f4413830b3a3560c33",
@@ -112,25 +148,25 @@
       "approved_remove": null
     },
     {
-      "pair": 7,
-      "similarity": 0.9799,
+      "pair": 9,
+      "similarity": 0.9794,
       "a": {
-        "QuestionID": "bc95598b0ab5d5f11d67cb819c0925a6",
-        "Topic": "General / Otros Servicios",
-        "FileName": "question_089.png",
-        "QuestionText": "A company planning to migrate to AWS Cloud is located in an isolated area with limited Internet connectivity. The company needs to perform local data processing on-site. The company needs a solution that can operate without a stable Internet connection. Which AWS service will meet these requirements?"
+        "QuestionID": "1cf5eef85874932ef27d890fa32da32c",
+        "Topic": "Billing, Cost Management & Support",
+        "FileName": "question_087.png",
+        "QuestionText": "A company has moved its entire infrastructure to AWS Cloud. To plan ahead each quarter, the finance team wants to track cost and usage data of all resources from previous months. The finance team wants to automatically generate reports containing this data. Which AWS service or feature should the finance team use to meet these requirements?"
       },
       "b": {
-        "QuestionID": "5afbd1b6152fd6dd34fda2dface51561",
-        "Topic": "Networking & Content Delivery",
-        "FileName": "question_023.png",
-        "QuestionText": "A company planning to migrate to AWS Cloud is located in an isolated area with limited internet connectivity. The company needs to perform local data processing on-premises. The company needs a solution that can operate without a stable internet connection. Which AWS service will meet these requirements?"
+        "QuestionID": "839bf5a42578c6531c1327b7a1896bf7",
+        "Topic": "Billing, Cost Management & Support",
+        "FileName": "question_086.png",
+        "QuestionText": "A company has migrated its entire infrastructure to AWS Cloud. To plan ahead each quarter, the finance team wants to track cost and usage data of all resources from previous months. The finance team wants to automatically generate reports containing this data. Which AWS service or resource should the finance team use to meet these requirements?"
       },
       "reviewed": false,
       "approved_remove": null
     },
     {
-      "pair": 8,
+      "pair": 10,
       "similarity": 0.9791,
       "a": {
         "QuestionID": "a5d531af479d9faa22366d68cd1470be",
@@ -148,25 +184,7 @@
       "approved_remove": null
     },
     {
-      "pair": 9,
-      "similarity": 0.9777,
-      "a": {
-        "QuestionID": "b6911ff9bc54cfc67e1e5f02e66b5259",
-        "Topic": "Billing, Cost Management & Support",
-        "FileName": "question_028.png",
-        "QuestionText": "A company migrated its entire infrastructure to AWS Cloud. To plan each quarter, the finance team wants to track cost and usage data for all resources from previous months. The finance team wants to automatically generate reports containing this data. Which AWS service or resource should the finance team use to meet these requirements?"
-      },
-      "b": {
-        "QuestionID": "839bf5a42578c6531c1327b7a1896bf7",
-        "Topic": "Billing, Cost Management & Support",
-        "FileName": "question_086.png",
-        "QuestionText": "A company has migrated its entire infrastructure to AWS Cloud. To plan ahead each quarter, the finance team wants to track cost and usage data of all resources from previous months. The finance team wants to automatically generate reports containing this data. Which AWS service or resource should the finance team use to meet these requirements?"
-      },
-      "reviewed": false,
-      "approved_remove": null
-    },
-    {
-      "pair": 10,
+      "pair": 11,
       "similarity": 0.9763,
       "a": {
         "QuestionID": "0f5bdb5c0b9df0a1114423a6ce48261c",
@@ -184,7 +202,7 @@
       "approved_remove": null
     },
     {
-      "pair": 11,
+      "pair": 12,
       "similarity": 0.9762,
       "a": {
         "QuestionID": "d89ae0388f30714f23b65bb44f1345d9",
@@ -202,7 +220,7 @@
       "approved_remove": null
     },
     {
-      "pair": 12,
+      "pair": 13,
       "similarity": 0.9757,
       "a": {
         "QuestionID": "57d145a9055db656752739715441ab86",
@@ -220,7 +238,7 @@
       "approved_remove": null
     },
     {
-      "pair": 13,
+      "pair": 14,
       "similarity": 0.9754,
       "a": {
         "QuestionID": "9297490d6fa97c3d16e1f6b8db677966",
@@ -238,7 +256,7 @@
       "approved_remove": null
     },
     {
-      "pair": 14,
+      "pair": 15,
       "similarity": 0.9745,
       "a": {
         "QuestionID": "51e133880d8584d6c06660e5433eb66a",
@@ -256,7 +274,7 @@
       "approved_remove": null
     },
     {
-      "pair": 15,
+      "pair": 16,
       "similarity": 0.9742,
       "a": {
         "QuestionID": "73213923619a3c59d27d5b5e1d9fb785",
@@ -274,7 +292,7 @@
       "approved_remove": null
     },
     {
-      "pair": 16,
+      "pair": 17,
       "similarity": 0.9736,
       "a": {
         "QuestionID": "f46042c3544d4120dc9c27d8efd5b991",
@@ -292,7 +310,7 @@
       "approved_remove": null
     },
     {
-      "pair": 17,
+      "pair": 18,
       "similarity": 0.9732,
       "a": {
         "QuestionID": "c47688fe190cd963231ace5922084404",
@@ -310,7 +328,7 @@
       "approved_remove": null
     },
     {
-      "pair": 18,
+      "pair": 19,
       "similarity": 0.9723,
       "a": {
         "QuestionID": "5afbd1b6152fd6dd34fda2dface51561",
@@ -328,7 +346,7 @@
       "approved_remove": null
     },
     {
-      "pair": 19,
+      "pair": 20,
       "similarity": 0.9722,
       "a": {
         "QuestionID": "c2f1c30eb61943276cdaed75d5564bc6",
@@ -346,7 +364,7 @@
       "approved_remove": null
     },
     {
-      "pair": 20,
+      "pair": 21,
       "similarity": 0.9721,
       "a": {
         "QuestionID": "e170a2a9cb181859bf8d7bd0d7e1e110",
@@ -364,7 +382,7 @@
       "approved_remove": null
     },
     {
-      "pair": 21,
+      "pair": 22,
       "similarity": 0.9714,
       "a": {
         "QuestionID": "278cd383f9002b71c08d95f3cf6261da",
@@ -382,7 +400,25 @@
       "approved_remove": null
     },
     {
-      "pair": 22,
+      "pair": 23,
+      "similarity": 0.9687,
+      "a": {
+        "QuestionID": "839bf5a42578c6531c1327b7a1896bf7",
+        "Topic": "Billing, Cost Management & Support",
+        "FileName": "question_086.png",
+        "QuestionText": "A company has migrated its entire infrastructure to AWS Cloud. To plan ahead each quarter, the finance team wants to track cost and usage data of all resources from previous months. The finance team wants to automatically generate reports containing this data. Which AWS service or resource should the finance team use to meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "b4e148d12cc7d02d5cc7b9036048f648",
+        "Topic": "Billing, Cost Management & Support",
+        "FileName": "Captura de pantalla_2026-09-02_11-38-17.png",
+        "QuestionText": "A company migrated its entire infrastructure to AWS. To plan for each quarter, the finance team wants to track cost and usage data for all resources from previous months. The finance team wants to automatically generate reports containing this data. Which AWS service or resource should the finance team use to meet these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 24,
       "similarity": 0.9675,
       "a": {
         "QuestionID": "fad1b05cd10f6293e05b180da221eed6",
@@ -400,7 +436,7 @@
       "approved_remove": null
     },
     {
-      "pair": 23,
+      "pair": 25,
       "similarity": 0.9669,
       "a": {
         "QuestionID": "0f5bdb5c0b9df0a1114423a6ce48261c",
@@ -418,26 +454,44 @@
       "approved_remove": null
     },
     {
-      "pair": 24,
-      "similarity": 0.9657,
+      "pair": 26,
+      "similarity": 0.9622,
       "a": {
-        "QuestionID": "839bf5a42578c6531c1327b7a1896bf7",
-        "Topic": "Billing, Cost Management & Support",
-        "FileName": "question_086.png",
-        "QuestionText": "A company has migrated its entire infrastructure to AWS Cloud. To plan ahead each quarter, the finance team wants to track cost and usage data of all resources from previous months. The finance team wants to automatically generate reports containing this data. Which AWS service or resource should the finance team use to meet these requirements?"
+        "QuestionID": "8ff51b8b51f49b8b8bebb40663e563f7",
+        "Topic": "Cloud Concepts & Well-Architected",
+        "FileName": "question_005.png",
+        "QuestionText": "A company is planning to migrate to AWS Cloud. The company is undergoing an organizational transformation and wants to become more responsive to customer queries and feedback. Which tasks should the company perform to meet these requirements, according to the AWS Cloud Adoption Framework (AWS CAF)? (Choose two.)"
       },
       "b": {
-        "QuestionID": "b4e148d12cc7d02d5cc7b9036048f648",
-        "Topic": "Billing, Cost Management & Support",
-        "FileName": "Captura de pantalla_2026-09-02_11-38-17.png",
-        "QuestionText": "A company migrated its entire infrastructure to AWS. To plan for each quarter, the finance team wants to track cost and usage data for all resources from previous months. The finance team wants to automatically generate reports containing this data. Which AWS service or resource should the finance team use to meet these requirements?"
+        "QuestionID": "ae9bd468407b58bade0fe77cf063e216",
+        "Topic": "Cloud Concepts & Well-Architected",
+        "FileName": "Captura de pantalla_2026-09-02_11-37-22.png",
+        "QuestionText": "A company is planning to migrate to AWS Cloud. The company is undergoing organizational transformation and wants to become more responsive to customer consultations and feedback. What task should the company perform to meet these requirements, according to the AWS Cloud Adoption Framework (AWS CAF)? (Choose two.)"
       },
       "reviewed": false,
       "approved_remove": null
     },
     {
-      "pair": 25,
-      "similarity": 0.9524,
+      "pair": 27,
+      "similarity": 0.9596,
+      "a": {
+        "QuestionID": "b6911ff9bc54cfc67e1e5f02e66b5259",
+        "Topic": "Billing, Cost Management & Support",
+        "FileName": "question_028.png",
+        "QuestionText": "A company migrated its entire infrastructure to AWS Cloud. To plan each quarter, the finance team wants to track cost and usage data for all resources from previous months. The finance team wants to automatically generate reports containing this data. Which AWS service or resource should the finance team use to meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "1cf5eef85874932ef27d890fa32da32c",
+        "Topic": "Billing, Cost Management & Support",
+        "FileName": "question_087.png",
+        "QuestionText": "A company has moved its entire infrastructure to AWS Cloud. To plan ahead each quarter, the finance team wants to track cost and usage data of all resources from previous months. The finance team wants to automatically generate reports containing this data. Which AWS service or feature should the finance team use to meet these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 28,
+      "similarity": 0.9589,
       "a": {
         "QuestionID": "bc95598b0ab5d5f11d67cb819c0925a6",
         "Topic": "General / Otros Servicios",
@@ -454,7 +508,97 @@
       "approved_remove": null
     },
     {
-      "pair": 26,
+      "pair": 29,
+      "similarity": 0.958,
+      "a": {
+        "QuestionID": "bcad8deed82ccca6c0ff0acccfac21d4",
+        "Topic": "Networking & Content Delivery",
+        "FileName": "Captura de pantalla_2026-09-02_11-27-34.png",
+        "QuestionText": "A company hosted a web application on AWS. The company improved the availability of its application by provisioning multiple Amazon EC2 instances. The company wants to distribute its traffic among the EC2 instances, offering a single point of contact for web clients. Which AWS service can distribute traffic to multiple EC2 instances as destinations?"
+      },
+      "b": {
+        "QuestionID": "54d0dcadcb932e0119c0ab4b7a245527",
+        "Topic": "Networking & Content Delivery",
+        "FileName": "question_008.png",
+        "QuestionText": "A company hosts a web application on AWS. The company has improved the availability of its application by provisioning multiple Amazon EC2 instances. The company wants to distribute its traffic across the EC2 instances, offering a single point of contact for web clients. Which AWS service can distribute traffic to multiple EC2 instances as targets?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 30,
+      "similarity": 0.9575,
+      "a": {
+        "QuestionID": "0529f2735cf8cdef70fa01024da8d4a7",
+        "Topic": "Billing, Cost Management & Support",
+        "FileName": "Captura de pantalla_2026-09-02_11-43-47.png",
+        "QuestionText": "A company plans to launch an e-commerce website that contains many images for a product catalog. The company wants to keep the cost of executing the site within a specific budget. Which AWS service or tool should the company use to monitor the continuous costs of the site?"
+      },
+      "b": {
+        "QuestionID": "8ce526b5bc163fef19701afd09d5d8f4",
+        "Topic": "Billing, Cost Management & Support",
+        "FileName": "question_077.png",
+        "QuestionText": "A company plans to launch an e-commerce website that contains many images for a product catalog. The company wants to keep the cost of running the website within a specific budget. Which AWS service or tool should the company use to monitor the ongoing costs of the website?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 31,
+      "similarity": 0.9554,
+      "a": {
+        "QuestionID": "bc95598b0ab5d5f11d67cb819c0925a6",
+        "Topic": "General / Otros Servicios",
+        "FileName": "question_089.png",
+        "QuestionText": "A company planning to migrate to AWS Cloud is located in an isolated area with limited Internet connectivity. The company needs to perform local data processing on-site. The company needs a solution that can operate without a stable Internet connection. Which AWS service will meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "024ca7b3c12c91df31ac8d0cbe3e6ca9",
+        "Topic": "Storage & Database",
+        "FileName": "Captura de pantalla_2026-09-03_11-00-02.png",
+        "QuestionText": "A company planning to migrate to AWS Outposts is located in an isolated area with limited internet connectivity. The company needs to perform local data processing at the location. The company needs a solution that can operate without a stable internet connection. Which AWS service will meet these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 32,
+      "similarity": 0.9546,
+      "a": {
+        "QuestionID": "6e9b1bc6f13dd61b61e1d175044c93c9",
+        "Topic": "Storage & Database",
+        "FileName": "Captura de pantalla_2026-09-03_10-58-00.png",
+        "QuestionText": "A company has multiple SQL-based databases located in a data center. The company needs to migrate all database servers to AWS Nuvem to reduce the operational cost of physical servers. Which AWS service or resource will meet these requirements with the LEAST operational overhead?"
+      },
+      "b": {
+        "QuestionID": "6d6e7f16412eceefe4151de583993eb6",
+        "Topic": "Storage & Database",
+        "FileName": "Captura de pantalla_2026-09-02_11-39-08.png",
+        "QuestionText": "A company has multiple SQL-based databases located in a data center. The company needs to migrate all database servers to AWS Nuvem to reduce the cost of physical server operations. Which AWS service or resource will meet these requirements with the lowest operational overhead?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 33,
+      "similarity": 0.9516,
+      "a": {
+        "QuestionID": "024ca7b3c12c91df31ac8d0cbe3e6ca9",
+        "Topic": "Storage & Database",
+        "FileName": "Captura de pantalla_2026-09-03_11-00-02.png",
+        "QuestionText": "A company planning to migrate to AWS Outposts is located in an isolated area with limited internet connectivity. The company needs to perform local data processing at the location. The company needs a solution that can operate without a stable internet connection. Which AWS service will meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "0465d0612ec60564cb0d69a9cfc003d9",
+        "Topic": "Storage & Database",
+        "FileName": "Captura de pantalla_2026-09-02_11-37-30.png",
+        "QuestionText": "A company that is planning to migrate to AWS Outposts is located in an isolated area with limited internet connectivity. The company needs to perform local data processing on premises. The company needs a solution that can operate without a stable internet connection. Which AWS service will meet these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 34,
       "similarity": 0.9513,
       "a": {
         "QuestionID": "6116b9df729b36dbc18a3c610baca90b",
@@ -472,13 +616,31 @@
       "approved_remove": null
     },
     {
-      "pair": 27,
-      "similarity": 0.9488,
+      "pair": 35,
+      "similarity": 0.9496,
       "a": {
-        "QuestionID": "bc95598b0ab5d5f11d67cb819c0925a6",
-        "Topic": "General / Otros Servicios",
-        "FileName": "question_089.png",
-        "QuestionText": "A company planning to migrate to AWS Cloud is located in an isolated area with limited Internet connectivity. The company needs to perform local data processing on-site. The company needs a solution that can operate without a stable Internet connection. Which AWS service will meet these requirements?"
+        "QuestionID": "124594477b95be2b5ab25b3db4c480aa",
+        "Topic": "Storage & Database",
+        "FileName": "Captura de pantalla_2026-09-03_10-54-39.png",
+        "QuestionText": "A company wants to deploy an application that stores data in a relational database. The company wants database tasks such as automated backups and instantaneous database backups to be managed by AWS. Which AWS service will meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "278cd383f9002b71c08d95f3cf6261da",
+        "Topic": "Storage & Database",
+        "FileName": "question_068.png",
+        "QuestionText": "A company wants to deploy an application that stores data in a relational database. The company wants database tasks, such as automated backups and database snapshots, to be managed by AWS. Which AWS service will meet these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 36,
+      "similarity": 0.9491,
+      "a": {
+        "QuestionID": "5afbd1b6152fd6dd34fda2dface51561",
+        "Topic": "Networking & Content Delivery",
+        "FileName": "question_023.png",
+        "QuestionText": "A company planning to migrate to AWS Cloud is located in an isolated area with limited internet connectivity. The company needs to perform local data processing on-premises. The company needs a solution that can operate without a stable internet connection. Which AWS service will meet these requirements?"
       },
       "b": {
         "QuestionID": "024ca7b3c12c91df31ac8d0cbe3e6ca9",
@@ -490,7 +652,7 @@
       "approved_remove": null
     },
     {
-      "pair": 28,
+      "pair": 37,
       "similarity": 0.9485,
       "a": {
         "QuestionID": "4a385b512def0b69ef776dae0fb4ac0a",
@@ -508,7 +670,43 @@
       "approved_remove": null
     },
     {
-      "pair": 29,
+      "pair": 38,
+      "similarity": 0.9475,
+      "a": {
+        "QuestionID": "1cf5eef85874932ef27d890fa32da32c",
+        "Topic": "Billing, Cost Management & Support",
+        "FileName": "question_087.png",
+        "QuestionText": "A company has moved its entire infrastructure to AWS Cloud. To plan ahead each quarter, the finance team wants to track cost and usage data of all resources from previous months. The finance team wants to automatically generate reports containing this data. Which AWS service or feature should the finance team use to meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "b4e148d12cc7d02d5cc7b9036048f648",
+        "Topic": "Billing, Cost Management & Support",
+        "FileName": "Captura de pantalla_2026-09-02_11-38-17.png",
+        "QuestionText": "A company migrated its entire infrastructure to AWS. To plan for each quarter, the finance team wants to track cost and usage data for all resources from previous months. The finance team wants to automatically generate reports containing this data. Which AWS service or resource should the finance team use to meet these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 39,
+      "similarity": 0.9462,
+      "a": {
+        "QuestionID": "340d382edacca102ca295bd867d6699a",
+        "Topic": "Compute & Containers",
+        "FileName": "question_027.png",
+        "QuestionText": "A company wants to deploy a web application as a containerized application. The company wants to use a managed service that can automatically create container images from source code and deploy the containerized application. Which AWS service will meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "4d1057e224cedbbcb9ba0b3849e1f6be",
+        "Topic": "Compute & Containers",
+        "FileName": "Captura de pantalla_2026-09-03_10-59-38.png",
+        "QuestionText": "A company wants to deploy a web application as a containerized application. The company wants to use a managed service that can automatically create container images from source code and deploy the application in a container. Which AWS service will meet these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 40,
       "similarity": 0.9462,
       "a": {
         "QuestionID": "f7e331e2eafd759f8bef0d161898a5cf",
@@ -526,7 +724,7 @@
       "approved_remove": null
     },
     {
-      "pair": 30,
+      "pair": 41,
       "similarity": 0.9452,
       "a": {
         "QuestionID": "e71cc8801b59f5da2dc31785a237dbcb",
@@ -544,25 +742,7 @@
       "approved_remove": null
     },
     {
-      "pair": 31,
-      "similarity": 0.9452,
-      "a": {
-        "QuestionID": "024ca7b3c12c91df31ac8d0cbe3e6ca9",
-        "Topic": "Storage & Database",
-        "FileName": "Captura de pantalla_2026-09-03_11-00-02.png",
-        "QuestionText": "A company planning to migrate to AWS Outposts is located in an isolated area with limited internet connectivity. The company needs to perform local data processing at the location. The company needs a solution that can operate without a stable internet connection. Which AWS service will meet these requirements?"
-      },
-      "b": {
-        "QuestionID": "0465d0612ec60564cb0d69a9cfc003d9",
-        "Topic": "Storage & Database",
-        "FileName": "Captura de pantalla_2026-09-02_11-37-30.png",
-        "QuestionText": "A company that is planning to migrate to AWS Outposts is located in an isolated area with limited internet connectivity. The company needs to perform local data processing on premises. The company needs a solution that can operate without a stable internet connection. Which AWS service will meet these requirements?"
-      },
-      "reviewed": false,
-      "approved_remove": null
-    },
-    {
-      "pair": 32,
+      "pair": 42,
       "similarity": 0.9442,
       "a": {
         "QuestionID": "2d710f6d45c7c209f25782ed06449cae",
@@ -580,7 +760,7 @@
       "approved_remove": null
     },
     {
-      "pair": 33,
+      "pair": 43,
       "similarity": 0.9439,
       "a": {
         "QuestionID": "1def1fbce292a79d626caf8bad321bfb",
@@ -598,43 +778,61 @@
       "approved_remove": null
     },
     {
-      "pair": 34,
-      "similarity": 0.9425,
+      "pair": 44,
+      "similarity": 0.9414,
       "a": {
-        "QuestionID": "5afbd1b6152fd6dd34fda2dface51561",
-        "Topic": "Networking & Content Delivery",
-        "FileName": "question_023.png",
-        "QuestionText": "A company planning to migrate to AWS Cloud is located in an isolated area with limited internet connectivity. The company needs to perform local data processing on-premises. The company needs a solution that can operate without a stable internet connection. Which AWS service will meet these requirements?"
+        "QuestionID": "4d0860482de8917ae3760a0bd63df74a",
+        "Topic": "Compute & Containers",
+        "FileName": "Captura de pantalla_2026-09-02_11-44-02.png",
+        "QuestionText": "A company has an on-premises application. The application has processing times of less than 5 minutes and is invoked only a few times per day. The company wants to migrate the application to AWS Cloud. Which AWS service will offer support for this application in the most economical way?"
       },
       "b": {
-        "QuestionID": "024ca7b3c12c91df31ac8d0cbe3e6ca9",
-        "Topic": "Storage & Database",
-        "FileName": "Captura de pantalla_2026-09-03_11-00-02.png",
-        "QuestionText": "A company planning to migrate to AWS Outposts is located in an isolated area with limited internet connectivity. The company needs to perform local data processing at the location. The company needs a solution that can operate without a stable internet connection. Which AWS service will meet these requirements?"
+        "QuestionID": "83513b2f6925c1becf2be18479002348",
+        "Topic": "Compute & Containers",
+        "FileName": "Captura de pantalla_2026-09-03_10-56-07.png",
+        "QuestionText": "A company has a local application. The application has processing times of less than 5 minutes and is invoked only a few times per day. The company wants to move the application to AWS Cloud. Which AWS service will support this application in the most economical way?"
       },
       "reviewed": false,
       "approved_remove": null
     },
     {
-      "pair": 35,
-      "similarity": 0.9364,
+      "pair": 45,
+      "similarity": 0.9412,
       "a": {
-        "QuestionID": "3c610c391f188f50b510fc6bee61b8b8",
-        "Topic": "Security, Identity & Compliance",
-        "FileName": "question_071.png",
-        "QuestionText": "A company needs to block SQL injection attacks. Which AWS service or resource provides this functionality?"
+        "QuestionID": "972987784337de5019a9713d4ff678fe",
+        "Topic": "Cloud Concepts & Well-Architected",
+        "FileName": "Captura de pantalla_2026-09-02_11-45-13.png",
+        "QuestionText": "A company that operates on-premises servers decides to start a new business line. The company determines that additional servers are necessary for the new work tasks. What advantage of cloud computing in the cloud can help the company provision additional infrastructure as quickly as possible?"
       },
       "b": {
-        "QuestionID": "977fd801d94835fbef3526718b99a778",
-        "Topic": "Security, Identity & Compliance",
-        "FileName": "Captura de pantalla_2026-09-03_10-55-06.png",
-        "QuestionText": "A company needs to block SQL injection attacks. Which AWS service or resource does Fornece provide this functionality?"
+        "QuestionID": "184e90c5ff984611a9ecc7f827e13325",
+        "Topic": "Cloud Concepts & Well-Architected",
+        "FileName": "Captura de pantalla_2026-09-03_10-54-32.png",
+        "QuestionText": "A company that operates local servers decides to start a new line of business. The company determines that additional servers are necessary for the new workloads. What advantage of cloud computing in the cloud can help the company provision additional infrastructure as quickly as possible?"
       },
       "reviewed": false,
       "approved_remove": null
     },
     {
-      "pair": 36,
+      "pair": 46,
+      "similarity": 0.937,
+      "a": {
+        "QuestionID": "c47688fe190cd963231ace5922084404",
+        "Topic": "Security, Identity & Compliance",
+        "FileName": "Captura de pantalla_2026-09-03_10-56-40.png",
+        "QuestionText": "A company wants to allow its employees to work remotely from home. The company's employees use Windows or Linux desktops. The company's employees need access from any location and at any time using any supported device. Which AWS service will meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "8418f303ace21acb9616bdfcec79d828",
+        "Topic": "Management, Governance & DevOps",
+        "FileName": "Captura de pantalla_2026-09-02_11-43-31.png",
+        "QuestionText": "A company wants to allow its employees to work remotely from home. The company's employees use Windows or Linux desktops. They need access from any location and at any time, using any compatible device. Which AWS service will meet these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 47,
       "similarity": 0.9352,
       "a": {
         "QuestionID": "82cbb02d94bfde1b7f3c2df453d219ce",
@@ -652,7 +850,43 @@
       "approved_remove": null
     },
     {
-      "pair": 37,
+      "pair": 48,
+      "similarity": 0.9347,
+      "a": {
+        "QuestionID": "9297490d6fa97c3d16e1f6b8db677966",
+        "Topic": "Management, Governance & DevOps",
+        "FileName": "Captura de pantalla_2026-09-03_10-57-40.png",
+        "QuestionText": "A company plans to migrate its on-premises application to AWS Cloud. The company needs to collect usage data and configuration for the application components. Which AWS service will meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "35e53478bb6f6e68eb0e5a9976593be3",
+        "Topic": "Management, Governance & DevOps",
+        "FileName": "Captura de pantalla_2026-09-02_11-39-58.png",
+        "QuestionText": "A company plans to migrate its on-premises application to AWS. The company needs to collect data on usage and configuration of application components. Which AWS service will meet these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 49,
+      "similarity": 0.9347,
+      "a": {
+        "QuestionID": "35e53478bb6f6e68eb0e5a9976593be3",
+        "Topic": "Management, Governance & DevOps",
+        "FileName": "Captura de pantalla_2026-09-02_11-39-58.png",
+        "QuestionText": "A company plans to migrate its on-premises application to AWS. The company needs to collect data on usage and configuration of application components. Which AWS service will meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "626ba22c2996ae076dfe97529135ebc0",
+        "Topic": "General / Otros Servicios",
+        "FileName": "question_082.png",
+        "QuestionText": "A company plans to migrate its on-premises application to AWS Cloud. The company needs to collect usage and configuration data for the application components. Which AWS service will meet these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 50,
       "similarity": 0.9333,
       "a": {
         "QuestionID": "d89ae0388f30714f23b65bb44f1345d9",
@@ -670,7 +904,7 @@
       "approved_remove": null
     },
     {
-      "pair": 38,
+      "pair": 51,
       "similarity": 0.9333,
       "a": {
         "QuestionID": "ba664d6397cc4c61665e27aad17ec08e",
@@ -688,7 +922,7 @@
       "approved_remove": null
     },
     {
-      "pair": 39,
+      "pair": 52,
       "similarity": 0.9314,
       "a": {
         "QuestionID": "ae543a58ca886923475b492c0890d6a6",
@@ -706,7 +940,7 @@
       "approved_remove": null
     },
     {
-      "pair": 40,
+      "pair": 53,
       "similarity": 0.9305,
       "a": {
         "QuestionID": "15d1821a6c31f96475b56d2310ad1295",
@@ -724,7 +958,7 @@
       "approved_remove": null
     },
     {
-      "pair": 41,
+      "pair": 54,
       "similarity": 0.9274,
       "a": {
         "QuestionID": "15d1821a6c31f96475b56d2310ad1295",
@@ -742,7 +976,25 @@
       "approved_remove": null
     },
     {
-      "pair": 42,
+      "pair": 55,
+      "similarity": 0.9267,
+      "a": {
+        "QuestionID": "45327bc1ad839c392cd79f67bf6304fd",
+        "Topic": "Cloud Concepts & Well-Architected",
+        "FileName": "question_066.png",
+        "QuestionText": "A company developed a new internal application but has no way to determine or predict the demand that the application will create in terms of usage. Which benefit of AWS cloud computing is the company seeking?"
+      },
+      "b": {
+        "QuestionID": "f5141f2e78b6d818792e4e2f2a7fa9f7",
+        "Topic": "Cloud Concepts & Well-Architected",
+        "FileName": "Captura de pantalla_2026-09-03_10-54-08.png",
+        "QuestionText": "A company developed a new internal application but does not know how to determine or predict the demand that the application will create in terms of usage. What benefit of cloud computing on AWS is the company seeking?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 56,
       "similarity": 0.9264,
       "a": {
         "QuestionID": "7de67fbac533185f3831d1261e6618d8",
@@ -760,7 +1012,7 @@
       "approved_remove": null
     },
     {
-      "pair": 43,
+      "pair": 57,
       "similarity": 0.9261,
       "a": {
         "QuestionID": "ae543a58ca886923475b492c0890d6a6",
@@ -778,25 +1030,25 @@
       "approved_remove": null
     },
     {
-      "pair": 44,
-      "similarity": 0.9257,
+      "pair": 58,
+      "similarity": 0.9251,
       "a": {
-        "QuestionID": "35e53478bb6f6e68eb0e5a9976593be3",
-        "Topic": "Management, Governance & DevOps",
-        "FileName": "Captura de pantalla_2026-09-02_11-39-58.png",
-        "QuestionText": "A company plans to migrate its on-premises application to AWS Nitro. The company needs to collect data on usage and configuration of application components. Which AWS service will meet these requirements?"
+        "QuestionID": "124594477b95be2b5ab25b3db4c480aa",
+        "Topic": "Storage & Database",
+        "FileName": "Captura de pantalla_2026-09-03_10-54-39.png",
+        "QuestionText": "A company wants to deploy an application that stores data in a relational database. The company wants database tasks such as automated backups and instantaneous database backups to be managed by AWS. Which AWS service will meet these requirements?"
       },
       "b": {
-        "QuestionID": "626ba22c2996ae076dfe97529135ebc0",
-        "Topic": "General / Otros Servicios",
-        "FileName": "question_082.png",
-        "QuestionText": "A company plans to migrate its on-premises application to AWS Cloud. The company needs to collect usage and configuration data for the application components. Which AWS service will meet these requirements?"
+        "QuestionID": "ca9ad2a7cedb1198c0557ef9675d3a65",
+        "Topic": "Storage & Database",
+        "FileName": "Captura de pantalla_2026-09-02_11-45-07.png",
+        "QuestionText": "A company wants to deploy an application that stores data in a relational database. The company wants database tasks such as automatic backups and snapshots to be managed by AWS. Which AWS service will meet these requirements?"
       },
       "reviewed": false,
       "approved_remove": null
     },
     {
-      "pair": 45,
+      "pair": 59,
       "similarity": 0.9247,
       "a": {
         "QuestionID": "1457c525a99c347d9b47d94a92531190",
@@ -814,7 +1066,7 @@
       "approved_remove": null
     },
     {
-      "pair": 46,
+      "pair": 60,
       "similarity": 0.9246,
       "a": {
         "QuestionID": "f8782c574c6111f4413830b3a3560c33",
@@ -832,7 +1084,7 @@
       "approved_remove": null
     },
     {
-      "pair": 47,
+      "pair": 61,
       "similarity": 0.9217,
       "a": {
         "QuestionID": "582fc05c2a7575d1e6d5ede01eff0fb9",
@@ -850,25 +1102,25 @@
       "approved_remove": null
     },
     {
-      "pair": 48,
-      "similarity": 0.9213,
+      "pair": 62,
+      "similarity": 0.9185,
       "a": {
-        "QuestionID": "c47688fe190cd963231ace5922084404",
-        "Topic": "Security, Identity & Compliance",
-        "FileName": "Captura de pantalla_2026-09-03_10-56-40.png",
-        "QuestionText": "A company wants to allow its employees to work remotely from home. The company's employees use Windows or Linux desktops. The company's employees need access from any location and at any time using any supported device. Which AWS service will meet these requirements?"
+        "QuestionID": "6116b9df729b36dbc18a3c610baca90b",
+        "Topic": "Cloud Concepts & Well-Architected",
+        "FileName": "question_022.png",
+        "QuestionText": "A company is planning to migrate to AWS Cloud. The company is undergoing an organizational transformation and wants to become more responsive to customer queries and feedback. Which task should the company perform to meet these requirements, according to the AWS Cloud Adoption Framework (AWS CAF)? (Choose two.) Select all applicable options."
       },
       "b": {
-        "QuestionID": "8418f303ace21acb9616bdfcec79d828",
-        "Topic": "Management, Governance & DevOps",
-        "FileName": "Captura de pantalla_2026-09-02_11-43-31.png",
-        "QuestionText": "A company wants to allow its employees to work remotely from home. The company's employees use Windows or Linux desktops. They need access from any location and at any time, using any compatible device. Which AWS service will meet these requirements?"
+        "QuestionID": "ae9bd468407b58bade0fe77cf063e216",
+        "Topic": "Cloud Concepts & Well-Architected",
+        "FileName": "Captura de pantalla_2026-09-02_11-37-22.png",
+        "QuestionText": "A company is planning to migrate to AWS Cloud. The company is undergoing organizational transformation and wants to become more responsive to customer consultations and feedback. What task should the company perform to meet these requirements, according to the AWS Cloud Adoption Framework (AWS CAF)? (Choose two.)"
       },
       "reviewed": false,
       "approved_remove": null
     },
     {
-      "pair": 49,
+      "pair": 63,
       "similarity": 0.9174,
       "a": {
         "QuestionID": "15d1821a6c31f96475b56d2310ad1295",
@@ -886,25 +1138,97 @@
       "approved_remove": null
     },
     {
-      "pair": 50,
-      "similarity": 0.9122,
+      "pair": 64,
+      "similarity": 0.9169,
       "a": {
-        "QuestionID": "124594477b95be2b5ab25b3db4c480aa",
-        "Topic": "Storage & Database",
-        "FileName": "Captura de pantalla_2026-09-03_10-54-39.png",
-        "QuestionText": "A company wants to deploy an application that stores data in a relational database. The company wants database tasks such as automated backups and instantaneous database backups to be managed by AWS. Which AWS service will meet these requirements?"
+        "QuestionID": "9ed0bf2e6962e08bdb87bb0ad81e5d8f",
+        "Topic": "Billing, Cost Management & Support",
+        "FileName": "Captura de pantalla_2026-09-02_21-35-28.png",
+        "QuestionText": "A company executes an uninterrupted workload on Amazon EC2 in AWS 24 hours per day, 7 days per week. The company will need instances from the same family and instance type to execute the workload for the next 12 months. Which combination of purchasing options should the company choose to optimize costs to the maximum? (Choose two.)"
       },
       "b": {
-        "QuestionID": "ca9ad2a7cedb1198c0557ef9675d3a65",
-        "Topic": "Storage & Database",
-        "FileName": "Captura de pantalla_2026-09-02_11-45-07.png",
-        "QuestionText": "A company wants to deploy an application that stores data in a relational database. The company wants database tasks such as automatic backups and snapshots to be managed by AWS. Which AWS service will meet these requirements?"
+        "QuestionID": "442264fb4ee8b5e5d935054fb3dca135",
+        "Topic": "Compute & Containers",
+        "FileName": "Captura de pantalla_2026-09-02_11-42-31.png",
+        "QuestionText": "A company executes an interrupted workload on Amazon EC2, 24 hours per day, 7 days per week. The company will need the same family and type of instance to run this workload for the next 12 months. Which combination of purchase options should the company choose to optimize costs to the maximum? (Choose two.)"
       },
       "reviewed": false,
       "approved_remove": null
     },
     {
-      "pair": 51,
+      "pair": 65,
+      "similarity": 0.9169,
+      "a": {
+        "QuestionID": "547ecf5492f33b52113cde36f541fae4",
+        "Topic": "Management, Governance & DevOps",
+        "FileName": "Captura de pantalla_2026-09-02_11-40-40.png",
+        "QuestionText": "A company has multiple AWS accounts. The company needs to receive a consolidated AWS bill and must centrally manage security and compliance. Which AWS service or resource should the company use to meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "c6c89e7c32a1fa7380390a81795fc4e0",
+        "Topic": "Management, Governance & DevOps",
+        "FileName": "question_067.png",
+        "QuestionText": "A company has multiple AWS accounts and needs to receive a consolidated invoice and centrally manage security and compliance. Which AWS service or feature should the company use to meet these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 66,
+      "similarity": 0.9167,
+      "a": {
+        "QuestionID": "16c2fbf04bcfbd6da0dca9280d081def",
+        "Topic": "Compute & Containers",
+        "FileName": "question_075.png",
+        "QuestionText": "A company has an on-premises application. The application has processing times of less than 5 minutes and is invoked only a few times per day. The company wants to move the application to AWS Cloud. Which AWS service will support this application most cost-effectively?"
+      },
+      "b": {
+        "QuestionID": "83513b2f6925c1becf2be18479002348",
+        "Topic": "Compute & Containers",
+        "FileName": "Captura de pantalla_2026-09-03_10-56-07.png",
+        "QuestionText": "A company has a local application. The application has processing times of less than 5 minutes and is invoked only a few times per day. The company wants to move the application to AWS Cloud. Which AWS service will support this application in the most economical way?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 67,
+      "similarity": 0.9161,
+      "a": {
+        "QuestionID": "16c2fbf04bcfbd6da0dca9280d081def",
+        "Topic": "Compute & Containers",
+        "FileName": "question_075.png",
+        "QuestionText": "A company has an on-premises application. The application has processing times of less than 5 minutes and is invoked only a few times per day. The company wants to move the application to AWS Cloud. Which AWS service will support this application most cost-effectively?"
+      },
+      "b": {
+        "QuestionID": "4d0860482de8917ae3760a0bd63df74a",
+        "Topic": "Compute & Containers",
+        "FileName": "Captura de pantalla_2026-09-02_11-44-02.png",
+        "QuestionText": "A company has an on-premises application. The application has processing times of less than 5 minutes and is invoked only a few times per day. The company wants to migrate the application to AWS Cloud. Which AWS service will offer support for this application in the most economical way?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 68,
+      "similarity": 0.9104,
+      "a": {
+        "QuestionID": "a9a0c8cb5da5a52991e2a959df547c00",
+        "Topic": "Compute & Containers",
+        "FileName": "Captura de pantalla_2026-09-03_10-53-44.png",
+        "QuestionText": "A company plans to integrate new employees who will work remotely. The company needs to configure Windows virtual desktops to create a work environment for the new employees, who must be able to access the environment from any location, using their computer or web browser. Which AWS service or resource will meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "5e02f1835f5b03a934cc5b70168a0df4",
+        "Topic": "Compute & Containers",
+        "FileName": "Captura de pantalla_2026-09-02_11-28-55.png",
+        "QuestionText": "A company plans to integrate new employees who will work remotely. The company needs to configure virtual Windows desktops to create a work environment for new employees. Employees must be able to access the work environment from anywhere, using their personal computer or a web browser. Which AWS service or resource will meet these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 69,
       "similarity": 0.9097,
       "a": {
         "QuestionID": "82cbb02d94bfde1b7f3c2df453d219ce",
@@ -922,7 +1246,43 @@
       "approved_remove": null
     },
     {
-      "pair": 52,
+      "pair": 70,
+      "similarity": 0.9087,
+      "a": {
+        "QuestionID": "8418f303ace21acb9616bdfcec79d828",
+        "Topic": "Management, Governance & DevOps",
+        "FileName": "Captura de pantalla_2026-09-02_11-43-31.png",
+        "QuestionText": "A company wants to allow its employees to work remotely from home. The company's employees use Windows or Linux desktops. They need access from any location and at any time, using any compatible device. Which AWS service will meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "8a63ae84661bb583f717ab916678d6f2",
+        "Topic": "General / Otros Servicios",
+        "FileName": "question_078.png",
+        "QuestionText": "A company wants to allow its employees to work remotely from home. The company's employees use Windows or Linux desktops. The company's employees need access from anywhere and at any time using any supported device. Which AWS service will meet these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 71,
+      "similarity": 0.907,
+      "a": {
+        "QuestionID": "384456d7a0b854add5f1d3b22ffa8fb4",
+        "Topic": "Management, Governance & DevOps",
+        "FileName": "Captura de pantalla_2026-09-02_11-43-22.png",
+        "QuestionText": "A company is planning to migrate to AWS Cloud. The company needs to understand the use and current configuration of the on-premises environment. The company still does not want to replicate its workloads to AWS. Which AWS service or tool will meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "3aecbd14b60ecad016d76e34ecb50d10",
+        "Topic": "Management, Governance & DevOps",
+        "FileName": "Captura de pantalla_2026-09-03_10-56-58.png",
+        "QuestionText": "A company is planning to migrate to AWS Cloud. The company needs to understand the use and configuration of existing local environments. The company does not wish to replicate its workloads to AWS yet. Which AWS service or tool will meet these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 72,
       "similarity": 0.907,
       "a": {
         "QuestionID": "7ba3d59ee3e8dd482f4f3acf972663ef",
@@ -940,7 +1300,7 @@
       "approved_remove": null
     },
     {
-      "pair": 53,
+      "pair": 73,
       "similarity": 0.9057,
       "a": {
         "QuestionID": "088decc6d9ae669fac0897a02c350bd6",
@@ -958,43 +1318,43 @@
       "approved_remove": null
     },
     {
-      "pair": 54,
-      "similarity": 0.9054,
+      "pair": 74,
+      "similarity": 0.9053,
       "a": {
-        "QuestionID": "340d382edacca102ca295bd867d6699a",
-        "Topic": "Compute & Containers",
-        "FileName": "question_027.png",
-        "QuestionText": "A company wants to deploy a web application as a containerized application. The company wants to use a managed service that can automatically create container images from source code and deploy the containerized application. Which AWS service will meet these requirements?"
+        "QuestionID": "e314090eda104293a4c3756800553093",
+        "Topic": "Cloud Concepts & Well-Architected",
+        "FileName": "Captura de pantalla_2026-09-03_11-01-31.png",
+        "QuestionText": "A company is planning workloads in AWS Nuvem. The company wants workloads to perform their intended function correctly and consistently throughout their lifecycle. Which AWS Well-Architected Framework pillar does this objective represent?"
       },
       "b": {
-        "QuestionID": "4d1057e224cedbbcb9ba0b3849e1f6be",
-        "Topic": "Compute & Containers",
-        "FileName": "Captura de pantalla_2026-09-03_10-59-38.png",
-        "QuestionText": "A company wants to deploy a web application as a containerized application. The company wants to use a managed service that can automatically create container images from source code and deploy the application in a container. Which AWS service will meet these requirements?"
+        "QuestionID": "fe953f61c5e9c78805c439cd56336463",
+        "Topic": "Cloud Concepts & Well-Architected",
+        "FileName": "question_097.png",
+        "QuestionText": "A company is designing workloads in the AWS Cloud. The company wants the workloads to perform their intended function correctly and consistently throughout their lifecycle. Which pillar of the AWS Well-Architected Framework does this objective represent?"
       },
       "reviewed": false,
       "approved_remove": null
     },
     {
-      "pair": 55,
-      "similarity": 0.9034,
+      "pair": 75,
+      "similarity": 0.9037,
       "a": {
-        "QuestionID": "124594477b95be2b5ab25b3db4c480aa",
-        "Topic": "Storage & Database",
-        "FileName": "Captura de pantalla_2026-09-03_10-54-39.png",
-        "QuestionText": "A company wants to deploy an application that stores data in a relational database. The company wants database tasks such as automated backups and instantaneous database backups to be managed by AWS. Which AWS service will meet these requirements?"
+        "QuestionID": "f80762263b978ffa79a8400d1ec1170a",
+        "Topic": "General / Otros Servicios",
+        "FileName": "question_016.png",
+        "QuestionText": "A company wants to migrate its on-premises SQL Server database to AWS Cloud. The company wants AWS to manage the daily administration of the database. Which AWS service will meet the company's requirements?"
       },
       "b": {
-        "QuestionID": "278cd383f9002b71c08d95f3cf6261da",
+        "QuestionID": "b4d643acd1923aa59ebbbbdc95e3f991",
         "Topic": "Storage & Database",
-        "FileName": "question_068.png",
-        "QuestionText": "A company wants to deploy an application that stores data in a relational database. The company wants database tasks, such as automated backups and database snapshots, to be managed by AWS. Which AWS service will meet these requirements?"
+        "FileName": "Captura de pantalla_2026-09-02_11-30-11.png",
+        "QuestionText": "A company wants to migrate its local SQL Server database to AWS Cloud. The company that manages AWS handles the daily administration of the database. Which AWS service will meet the company's requirements?"
       },
       "reviewed": false,
       "approved_remove": null
     },
     {
-      "pair": 56,
+      "pair": 76,
       "similarity": 0.9032,
       "a": {
         "QuestionID": "a2fc41d4de32cccb65b29f9d7755d2fd",
@@ -1012,7 +1372,7 @@
       "approved_remove": null
     },
     {
-      "pair": 57,
+      "pair": 77,
       "similarity": 0.9008,
       "a": {
         "QuestionID": "5bf838dd1622c83baaf7dd3d80f034db",
@@ -1030,7 +1390,25 @@
       "approved_remove": null
     },
     {
-      "pair": 58,
+      "pair": 78,
+      "similarity": 0.9002,
+      "a": {
+        "QuestionID": "a3e4614ccf2a45cada05846baabd0e82",
+        "Topic": "Cloud Concepts & Well-Architected",
+        "FileName": "question_026.png",
+        "QuestionText": "A company wants to migrate to AWS Cloud. The company needs the ability to acquire resources when they are necessary. The company also needs the ability to release these resources when they are no longer necessary. Which AWS Cloud architecture concept meets these requirements?"
+      },
+      "b": {
+        "QuestionID": "acc755fa49c05de9d962145c9200fade",
+        "Topic": "Cloud Concepts & Well-Architected",
+        "FileName": "Captura de pantalla_2026-09-02_11-38-00.png",
+        "QuestionText": "A company wants to migrate to Amazon AWS. The company needs the capacity to acquire resources when they are necessary. The company also needs the capacity to release those resources when they are no longer necessary. Which architectural concept of Nuvem AWS meets these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 79,
       "similarity": 0.8977,
       "a": {
         "QuestionID": "edeb22fd72a6621de668c0a003af8831",
@@ -1048,25 +1426,43 @@
       "approved_remove": null
     },
     {
-      "pair": 59,
-      "similarity": 0.8929,
+      "pair": 80,
+      "similarity": 0.8894,
       "a": {
-        "QuestionID": "8418f303ace21acb9616bdfcec79d828",
-        "Topic": "Management, Governance & DevOps",
-        "FileName": "Captura de pantalla_2026-09-02_11-43-31.png",
-        "QuestionText": "A company wants to allow its employees to work remotely from home. The company's employees use Windows or Linux desktops. They need access from any location and at any time, using any compatible device. Which AWS service will meet these requirements?"
+        "QuestionID": "61bc470903444830cc51838a1bb3b28b",
+        "Topic": "Networking & Content Delivery",
+        "FileName": "Captura de pantalla_2026-09-02_11-30-04.png",
+        "QuestionText": "A company deployed an application in multiple AWS Regions around the world. The company wants to improve the application's performance and availability. Which AWS service will meet these requirements?"
       },
       "b": {
-        "QuestionID": "8a63ae84661bb583f717ab916678d6f2",
-        "Topic": "General / Otros Servicios",
-        "FileName": "question_078.png",
-        "QuestionText": "A company wants to allow its employees to work remotely from home. The company's employees use Windows or Linux desktops. The company's employees need access from anywhere and at any time using any supported device. Which AWS service will meet these requirements?"
+        "QuestionID": "2b9ba4bb3236e427d69f00ea3acad6a3",
+        "Topic": "Networking & Content Delivery",
+        "FileName": "question_015.png",
+        "QuestionText": "A company has deployed an application across multiple AWS Regions around the world. The company wants to improve the performance and availability of the application. Which AWS service will meet these requirements?"
       },
       "reviewed": false,
       "approved_remove": null
     },
     {
-      "pair": 60,
+      "pair": 81,
+      "similarity": 0.8893,
+      "a": {
+        "QuestionID": "5c28855cab690ac1a4dd4c45337b267f",
+        "Topic": "General / Otros Servicios",
+        "FileName": "question_079.png",
+        "QuestionText": "A company is planning to migrate to AWS Cloud. The company needs to understand existing local usage and configuration. The company does not want to replicate its workloads to AWS yet. Which AWS service or tool will meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "3aecbd14b60ecad016d76e34ecb50d10",
+        "Topic": "Management, Governance & DevOps",
+        "FileName": "Captura de pantalla_2026-09-03_10-56-58.png",
+        "QuestionText": "A company is planning to migrate to AWS Cloud. The company needs to understand the use and configuration of existing local environments. The company does not wish to replicate its workloads to AWS yet. Which AWS service or tool will meet these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 82,
       "similarity": 0.8865,
       "a": {
         "QuestionID": "3af463a4c2d5afa0cb9006687560204a",
@@ -1084,7 +1480,7 @@
       "approved_remove": null
     },
     {
-      "pair": 61,
+      "pair": 83,
       "similarity": 0.8779,
       "a": {
         "QuestionID": "3e17a6b073cc665fe43d554f0c01e947",
@@ -1102,25 +1498,97 @@
       "approved_remove": null
     },
     {
-      "pair": 62,
-      "similarity": 0.875,
+      "pair": 84,
+      "similarity": 0.8773,
       "a": {
-        "QuestionID": "16c2fbf04bcfbd6da0dca9280d081def",
+        "QuestionID": "a9a0c8cb5da5a52991e2a959df547c00",
         "Topic": "Compute & Containers",
-        "FileName": "question_075.png",
-        "QuestionText": "A company has an on-premises application. The application has processing times of less than 5 minutes and is invoked only a few times per day. The company wants to move the application to AWS Cloud. Which AWS service will support this application most cost-effectively?"
+        "FileName": "Captura de pantalla_2026-09-03_10-53-44.png",
+        "QuestionText": "A company plans to integrate new employees who will work remotely. The company needs to configure Windows virtual desktops to create a work environment for the new employees, who must be able to access the environment from any location, using their computer or web browser. Which AWS service or resource will meet these requirements?"
       },
       "b": {
-        "QuestionID": "83513b2f6925c1becf2be18479002348",
-        "Topic": "Compute & Containers",
-        "FileName": "Captura de pantalla_2026-09-03_10-56-07.png",
-        "QuestionText": "A company has a local application. The application has processing times of less than 5 minutes and is invoked only a few times per day. The company wants to move the application to AWS Cloud. Which AWS service will support this application in the most economical way?"
+        "QuestionID": "8d6dba6367f440a03b5a3f30da318210",
+        "Topic": "General / Otros Servicios",
+        "FileName": "question_010.png",
+        "QuestionText": "A company plans to onboard new employees who will work remotely. The company needs to set up Windows virtual desktops to create a work environment for the new employees. Employees should be able to access the desktop from anywhere, using their computer or a web browser. Which AWS service or feature will meet these requirements?"
       },
       "reviewed": false,
       "approved_remove": null
     },
     {
-      "pair": 63,
+      "pair": 85,
+      "similarity": 0.8771,
+      "a": {
+        "QuestionID": "18d1e6038f730c156593210da36af2a6",
+        "Topic": "General / Otros Servicios",
+        "FileName": "question_019.png",
+        "QuestionText": "A company wants to migrate its server-based applications to AWS Cloud. The company wants to determine the total cost of ownership (TCO) for its computing resources that will be hosted on AWS. Which combination of AWS services or tools will meet these requirements? (Choose two.) Select all applicable options."
+      },
+      "b": {
+        "QuestionID": "b3f30e025492a2815aa6cb49fc8cbb8a",
+        "Topic": "Billing, Cost Management & Support",
+        "FileName": "Captura de pantalla_2026-09-02_11-36-35.png",
+        "QuestionText": "A company wants to migrate its applications based on on-premises servers to AWS Cloud. The company wants to determine the total cost of ownership (TCO) for its computing resources that will be hosted on AWS. Which combination of AWS services or tools will meet these requirements? (Choose two.)"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 86,
+      "similarity": 0.8757,
+      "a": {
+        "QuestionID": "7f82a2aba4ef5adf5bfb339034c42f32",
+        "Topic": "Cloud Concepts & Well-Architected",
+        "FileName": "Captura de pantalla_2026-09-03_10-59-52.png",
+        "QuestionText": "A company wants to migrate to AWS. The company needs the capability to acquire resources when resources are necessary. The company also needs the capability to release those resources when resources are no longer necessary. Which concept of AWS architecture addresses these requirements?"
+      },
+      "b": {
+        "QuestionID": "a3e4614ccf2a45cada05846baabd0e82",
+        "Topic": "Cloud Concepts & Well-Architected",
+        "FileName": "question_026.png",
+        "QuestionText": "A company wants to migrate to AWS Cloud. The company needs the ability to acquire resources when they are necessary. The company also needs the ability to release these resources when they are no longer necessary. Which AWS Cloud architecture concept meets these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 87,
+      "similarity": 0.8739,
+      "a": {
+        "QuestionID": "8d6dba6367f440a03b5a3f30da318210",
+        "Topic": "General / Otros Servicios",
+        "FileName": "question_010.png",
+        "QuestionText": "A company plans to onboard new employees who will work remotely. The company needs to set up Windows virtual desktops to create a work environment for the new employees. Employees should be able to access the desktop from anywhere, using their computer or a web browser. Which AWS service or feature will meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "5e02f1835f5b03a934cc5b70168a0df4",
+        "Topic": "Compute & Containers",
+        "FileName": "Captura de pantalla_2026-09-02_11-28-55.png",
+        "QuestionText": "A company plans to integrate new employees who will work remotely. The company needs to configure virtual Windows desktops to create a work environment for new employees. Employees must be able to access the work environment from anywhere, using their personal computer or a web browser. Which AWS service or resource will meet these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 88,
+      "similarity": 0.8729,
+      "a": {
+        "QuestionID": "c6c89e7c32a1fa7380390a81795fc4e0",
+        "Topic": "Management, Governance & DevOps",
+        "FileName": "question_067.png",
+        "QuestionText": "A company has multiple AWS accounts and needs to receive a consolidated invoice and centrally manage security and compliance. Which AWS service or feature should the company use to meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "be5787848776e92d57e3cc77a8f1a943",
+        "Topic": "Management, Governance & DevOps",
+        "FileName": "Captura de pantalla_2026-09-03_10-54-21.png",
+        "QuestionText": "A company has multiple accounts in AWS and needs to receive a consolidated invoice and manage security and compliance centrally. Which AWS service or resource should be used by the company to meet these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 89,
       "similarity": 0.8688,
       "a": {
         "QuestionID": "e9af302cfab67cf6220b17c4f77a68a1",
@@ -1138,7 +1606,7 @@
       "approved_remove": null
     },
     {
-      "pair": 64,
+      "pair": 90,
       "similarity": 0.8684,
       "a": {
         "QuestionID": "3af463a4c2d5afa0cb9006687560204a",
@@ -1156,25 +1624,25 @@
       "approved_remove": null
     },
     {
-      "pair": 65,
+      "pair": 91,
       "similarity": 0.8675,
       "a": {
-        "QuestionID": "6e9b1bc6f13dd61b61e1d175044c93c9",
-        "Topic": "Storage & Database",
-        "FileName": "Captura de pantalla_2026-09-03_10-58-00.png",
-        "QuestionText": "A company has multiple SQL-based databases located in a data center. The company needs to migrate all database servers to AWS Nuvem to reduce the operational cost of physical servers. Which AWS service or resource will meet these requirements with the LEAST operational overhead?"
+        "QuestionID": "384456d7a0b854add5f1d3b22ffa8fb4",
+        "Topic": "Management, Governance & DevOps",
+        "FileName": "Captura de pantalla_2026-09-02_11-43-22.png",
+        "QuestionText": "A company is planning to migrate to AWS Cloud. The company needs to understand the use and current configuration of the on-premises environment. The company still does not want to replicate its workloads to AWS. Which AWS service or tool will meet these requirements?"
       },
       "b": {
-        "QuestionID": "6d6e7f16412eceefe4151de583993eb6",
-        "Topic": "Storage & Database",
-        "FileName": "Captura de pantalla_2026-09-02_11-39-08.png",
-        "QuestionText": "A company has multiple SQL-based databases located in a data center. The company needs to migrate all database servers to AWS Nuvem to reduce the cost of physical server operations. Which AWS service or resource will meet these requirements with the lowest operational overhead?"
+        "QuestionID": "5c28855cab690ac1a4dd4c45337b267f",
+        "Topic": "General / Otros Servicios",
+        "FileName": "question_079.png",
+        "QuestionText": "A company is planning to migrate to AWS Cloud. The company needs to understand existing local usage and configuration. The company does not want to replicate its workloads to AWS yet. Which AWS service or tool will meet these requirements?"
       },
       "reviewed": false,
       "approved_remove": null
     },
     {
-      "pair": 66,
+      "pair": 92,
       "similarity": 0.858,
       "a": {
         "QuestionID": "eac3f144a4ac24258c2940c6af98fdf8",
@@ -1192,7 +1660,61 @@
       "approved_remove": null
     },
     {
-      "pair": 67,
+      "pair": 93,
+      "similarity": 0.8577,
+      "a": {
+        "QuestionID": "7f82a2aba4ef5adf5bfb339034c42f32",
+        "Topic": "Cloud Concepts & Well-Architected",
+        "FileName": "Captura de pantalla_2026-09-03_10-59-52.png",
+        "QuestionText": "A company wants to migrate to AWS. The company needs the capability to acquire resources when resources are necessary. The company also needs the capability to release those resources when resources are no longer necessary. Which concept of AWS architecture addresses these requirements?"
+      },
+      "b": {
+        "QuestionID": "acc755fa49c05de9d962145c9200fade",
+        "Topic": "Cloud Concepts & Well-Architected",
+        "FileName": "Captura de pantalla_2026-09-02_11-38-00.png",
+        "QuestionText": "A company wants to migrate to Amazon AWS. The company needs the capacity to acquire resources when they are necessary. The company also needs the capacity to release those resources when they are no longer necessary. Which architectural concept of Nuvem AWS meets these requirements?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 94,
+      "similarity": 0.8571,
+      "a": {
+        "QuestionID": "340d382edacca102ca295bd867d6699a",
+        "Topic": "Compute & Containers",
+        "FileName": "question_027.png",
+        "QuestionText": "A company wants to deploy a web application as a containerized application. The company wants to use a managed service that can automatically create container images from source code and deploy the containerized application. Which AWS service will meet these requirements?"
+      },
+      "b": {
+        "QuestionID": "69824fbd4df82cf52677feb85a05608f",
+        "Topic": "Compute & Containers",
+        "FileName": "Captura de pantalla_2026-09-02_11-38-08.png",
+        "QuestionText": "A company wants to deploy a web application as a containerized application. The company needs a service that can automatically create container images from source code and deploy the containerized application."
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 95,
+      "similarity": 0.8562,
+      "a": {
+        "QuestionID": "53f03fd401b54655c31c20e607e5b372",
+        "Topic": "Compute & Containers",
+        "FileName": "Captura de pantalla_2026-09-02_11-41-45.png",
+        "QuestionText": "A company purchased Reserved Instances (RIs) Standard Amazon EC2 for a workload in AWS Cloud. The company needs to move part of the workload to a family of instances that does not correspond to the family of instances of these Standard RIs. How can the company take advantage of the Standard RIs that are no longer needed?"
+      },
+      "b": {
+        "QuestionID": "65fdaf87741658ea64e567cafb9b92a5",
+        "Topic": "Compute & Containers",
+        "FileName": "Captura de pantalla_2026-09-02_21-35-51.png",
+        "QuestionText": "A company purchased Amazon EC2 Standard Reserved Instances (RIs) for a workload running on AWS Nuvem. The company needs to move part of the workload to a family of instances that does not correspond to the family of these standard RIs. How can the company utilize the standard RIs that are no longer needed?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 96,
       "similarity": 0.856,
       "a": {
         "QuestionID": "94ec8cb467c19dc8e8d21c0277b61db7",
@@ -1210,7 +1732,25 @@
       "approved_remove": null
     },
     {
-      "pair": 68,
+      "pair": 97,
+      "similarity": 0.8547,
+      "a": {
+        "QuestionID": "f001dcdb9d48ea7deeb6433b6a36d390",
+        "Topic": "Networking & Content Delivery",
+        "FileName": "Captura de pantalla_2026-09-02_12-55-59.png",
+        "QuestionText": "A company wants to provide low latency to its users around the world. Which AWS Nuvem resource meets this requirement?"
+      },
+      "b": {
+        "QuestionID": "d625dd9edccc0ac04f76019aebe85bad",
+        "Topic": "Cloud Concepts & Well-Architected",
+        "FileName": "Captura de pantalla_2026-09-02_11-40-15.png",
+        "QuestionText": "A company wants to provide low latency for its users throughout the world. Which AWS feature addresses this requirement?"
+      },
+      "reviewed": false,
+      "approved_remove": null
+    },
+    {
+      "pair": 98,
       "similarity": 0.8535,
       "a": {
         "QuestionID": "bb2c4b44f84a22876a175d0d45cba774",
@@ -1228,7 +1768,7 @@
       "approved_remove": null
     },
     {
-      "pair": 69,
+      "pair": 99,
       "similarity": 0.8512,
       "a": {
         "QuestionID": "94ec8cb467c19dc8e8d21c0277b61db7",
