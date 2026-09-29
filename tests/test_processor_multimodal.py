@@ -176,6 +176,55 @@ class TestProcessorMultimodal(unittest.TestCase):
         item = table.put_item.call_args.kwargs["Item"]
         self.assertEqual(item["Topic"], "General / Otros Servicios")
 
+    @mock.patch("processor.SNS_TOPIC_ARN", "arn:aws:sns:us-east-1:123:topic")
+    @mock.patch("processor.sns_client")
+    @mock.patch("processor.dynamodb")
+    @mock.patch("processor.bedrock_runtime")
+    @mock.patch("processor.s3_client")
+    def test_sin_opcion_correcta_se_descarta_y_alerta(
+        self, s3_client, bedrock_runtime, dynamodb, sns_client
+    ):
+        """Auditoría 29-Sep: preguntas sin ninguna opción correcta en el banco."""
+        s3_client.get_object.return_value = {"Body": FakeBody(b"pngdata")}
+        raw = json.loads(make_valid_json())
+        raw["options"]["B"]["is_correct"] = False
+        bedrock_runtime.invoke_model.return_value = make_bedrock_response(json.dumps(raw))
+        table = mock.MagicMock()
+        table.query.return_value = {"Items": []}
+        dynamodb.Table.return_value = table
+
+        result = processor.lambda_handler(make_event("pregunta.png"), None)
+
+        self.assertEqual(result["statusCode"], 200)
+        table.put_item.assert_not_called()
+        self.assertIn("ninguna opción", sns_client.publish.call_args.kwargs["Message"])
+
+    @mock.patch("processor.dynamodb")
+    @mock.patch("processor.bedrock_runtime")
+    @mock.patch("processor.s3_client")
+    def test_tipo_y_cantidad_se_derivan_de_la_clave_real(self, s3_client, bedrock_runtime, dynamodb):
+        """Auditoría 29-Sep: 'single' con 3 correctas y 'multiple' con 1."""
+        s3_client.get_object.return_value = {"Body": FakeBody(b"pngdata")}
+        raw = json.loads(make_valid_json())
+        raw["options"]["A"]["is_correct"] = True  # A y B correctas, pero declara single/1
+        bedrock_runtime.invoke_model.return_value = make_bedrock_response(json.dumps(raw))
+        table = mock.MagicMock()
+        table.query.return_value = {"Items": []}
+        dynamodb.Table.return_value = table
+
+        processor.lambda_handler(make_event("pregunta.png"), None)
+
+        item = table.put_item.call_args.kwargs["Item"]
+        self.assertEqual(item["QuestionType"], "multiple")
+        self.assertEqual(item["CorrectCount"], 2)
+
+    def test_answer_key(self):
+        self.assertEqual(processor.answer_key({
+            "B": {"is_correct": True}, "A": {"is_correct": True}, "C": {"is_correct": False},
+        }), ["A", "B"])
+        self.assertEqual(processor.answer_key({"A": {"is_correct": False}}), [])
+        self.assertEqual(processor.answer_key({"A": {"text": "sin flag"}}), [])
+
     def test_content_hash_estable_para_mismo_texto(self):
         h1 = processor.content_hash("Which AWS service runs containers?")
         h2 = processor.content_hash("Which AWS service runs containers?")

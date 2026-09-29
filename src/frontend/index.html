@@ -158,11 +158,14 @@
         // Cargar configuración dinámica antes de cualquier llamada a la API (Req. 1.4)
         loadConfig();
 
-        // Capturar parâmetro 'turma' da URL e salvar no sessionStorage
+        // Capturar parâmetro 'turma' da URL. localStorage (não sessionStorage): o perfil
+        // só é criado no primeiro login, e entre o cadastro e o login o aluno costuma
+        // fechar a aba (ir ao e-mail buscar o código, navegador interno do WhatsApp).
+        // Com sessionStorage a turma se perdia e o aluno ficava sem turma (bug 29-Sep).
         const urlParams = new URLSearchParams(window.location.search);
         const pendingCohort = urlParams.get('turma');
         if (pendingCohort) {
-            sessionStorage.setItem('pending_cohort_id', pendingCohort);
+            localStorage.setItem('pending_cohort_id', pendingCohort);
         }
 
         // Redirecionar ao Painel se já houver sessão ativa
@@ -292,7 +295,7 @@ if (token && !isTokenExpired(token)) {
             }
 
             // Validar cupo da turma ANTES de registrar em Cognito
-            const pendingCohortId = sessionStorage.getItem('pending_cohort_id');
+            const pendingCohortId = localStorage.getItem('pending_cohort_id');
             if (pendingCohortId) {
                 try {
                     const capacity = await checkCohortCapacityPublic(pendingCohortId);
