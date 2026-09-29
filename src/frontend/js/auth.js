@@ -119,7 +119,11 @@ async function checkAuth() {
 }
 
 function logout() {
+    // La turma del link de invitación sobrevive al logout: si el alumno todavía no
+    // creó su perfil, se necesita en el próximo login (ver createStudentProfile).
+    const pendingCohort = localStorage.getItem("pending_cohort_id");
     localStorage.clear();
+    if (pendingCohort) localStorage.setItem("pending_cohort_id", pendingCohort);
     window.location.href = "index.html";
 }
 

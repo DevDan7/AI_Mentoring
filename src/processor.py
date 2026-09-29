@@ -45,6 +45,14 @@ dynamodb = boto3.resource("dynamodb")
 sns_client = boto3.client("sns")
 
 
+def answer_key(options):
+    """Letras de las opciones marcadas como correctas, ordenadas."""
+    return sorted(
+        letter for letter, opt in options.items()
+        if isinstance(opt, dict) and opt.get("is_correct") is True
+    )
+
+
 def content_hash(text):
     """Huella digital del enunciado normalizado para deduplicar por contenido.
 
@@ -268,6 +276,21 @@ Do not include any text outside the JSON. Do not use markdown or code blocks.
                 )
                 continue
             # -------------------------------
+
+            # Validación de la clave: sin ninguna opción correcta nadie puede acertar la
+            # pregunta (auditoría 29-Sep: 2 preguntas así en el banco) => descartar.
+            correct_letters = answer_key(ai_data["options"])
+            if not correct_letters:
+                notify_unprocessable(
+                    file_key,
+                    bucket_name,
+                    "ninguna opción marcada como correcta (is_correct)",
+                )
+                continue
+            # question_type/correct_count se derivan de la clave real, no de lo que
+            # declaró el modelo (auditoría: 'single' con 3 correctas, 'multiple' con 1).
+            ai_data["question_type"] = "single" if len(correct_letters) == 1 else "multiple"
+            ai_data["correct_count"] = len(correct_letters)
 
             # Validación defensiva: asegurar que el topic esté en la taxonomía canónica
             topic = ai_data.get("topic", "")
