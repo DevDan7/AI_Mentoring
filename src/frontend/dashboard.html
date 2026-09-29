@@ -268,12 +268,19 @@
             const startInitialTestBtn = document.getElementById("startInitialTestBtn");
             if (startInitialTestBtn) {
                 startInitialTestBtn.addEventListener("click", async () => {
+                    // Mismo motivo que el botón del examen final: un doble-tap creaba
+                    // dos diagnósticos (bug 29-Sep). El backend tiene lock como segunda barrera.
+                    if (startInitialTestBtn.disabled) return;
+                    startInitialTestBtn.disabled = true;
+                    startInitialTestBtn.ariaBusy = "true";
                     try {
                         const quizData = await generateInitialTest();
                         localStorage.setItem("active_quiz", JSON.stringify(quizData));
                         window.location.href = "quiz.html";
                     } catch (err) {
                         showError(t("dash.err.initial") + err.message);
+                        startInitialTestBtn.disabled = false;
+                        startInitialTestBtn.ariaBusy = "false";
                     }
                 });
             }

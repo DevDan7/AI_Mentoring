@@ -158,11 +158,14 @@ async function createStudentProfile() {
         email = payload.email || email;
     }
 
-    const pendingCohortId = sessionStorage.getItem('pending_cohort_id');
+    const pendingCohortId = localStorage.getItem('pending_cohort_id');
     const body = {
         name: name || "Nuevo Usuario",
         cohort_id: pendingCohortId || ""
     };
 
-    return apiCall("POST", "/students", body);
+    const created = await apiCall("POST", "/students", body);
+    // Ya asociado a la turma: limpiar para que no se aplique a otro usuario en este navegador.
+    localStorage.removeItem('pending_cohort_id');
+    return created;
 }
