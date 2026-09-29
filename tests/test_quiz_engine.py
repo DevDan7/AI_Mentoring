@@ -399,6 +399,133 @@ class TestGenerateFinalExamConcurrencyLock(unittest.TestCase):
         mock_quizzes.put_item.assert_not_called()
 
 
+class TestGenerateInitialQuizConcurrencyLock(unittest.TestCase):
+    """Bug 29-Sep: una alumna quedó con dos diagnósticos iniciales creados con 2 s de
+    diferencia (uno completado y otro "in_progress" 0/20). generate_initial_quiz no
+    tenía ni reanudación ni lock. Fix: mismo patrón que generate_final_exam."""
+
+    def _initial_quiz(self, status='in_progress'):
+        return {
+            'QuizID': 'ini-123', 'StudentID': 'student-123', 'QuizType': 'initial',
+            'Topic': 'initial', 'Questions': ['q1', 'q2'], 'Status': status,
+            'CreatedAt': '2026-09-29T23:11:12+00:00',
+        }
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_resumes_in_progress_initial_instead_of_creating(
+        self, mock_questions, mock_results, mock_quizzes, mock_students
+    ):
+        import quiz_engine
+
+        mock_quizzes.query.return_value = {'Items': [self._initial_quiz()]}
+        mock_results.query.return_value = {'Items': []}
+        mock_questions.get_item.return_value = {}
+
+        response = quiz_engine.generate_initial_quiz('student-123')
+
+        self.assertEqual(response['statusCode'], 200)
+        self.assertEqual(json.loads(response['body'])['quiz_id'], 'ini-123')
+        mock_quizzes.put_item.assert_not_called()
+        mock_students.update_item.assert_not_called()  # ni siquiera toma el lock
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_concurrent_request_gets_409_instead_of_duplicate_quiz(
+        self, mock_questions, mock_results, mock_quizzes, mock_students
+    ):
+        import quiz_engine
+        from botocore.exceptions import ClientError
+
+        mock_quizzes.query.return_value = {'Items': []}
+        mock_students.update_item.side_effect = ClientError(
+            {'Error': {'Code': 'ConditionalCheckFailedException', 'Message': 'locked'}},
+            'UpdateItem'
+        )
+
+        response = quiz_engine.generate_initial_quiz('student-123')
+
+        self.assertEqual(response['statusCode'], 409)
+        mock_quizzes.put_item.assert_not_called()
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_lock_is_released_after_successful_generation(
+        self, mock_questions, mock_results, mock_quizzes, mock_students
+    ):
+        import quiz_engine
+
+        mock_quizzes.query.return_value = {'Items': []}
+        mock_questions.query.return_value = {
+            'Items': [make_question_item(f'q{i}') for i in range(10)]
+        }
+
+        with mock.patch.object(
+            quiz_engine, 'INITIAL_TEST_DISTRIBUTION',
+            {'Cloud Concepts & Well-Architected': 3}
+        ):
+            response = quiz_engine.generate_initial_quiz('student-123')
+
+        self.assertEqual(response['statusCode'], 201)
+        mock_quizzes.put_item.assert_called_once()
+        update_calls = mock_students.update_item.call_args_list
+        self.assertIn('InitialTestGenerationLock', update_calls[0].kwargs['ConditionExpression'])
+        self.assertIn('REMOVE InitialTestGenerationLock', update_calls[-1].kwargs['UpdateExpression'])
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_recheck_after_lock_resumes_quiz_created_by_other_request(
+        self, mock_questions, mock_results, mock_quizzes, mock_students
+    ):
+        import quiz_engine
+
+        mock_results.query.return_value = {'Items': []}
+        mock_questions.get_item.return_value = {}
+        mock_quizzes.query.side_effect = [
+            {'Items': []},                        # antes del lock: no existe
+            {'Items': [self._initial_quiz()]},    # double-check: otra request lo creó
+        ]
+
+        response = quiz_engine.generate_initial_quiz('student-123')
+
+        self.assertEqual(response['statusCode'], 200)
+        self.assertEqual(json.loads(response['body'])['quiz_id'], 'ini-123')
+        mock_quizzes.put_item.assert_not_called()
+        self.assertIn('REMOVE', mock_students.update_item.call_args_list[-1].kwargs['UpdateExpression'])
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_completed_initial_does_not_block_new_one(
+        self, mock_questions, mock_results, mock_quizzes, mock_students
+    ):
+        """free_practice permite repetir el diagnóstico: uno completado no se reanuda."""
+        import quiz_engine
+
+        mock_quizzes.query.return_value = {'Items': [self._initial_quiz(status='completed')]}
+        mock_questions.query.return_value = {
+            'Items': [make_question_item(f'q{i}') for i in range(10)]
+        }
+
+        with mock.patch.object(
+            quiz_engine, 'INITIAL_TEST_DISTRIBUTION',
+            {'Cloud Concepts & Well-Architected': 3}
+        ):
+            response = quiz_engine.generate_initial_quiz('student-123')
+
+        self.assertEqual(response['statusCode'], 201)
+        mock_quizzes.put_item.assert_called_once()
+
+
 class TestGenerateFinalExamAntiSimilarity(unittest.TestCase):
     """El examen no debe elegir dos preguntas casi-idénticas del mismo tema cuando
     hay alternativas distintas disponibles, pero tampoco debe salir corto si el

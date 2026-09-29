@@ -345,8 +345,45 @@ def generate_quiz(student_id, body, lang='en'):
     })
 
 
+def _find_in_progress_initial(student_id):
+    response = quizzes_table.query(
+        IndexName='StudentIndex',
+        KeyConditionExpression=Key('StudentID').eq(student_id),
+        FilterExpression=Attr('QuizType').eq('initial')
+    )
+    return next((q for q in response.get('Items', []) if q.get('Status') == 'in_progress'), None)
+
+
 def generate_initial_quiz(student_id, lang='en'):
-    """Genera un quiz diagnóstico con 20 preguntas distribuidas por temas."""
+    """Genera el diagnóstico inicial, o reanuda el que ya esté en curso.
+
+    Mismo patrón que generate_final_exam: sin el lock, dos requests casi simultáneas
+    (doble tap en "Iniciar teste") creaban dos diagnósticos para el mismo alumno
+    (bug 29-Sep: alumna con un inicial completado y otro "in_progress" 0/20,
+    creados con 2 s de diferencia)."""
+    in_progress = _find_in_progress_initial(student_id)
+    if in_progress:
+        return resume_quiz(in_progress, lang)
+
+    if not _acquire_generation_lock(student_id, 'InitialTestGenerationLock'):
+        return build_response(409, {
+            'error': 'Já existe uma geração do teste inicial em andamento para este aluno. '
+                     'Aguarde alguns segundos e tente novamente.'
+        })
+
+    try:
+        # Double-check con datos frescos: otra request pudo crearlo mientras esperábamos el lock.
+        in_progress = _find_in_progress_initial(student_id)
+        if in_progress:
+            return resume_quiz(in_progress, lang)
+        return _create_initial_quiz(student_id, lang)
+    finally:
+        _release_generation_lock(student_id, 'InitialTestGenerationLock')
+
+
+def _create_initial_quiz(student_id, lang='en'):
+    """Selecciona 20 preguntas distribuidas por temas y crea el quiz. Se asume que
+    ya se tiene el lock de generación (ver generate_initial_quiz)."""
     topic_buckets = []
     chosen_texts = []
 
@@ -577,29 +614,11 @@ def generate_final_exam(student_id, lang='en'):
     # cada una lee "no hay examen en curso" antes de que la otra termine de
     # escribir, y las dos crean un examen final -> duplicados fantasma vacíos
     # (bug reportado 26-Sep: 2 exámenes "in_progress" con 0/65 respondidas).
-    lock_token = str(uuid.uuid4())
-    now = datetime.now(timezone.utc)
-    stale_before = (now - timedelta(seconds=20)).isoformat()
-    try:
-        students_table.update_item(
-            Key={'StudentID': student_id},
-            UpdateExpression='SET FinalExamGenerationLock = :token, FinalExamGenerationLockAt = :now',
-            ConditionExpression=(
-                'attribute_not_exists(FinalExamGenerationLock) OR FinalExamGenerationLockAt < :stale'
-            ),
-            ExpressionAttributeValues={
-                ':token': lock_token,
-                ':now': now.isoformat(),
-                ':stale': stale_before,
-            }
-        )
-    except ClientError as e:
-        if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
-            return build_response(409, {
-                'error': 'Já existe uma geração de exame final em andamento para este aluno. '
-                         'Aguarde alguns segundos e tente novamente.'
-            })
-        raise
+    if not _acquire_generation_lock(student_id, 'FinalExamGenerationLock'):
+        return build_response(409, {
+            'error': 'Já existe uma geração de exame final em andamento para este aluno. '
+                     'Aguarde alguns segundos e tente novamente.'
+        })
 
     try:
         # Volver a chequear con datos frescos por si otra request creó el examen
@@ -620,10 +639,38 @@ def generate_final_exam(student_id, lang='en'):
 
         return _create_final_exam_quiz(student_id, lang)
     finally:
+        _release_generation_lock(student_id, 'FinalExamGenerationLock')
+
+
+def _acquire_generation_lock(student_id, lock_attr, stale_seconds=20):
+    """Lock atómico (ConditionExpression) en el item del alumno para serializar la
+    generación de un quiz. Retorna False si otra request ya tiene el lock.
+    Un lock más viejo que stale_seconds se considera abandonado (Lambda caída a
+    mitad de la generación) y se puede tomar igual."""
+    now = datetime.now(timezone.utc)
+    try:
         students_table.update_item(
             Key={'StudentID': student_id},
-            UpdateExpression='REMOVE FinalExamGenerationLock, FinalExamGenerationLockAt'
+            UpdateExpression=f'SET {lock_attr} = :token, {lock_attr}At = :now',
+            ConditionExpression=f'attribute_not_exists({lock_attr}) OR {lock_attr}At < :stale',
+            ExpressionAttributeValues={
+                ':token': str(uuid.uuid4()),
+                ':now': now.isoformat(),
+                ':stale': (now - timedelta(seconds=stale_seconds)).isoformat(),
+            }
         )
+        return True
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+            return False
+        raise
+
+
+def _release_generation_lock(student_id, lock_attr):
+    students_table.update_item(
+        Key={'StudentID': student_id},
+        UpdateExpression=f'REMOVE {lock_attr}, {lock_attr}At'
+    )
 
 
 def _create_final_exam_quiz(student_id, lang='en'):

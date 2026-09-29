@@ -6,6 +6,40 @@
 
 ## 2026-09
 
+### 29 Sep — Primera turma en producción: diagnóstico inicial duplicado, alumnos sin
+### turma y auditoría de claves del banco de preguntas
+- **Problema 1 — diagnóstico inicial duplicado**: una alumna quedó con dos
+  diagnósticos iniciales creados con 2 s de diferencia (uno completado y otro
+  "in_progress" 0/20). `generate_initial_quiz()` no reanudaba un inicial en curso
+  ni tenía lock: misma condición de carrera que el examen final (26-Sep).
+  **Solución**: reanuda el inicial en curso si existe; si no, toma un lock atómico
+  (`InitialTestGenerationLock`) con double-check y liberación en `finally`. El
+  mecanismo de lock del examen final se extrajo a `_acquire_generation_lock()` /
+  `_release_generation_lock()` y lo usan ambos. `dashboard.html` deshabilita el
+  botón "Iniciar teste" al hacer clic. 5 tests nuevos.
+- **Problema 2 — alumno registrado sin turma**: el `?turma=` del link se guardaba
+  en `sessionStorage`, pero el perfil se crea recién en el primer login. Si entre el
+  cadastro y el login el alumno cerraba la pestaña (buscar el código en el e-mail,
+  navegador interno de WhatsApp), la turma se perdía. **Solución**: `localStorage`
+  (sobrevive también a `logout()`), y se limpia después de crear el perfil.
+- **Problema 3 — claves de respuesta equivocadas**: el simulado inicial de dos
+  alumnos reveló preguntas con la clave equivocada (el alumno respondía bien y se le
+  marcaba mal). Auditoría heurística de las 231 preguntas (contradicciones entre
+  `is_correct` y las explicaciones EN/PT) + chequeo estructural: **15 claves
+  corregidas**, 5 preguntas con explicaciones contradictorias, 2 sin ninguna opción
+  correcta, 2 con `QuestionType` inconsistente con la clave. Se recalcularon los
+  resultados y notas de los alumnos afectados (75→90 % y 65→70 %). Scripts manuales
+  con dry-run y backup en `scripts/backup/fix_claves_*.json` y
+  `fix_auditoria_*.json`. Causa: al estructurar la foto, Bedrock a veces marca mal
+  `is_correct` e inventa una explicación en inglés que lo justifica; la traducción
+  PT (generada aparte) sí acierta y contradice la clave.
+  **Prevención en `processor.py`**: una pregunta sin ninguna opción correcta se
+  descarta y alerta por SNS; `QuestionType`/`CorrectCount` se derivan de la clave
+  real en vez de confiar en lo que declara el modelo. 3 tests nuevos.
+- **Pendiente**: la heurística solo detecta errores que dejan rastro en el texto;
+  falta una revisión completa de claves (re-resolver cada pregunta con un modelo sin
+  ver la clave y comparar).
+
 ### 26 Sep — Fix crítico: `difflib.SequenceMatcher` con `autojunk` degradaba TODO el
 ### sistema anti-casi-duplicados + corrección de contenido puntual
 - **Problema**: revisando un examen final real, el usuario detectó que 2 de 3
