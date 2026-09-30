@@ -6,6 +6,31 @@
 
 ## 2026-09
 
+### 30 Sep — Auditoría de seguridad: fuga de respuestas por la API y clave del banco en el repo
+- **Origen**: un alumno comentó que el link de acceso "parecía sospechoso". Se revisó toda la
+  aplicación e infraestructura (informe completo guardado localmente, fuera del repo).
+- **Problema 1 — la API revelaba la respuesta de cualquier pregunta**: `submit_answer()` calificaba y
+  devolvía `is_correct` + explicaciones de todas las opciones **antes** de validar el quiz. Un alumno
+  logueado podía mandar un `quiz_id` inventado (o ajeno) con cualquier `question_id` y obtener la
+  respuesta, incluso durante el examen final; esas respuestas "sueltas" además sumaban al score.
+  **Solución**: se carga el quiz primero y se exige que sea del alumno y contenga la pregunta (403);
+  respuestas nuevas solo con el quiz `in_progress` (409); `given_answers` debe ser lista de strings.
+- **Problema 2 — `complete_quiz()` re-ejecutable**: se podía completar de nuevo un quiz ya completado
+  (o reseteado por el profesor) y sobrescribir el score. **Solución**: 409 si no está `in_progress`, y el
+  score cuenta solo respuestas a preguntas del propio quiz.
+- **Problema 3 — `PUT /students/me`** permitía cambiarse de turma sin cupo y, al ser upsert, crear un
+  perfil sin `AccessExpiresAt`. **Solución**: solo edita `name` (1-80), exige perfil existente (404).
+- **Problema 4 — `num_questions` sin validar** (string o valores enormes → 500 / timeout).
+  **Solución**: entero 1-20 (`MAX_FREE_QUIZ_QUESTIONS`).
+- **Problema 5 — clave de respuestas en el repo público**: 7 `scripts/backup_*.json` con `is_correct` y
+  explicaciones. Se sacan del árbol (quedan locales en `scripts/backup/`, ya ignorado); la limpieza del
+  historial de git la ejecuta el dueño del repo con `git filter-repo`.
+- **Otros**: `encodeURIComponent` en los IDs de las rutas del frontend; `scripts/test_api.sh` toma las
+  credenciales de variables de entorno (la contraseña hardcodeada ya se había rotado).
+- Tests: 122 pasan (11 nuevos). **Pendiente** (PR aparte, gratis): AWS Budgets, headers de seguridad
+  en Amplify, CORS restringido, deletion protection en DynamoDB, límites de concurrencia y rol de CI
+  acotado.
+
 ### 29 Sep — Primera turma en producción: diagnóstico inicial duplicado, alumnos sin
 ### turma y auditoría de claves del banco de preguntas
 - **Problema 1 — diagnóstico inicial duplicado**: una alumna quedó con dos

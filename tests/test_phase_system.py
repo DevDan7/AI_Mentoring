@@ -245,6 +245,48 @@ class TestGenerateQuizPhaseRestriction(unittest.TestCase):
         self.assertIn('topic é obrigatório', body['error'])
 
 
+class TestUpdateStudentByClaimsHardening(unittest.TestCase):
+    """Auditoría 30-Sep: PUT /students/me permitía cambiarse de turma sin cupo y, al ser
+    un upsert, crear un perfil sin AccessExpiresAt (acceso sin vencimiento)."""
+
+    @mock.patch('student_api.cohorts_table')
+    @mock.patch('student_api.students_table')
+    def test_only_name_is_updated_and_cohort_is_ignored(self, mock_students, mock_cohorts):
+        import student_api
+        mock_students.update_item.return_value = {'Attributes': {'StudentID': 'student-123'}}
+
+        event = make_api_event('PUT /students/me', body={'name': '  Ana  ', 'cohort_id': 'OTRA-TURMA'})
+        response = student_api.update_student_by_claims(event, {'sub': 'student-123'})
+
+        self.assertEqual(response['statusCode'], 200)
+        kwargs = mock_students.update_item.call_args.kwargs
+        self.assertEqual(kwargs['ExpressionAttributeValues'][':name'], 'Ana')
+        self.assertNotIn('CohortID', kwargs['UpdateExpression'])
+        self.assertEqual(kwargs['ConditionExpression'], 'attribute_exists(StudentID)')
+        mock_cohorts.get_item.assert_not_called()
+
+    @mock.patch('student_api.students_table')
+    def test_missing_profile_returns_404_instead_of_upsert(self, mock_students):
+        import student_api
+        from botocore.exceptions import ClientError
+        mock_students.update_item.side_effect = ClientError(
+            {'Error': {'Code': 'ConditionalCheckFailedException', 'Message': 'no item'}}, 'UpdateItem')
+
+        event = make_api_event('PUT /students/me', body={'name': 'Ana'})
+        response = student_api.update_student_by_claims(event, {'sub': 'nuevo'})
+
+        self.assertEqual(response['statusCode'], 404)
+
+    @mock.patch('student_api.students_table')
+    def test_invalid_name_returns_400(self, mock_students):
+        import student_api
+        for body in [{}, {'name': ''}, {'name': 'x' * 81}, {'name': 123}]:
+            response = student_api.update_student_by_claims(
+                make_api_event('PUT /students/me', body=body), {'sub': 'student-123'})
+            self.assertEqual(response['statusCode'], 400, body)
+        mock_students.update_item.assert_not_called()
+
+
 class TestCompleteQuizPhaseAdvancement(unittest.TestCase):
     """Verifica que el diagnóstico inicial avance a free_practice sin umbral."""
 

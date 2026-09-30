@@ -80,11 +80,11 @@ async function generateFinalExam() {
 }
 
 async function setFinalExamRelease(studentId, date) {
-    return apiCall("PUT", `/students/${studentId}/final-exam-release`, { release_date: date });
+    return apiCall("PUT", `/students/${encodeURIComponent(studentId)}/final-exam-release`, { release_date: date });
 }
 
 async function resetFinalExamAttempt(studentId) {
-    return apiCall("DELETE", `/students/${studentId}/final-exam-attempt`);
+    return apiCall("DELETE", `/students/${encodeURIComponent(studentId)}/final-exam-attempt`);
 }
 
 async function submitAnswer(quizId, questionId, givenAnswers) {
@@ -97,11 +97,11 @@ async function submitAnswer(quizId, questionId, givenAnswers) {
 }
 
 async function getQuizResults(quizId) {
-    return apiCall("GET", `/quizzes/${quizId}/results?lang=${getLang()}`);
+    return apiCall("GET", `/quizzes/${encodeURIComponent(quizId)}/results?lang=${getLang()}`);
 }
 
 async function getStudentQuizzes(studentId) {
-    return apiCall("GET", `/students/${studentId}/quizzes`);
+    return apiCall("GET", `/students/${encodeURIComponent(studentId)}/quizzes`);
 }
 
 async function generateInitialTest() {
@@ -109,7 +109,7 @@ async function generateInitialTest() {
 }
 
 async function getQuiz(quizId) {
-    return apiCall("GET", `/quizzes/${quizId}?lang=${getLang()}`);
+    return apiCall("GET", `/quizzes/${encodeURIComponent(quizId)}?lang=${getLang()}`);
 }
 
 async function getQuizHistory() {
@@ -119,7 +119,7 @@ async function getQuizHistory() {
 // ========== VALIDACIÓN DE CUPO ==========
 
 async function checkCohortCapacityPublic(cohortId) {
-    const response = await fetch(`${CONFIG.apiUrl}/public/cohorts/${cohortId}/capacity`);
+    const response = await fetch(`${CONFIG.apiUrl}/public/cohorts/${encodeURIComponent(cohortId)}/capacity`);
     if (!response.ok) {
         throw new Error(`Error ${response.status}`);
     }

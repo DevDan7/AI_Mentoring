@@ -4,8 +4,10 @@ set -e
 API_URL="https://9ftb5bwpk7.execute-api.us-east-1.amazonaws.com"
 COGNITO_URL="https://cognito-idp.us-east-1.amazonaws.com"
 CLIENT_ID="m5dcqn9lld9l5vhb8fhug4i80"
-USER_EMAIL="danielsvillegas17@gmail.com"
-USER_PASS="***REMOVED***"
+# Credenciales de un alumno de prueba por variables de entorno (nunca en el repo):
+#   TEST_USER_EMAIL=... TEST_USER_PASS=... bash scripts/test_api.sh
+USER_EMAIL="${TEST_USER_EMAIL:?Definí TEST_USER_EMAIL (alumno de prueba, no un profesor)}"
+USER_PASS="${TEST_USER_PASS:?Definí TEST_USER_PASS}"
 
 echo "=== Paso 1: Obtener IdToken de Cognito ==="
 TOKEN=$(curl -s -X POST $COGNITO_URL \
