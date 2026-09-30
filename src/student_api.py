@@ -240,43 +240,35 @@ def update_student_by_claims(event, claims):
     if not student_id:
         return build_response(401, {'message': 'Unauthorized: Invalid JWT claims'})
 
-    data = json.loads(event.get('body', '{}'))
+    try:
+        data = json.loads(event.get('body') or '{}')
+    except ValueError:
+        return build_response(400, {'message': 'Invalid JSON body'})
 
-    update_expr = "SET UpdatedAt = :updated_at"
-    expr_values = {':updated_at': datetime.now(timezone.utc).isoformat()}
-    expr_names = {}
+    # Solo el nombre es editable por el alumno. La turma la asigna el registro (con
+    # chequeo de cupo) o el profesor: antes este endpoint permitía cambiarse a cualquier
+    # turma sin cupo, y como update_item hace upsert, crear un perfil sin
+    # AccessExpiresAt (acceso sin vencimiento) llamándolo antes del POST (auditoría 30-Sep).
+    name = data.get('name') if isinstance(data, dict) else None
+    if not isinstance(name, str) or not name.strip() or len(name.strip()) > 80:
+        return build_response(400, {'message': 'name is required (1-80 characters)'})
 
-    if 'name' in data:
-        update_expr += ", #n = :name"
-        expr_values[':name'] = data['name']
-        expr_names['#n'] = 'Name'
-
-    if 'cohort' in data:
-        update_expr += ", Cohort = :cohort"
-        expr_values[':cohort'] = data['cohort']
-
-    if 'cohort_id' in data:
-        cohort_id = data['cohort_id']
-        if cohort_id:
-            cohort_item = cohorts_table.get_item(Key={'CohortID': cohort_id})
-            if 'Item' not in cohort_item:
-                return build_response(400, {'message': f'Cohort not found: {cohort_id}'})
-            update_expr += ", CohortID = :cohort_id"
-            expr_values[':cohort_id'] = cohort_id
-        else:
-            update_expr += " REMOVE CohortID"
-
-    kwargs = {
-        'Key': {'StudentID': student_id},
-        'UpdateExpression': update_expr,
-        'ExpressionAttributeValues': expr_values,
-        'ReturnValues': 'ALL_NEW'
-    }
-
-    if expr_names:
-        kwargs['ExpressionAttributeNames'] = expr_names
-
-    result = students_table.update_item(**kwargs)
+    try:
+        result = students_table.update_item(
+            Key={'StudentID': student_id},
+            UpdateExpression='SET #n = :name, UpdatedAt = :updated_at',
+            ConditionExpression='attribute_exists(StudentID)',
+            ExpressionAttributeNames={'#n': 'Name'},
+            ExpressionAttributeValues={
+                ':name': name.strip(),
+                ':updated_at': datetime.now(timezone.utc).isoformat(),
+            },
+            ReturnValues='ALL_NEW'
+        )
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+            return build_response(404, {'message': 'Student profile not found'})
+        raise
     return build_response(200, result['Attributes'])
 
 
