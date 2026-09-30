@@ -1150,6 +1150,10 @@ class TestSubmitAnswer(unittest.TestCase):
         }
         mock_questions.get_item.return_value = {'Item': make_question_item('q1')}
 
+        mock_quizzes.get_item.return_value = {'Item': {
+            'QuizID': 'quiz-1', 'StudentID': 'student-123', 'QuizType': 'free',
+            'Questions': ['q1'], 'Status': 'in_progress',
+        }}
         # Ya existe un resultado para quiz-1 + q1 con respuesta B (incorrecta)
         existing = make_result_item(result_id='r-original', quiz_id='quiz-1',
                                     question_id='q1', given=['B'], correct=['A'], is_correct=False)
@@ -1189,6 +1193,151 @@ class TestSubmitAnswer(unittest.TestCase):
             'given_answers': []
         })
         self.assertEqual(response['statusCode'], 400)
+
+
+class TestSubmitAnswerAuthorization(unittest.TestCase):
+    """Auditoría de seguridad 30-Sep: submit_answer calificaba y devolvía la clave
+    (is_correct + explicaciones) sin validar el quiz. Un alumno podía mandar cualquier
+    quiz_id con un question_id real y obtener la respuesta de cualquier pregunta,
+    incluso durante el examen final."""
+
+    def _setup(self, mock_students, mock_questions, mock_results, mock_quizzes, quiz):
+        mock_students.get_item.return_value = {
+            'Item': make_student_item(phase='free_practice', release_delta_days=None)
+        }
+        mock_questions.get_item.return_value = {'Item': make_question_item('q1')}
+        mock_results.query.return_value = {'Items': []}
+        mock_quizzes.get_item.return_value = {'Item': quiz} if quiz else {}
+
+    def _quiz(self, **overrides):
+        quiz = {'QuizID': 'quiz-1', 'StudentID': 'student-123', 'QuizType': 'final_exam',
+                'Questions': ['q1', 'q2'], 'Status': 'in_progress'}
+        quiz.update(overrides)
+        return quiz
+
+    def _submit(self, quiz_id='quiz-1', question_id='q1'):
+        import quiz_engine
+        return quiz_engine.submit_answer('student-123', {
+            'quiz_id': quiz_id, 'question_id': question_id, 'given_answers': ['A']
+        })
+
+    def _assert_no_answer_leaked(self, response, mock_results):
+        body = json.loads(response['body'])
+        self.assertNotIn('is_correct', body)
+        self.assertNotIn('options', body)
+        mock_results.put_item.assert_not_called()
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.questions_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    def test_nonexistent_quiz_returns_403_without_answer(self, mq, mr, mqs, ms):
+        self._setup(ms, mqs, mr, mq, quiz=None)
+        response = self._submit(quiz_id='inventado')
+        self.assertEqual(response['statusCode'], 403)
+        self._assert_no_answer_leaked(response, mr)
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.questions_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    def test_other_students_quiz_returns_403(self, mq, mr, mqs, ms):
+        self._setup(ms, mqs, mr, mq, quiz=self._quiz(StudentID='otro-alumno'))
+        response = self._submit()
+        self.assertEqual(response['statusCode'], 403)
+        self._assert_no_answer_leaked(response, mr)
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.questions_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    def test_question_not_in_quiz_returns_403(self, mq, mr, mqs, ms):
+        self._setup(ms, mqs, mr, mq, quiz=self._quiz(Questions=['q2', 'q3']))
+        response = self._submit(question_id='q1')
+        self.assertEqual(response['statusCode'], 403)
+        self._assert_no_answer_leaked(response, mr)
+        mqs.get_item.assert_not_called()  # ni siquiera se lee la pregunta
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.questions_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    def test_new_answer_on_completed_quiz_returns_409(self, mq, mr, mqs, ms):
+        self._setup(ms, mqs, mr, mq, quiz=self._quiz(Status='completed'))
+        response = self._submit()
+        self.assertEqual(response['statusCode'], 409)
+        mr.put_item.assert_not_called()
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.questions_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    def test_non_string_answers_return_400(self, mq, mr, mqs, ms):
+        import quiz_engine
+        self._setup(ms, mqs, mr, mq, quiz=self._quiz())
+        response = quiz_engine.submit_answer('student-123', {
+            'quiz_id': 'quiz-1', 'question_id': 'q1', 'given_answers': [1]
+        })
+        self.assertEqual(response['statusCode'], 400)
+
+
+class TestCompleteQuizHardening(unittest.TestCase):
+    """Auditoría 30-Sep: complete_quiz se podía re-ejecutar (sobrescribiendo el score) y
+    contaba respuestas a preguntas que no eran del quiz (score > 100 %)."""
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    def test_completed_quiz_cannot_be_completed_again(self, mock_results, mock_quizzes, mock_students):
+        import quiz_engine
+        mock_quizzes.get_item.return_value = {'Item': {
+            'QuizID': 'quiz-1', 'StudentID': 'student-123', 'QuizType': 'final_exam',
+            'Questions': ['q1'], 'Status': 'completed',
+        }}
+        response = quiz_engine.complete_quiz('quiz-1', 'student-123')
+        self.assertEqual(response['statusCode'], 409)
+        mock_quizzes.update_item.assert_not_called()
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    def test_score_ignores_results_for_questions_outside_quiz(self, mock_results, mock_quizzes, mock_students):
+        import quiz_engine
+        mock_quizzes.get_item.return_value = {'Item': {
+            'QuizID': 'quiz-1', 'StudentID': 'student-123', 'QuizType': 'free',
+            'Questions': ['q1', 'q2'], 'Status': 'in_progress',
+        }}
+        mock_results.query.return_value = {'Items': [
+            make_result_item(result_id='r1', quiz_id='quiz-1', question_id='q1', is_correct=True),
+            make_result_item(result_id='r2', quiz_id='quiz-1', question_id='q2', is_correct=False),
+            # Respuestas "sueltas" inyectadas antes del fix: no deben sumar
+            make_result_item(result_id='r3', quiz_id='quiz-1', question_id='x1', is_correct=True),
+            make_result_item(result_id='r4', quiz_id='quiz-1', question_id='x2', is_correct=True),
+        ]}
+        mock_students.get_item.return_value = {'Item': make_student_item(phase='free_practice')}
+
+        quiz_engine.complete_quiz('quiz-1', 'student-123')
+
+        score = mock_quizzes.update_item.call_args.kwargs['ExpressionAttributeValues'][':score']
+        self.assertEqual(float(score), 50.0)
+
+
+class TestGenerateQuizNumQuestionsValidation(unittest.TestCase):
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.questions_table')
+    def test_invalid_num_questions_returns_400(self, mock_questions, mock_students):
+        import quiz_engine
+        mock_students.get_item.return_value = {
+            'Item': make_student_item(phase='free_practice', release_delta_days=None)
+        }
+        for bad in [0, -1, 21, 500, '5', True, None, 2.5]:
+            response = quiz_engine.generate_quiz('student-123', {
+                'quiz_type': 'free', 'topic': 'Cloud Concepts & Well-Architected',
+                'num_questions': bad,
+            })
+            self.assertEqual(response['statusCode'], 400, f'num_questions={bad!r}')
+        mock_questions.query.assert_not_called()
 
 
 if __name__ == '__main__':

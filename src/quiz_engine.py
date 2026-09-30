@@ -18,6 +18,9 @@ quizzes_table = dynamodb.Table(os.environ['QUIZZES_TABLE'])
 quiz_results_table = dynamodb.Table(os.environ['QUIZ_RESULTS_TABLE'])
 students_table = dynamodb.Table(os.environ['STUDENTS_TABLE'])
 
+# Tope de preguntas en un quiz de práctica libre (el frontend ofrece 1-10)
+MAX_FREE_QUIZ_QUESTIONS = 20
+
 # Distribución fija para el quiz diagnóstico inicial (20 preguntas)
 INITIAL_TEST_DISTRIBUTION = {
     "Cloud Concepts & Well-Architected": 6,
@@ -278,6 +281,12 @@ def generate_quiz(student_id, body, lang='en'):
 
     if not topic:
         return build_response(400, {'error': 'O campo topic é obrigatório'})
+    # Entero acotado: un valor enorme hacía que la query trajera todo el tema y el filtro
+    # de casi-duplicados (O(n²)) llegara al timeout; un string se multiplicaba ("5"*3).
+    if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= MAX_FREE_QUIZ_QUESTIONS:
+        return build_response(400, {
+            'error': f'num_questions deve ser um inteiro entre 1 e {MAX_FREE_QUIZ_QUESTIONS}'
+        })
 
     response_query = questions_table.query(
         IndexName='TopicIndex',
@@ -810,14 +819,21 @@ def complete_quiz(quiz_id, student_id):
     if quiz.get('StudentID') != student_id:
         return build_response(403, {'error': 'Forbidden: You cannot complete a quiz that is not yours'})
 
+    # Un quiz completado (o reseteado por el profesor) no se vuelve a completar:
+    # antes se podía re-ejecutar y sobrescribir el score (auditoría 30-Sep).
+    if quiz.get('Status') != 'in_progress':
+        return build_response(409, {'error': 'Quiz is not in progress'})
+
     completed_at = datetime.now(timezone.utc).isoformat()
 
-    # Calcular score desde quiz_results
+    # Calcular score desde quiz_results. Solo cuentan las preguntas del quiz: respuestas
+    # "sueltas" podían sumar por encima del 100 %.
     results_response = quiz_results_table.query(
         IndexName='QuizIndex',
         KeyConditionExpression=Key('QuizID').eq(quiz_id)
     )
-    results = results_response.get('Items', [])
+    quiz_questions = set(quiz.get('Questions', []))
+    results = [r for r in results_response.get('Items', []) if r.get('QuestionID') in quiz_questions]
     total_questions = len(quiz.get('Questions', []))
     answered_questions = len(results)
     correct_answers = sum(1 for r in results if r.get('IsCorrect', False))
@@ -905,6 +921,18 @@ def submit_answer(student_id, body, lang='en'):
 
     if not all([quiz_id, question_id]) or not given_answers:
         return build_response(400, {'error': 'quiz_id, question_id, and given_answers (array) are required'})
+    if not isinstance(given_answers, list) or not all(isinstance(a, str) for a in given_answers):
+        return build_response(400, {'error': 'given_answers must be an array of option letters'})
+
+    # Validar el quiz ANTES de calificar: la respuesta incluye la clave y las explicaciones.
+    # Sin esto, un alumno podía mandar cualquier quiz_id (inexistente o ajeno) con un
+    # question_id real y obtener la respuesta correcta de cualquier pregunta del banco,
+    # incluso durante el examen final (auditoría de seguridad 30-Sep).
+    quiz = quizzes_table.get_item(Key={'QuizID': quiz_id}).get('Item')
+    if not quiz or quiz.get('StudentID') != student_id:
+        return build_response(403, {'error': 'Forbidden: quiz not found or not yours'})
+    if question_id not in quiz.get('Questions', []):
+        return build_response(403, {'error': 'Forbidden: question is not part of this quiz'})
 
     question_response = questions_table.get_item(Key={'QuestionID': question_id})
     question = question_response.get('Item')
@@ -943,6 +971,11 @@ def submit_answer(student_id, body, lang='en'):
             'options': options_breakdown
         })
 
+    # Respuestas nuevas solo mientras el quiz está en curso (antes se aceptaban después
+    # de completar y el score se podía recalcular con complete_quiz).
+    if quiz.get('Status') != 'in_progress':
+        return build_response(409, {'error': 'Quiz is not in progress'})
+
     result_id = str(uuid.uuid4())
     timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -958,17 +991,14 @@ def submit_answer(student_id, body, lang='en'):
     })
 
     # Verificar si es la última pregunta → auto-completar
-    quiz_response = quizzes_table.get_item(Key={'QuizID': quiz_id})
-    quiz = quiz_response.get('Item')
-    if quiz:
-        total_questions = len(quiz.get('Questions', []))
-        results_response = quiz_results_table.query(
-            IndexName='QuizIndex',
-            KeyConditionExpression=Key('QuizID').eq(quiz_id)
-        )
-        answered_count = len(results_response.get('Items', []))
-        if answered_count >= total_questions:
-            complete_quiz(quiz_id, student_id)
+    total_questions = len(quiz.get('Questions', []))
+    results_response = quiz_results_table.query(
+        IndexName='QuizIndex',
+        KeyConditionExpression=Key('QuizID').eq(quiz_id)
+    )
+    answered_count = len(results_response.get('Items', []))
+    if answered_count >= total_questions:
+        complete_quiz(quiz_id, student_id)
 
     return build_response(201, {
         'result_id': result_id,
