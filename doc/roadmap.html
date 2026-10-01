@@ -445,20 +445,36 @@
             <h2 class="section-title">Estado Actual del Proyecto</h2>
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-value">41</div>
+                    <div class="stat-value">56</div>
                     <div class="stat-label">Días de desarrollo</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">58</div>
+                    <div class="stat-value">133</div>
                     <div class="stat-label">PRs mergeados</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">8</div>
-                    <div class="stat-label">Endpoints activos</div>
+                    <div class="stat-value">19</div>
+                    <div class="stat-label">Rutas de API (17 con JWT)</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value">3</div>
                     <div class="stat-label">Lambdas activas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">231</div>
+                    <div class="stat-label">Preguntas en el banco</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">124</div>
+                    <div class="stat-label">Tests automatizados</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">2</div>
+                    <div class="stat-label">Turmas reales en producción</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">✅</div>
+                    <div class="stat-label">En producción desde el 29 Sep 2026</div>
                 </div>
             </div>
         </section>
@@ -502,13 +518,13 @@
                         <div class="flow-box active">
                             <div class="icon">🤖</div>
                             <div class="label">Bedrock</div>
-                            <div class="status status-active">Claude Haiku multimodaldirecto</div>
+                            <div class="status status-active">Claude Haiku 4.5 multimodal</div>
                         </div>
                         <span class="arrow">→</span>
                         <div class="flow-box active">
                             <div class="icon">🗄️</div>
                             <div class="label">DynamoDB</div>
-                            <div class="status status-active">109 items</div>
+                            <div class="status status-active">231 preguntas</div>
                         </div>
                     </div>
                 </div>
@@ -581,7 +597,7 @@
                         <div class="flow-box active">
                             <div class="icon">🎯</div>
                             <div class="label">quiz_engine.py</div>
-                            <div class="status status-active">3 acciones</div>
+                            <div class="status status-active">Diagnóstico, práctica y examen final</div>
                         </div>
                     </div>
                 </div>
@@ -743,15 +759,87 @@
                         <td class="priority-high">Alta</td>
                         <td>1 hora</td>
                         <td>quiz_engine.py</td>
-                        <td><span class="phase-badge badge-done">✅ Corrigido (22 Sep) — pendente terraform apply + validação manual</span></td>
+                        <td><span class="phase-badge badge-done">✅ Completada (22 Sep)</span></td>
                     </tr>
                     <tr>
                         <td>15</td>
                         <td><strong>Detalle pregunta-por-pregunta en panel do professor</strong><br><small>Link "Ver detalhes" reutiliza results.html; backend ya lo soportaba (22-Sep)</small></td>
-                        <td class="priority-medium">Média</td>
+                        <td class="priority-medium">Media</td>
                         <td>1 hora</td>
                         <td>teacher.html, teacher.js, api.js</td>
-                        <td><span class="phase-badge badge-done">✅ Corrigido (22 Sep) — pendente validação manual</span></td>
+                        <td><span class="phase-badge badge-done">✅ Completada (22 Sep)</span></td>
+                    </tr>
+                    <tr>
+                        <td>16</td>
+                        <td><strong>Calidad del banco: traducción PT-BR y anti-casi-duplicados</strong><br><small>Preguntas traducidas, interleaving por tema, filtro de casi-duplicados (fix autojunk), race condition del examen final</small></td>
+                        <td class="priority-high">Alta</td>
+                        <td>2 días</td>
+                        <td>quiz_engine.py, MentoringQuestions</td>
+                        <td><span class="phase-badge badge-done">✅ Completada (23-26 Sep)</span></td>
+                    </tr>
+                    <tr>
+                        <td>17</td>
+                        <td><strong>Puesta en producción con turmas reales</strong><br><small>Limpieza de usuarios de prueba, profesor real, turmas BRSAO251-G3 y BRSAO254-G4, mensajes de bienvenida con links wa.me</small></td>
+                        <td class="priority-high">Alta</td>
+                        <td>1 día</td>
+                        <td>Cognito, Cohorts</td>
+                        <td><span class="phase-badge badge-done">✅ Completada (29 Sep)</span></td>
+                    </tr>
+                    <tr>
+                        <td>18</td>
+                        <td><strong>Auditoría de claves del banco</strong><br><small>Heurística EN/PT + revisión ciega con Claude (Bedrock): 21 claves corregidas, 4 preguntas rotas reparadas, notas recalculadas</small></td>
+                        <td class="priority-high">Alta</td>
+                        <td>1 día</td>
+                        <td>MentoringQuestions, Bedrock</td>
+                        <td><span class="phase-badge badge-done">✅ Completada (29-30 Sep)</span></td>
+                    </tr>
+                    <tr>
+                        <td>19</td>
+                        <td><strong>Fixes de la primera turma (PR #131)</strong><br><small>Diagnóstico inicial duplicado (lock), turma perdida en el registro (localStorage), validación de clave en la ingesta</small></td>
+                        <td class="priority-high">Alta</td>
+                        <td>4 horas</td>
+                        <td>quiz_engine.py, processor.py, frontend</td>
+                        <td><span class="phase-badge badge-done">✅ Completada (29 Sep)</span></td>
+                    </tr>
+                    <tr>
+                        <td>20</td>
+                        <td><strong>Auditoría de seguridad (PR #132)</strong><br><small>La API revelaba respuestas y permitía recalcular la nota; backups con la clave fuera del repo y del historial de git</small></td>
+                        <td class="priority-high">Alta</td>
+                        <td>1 día</td>
+                        <td>quiz_engine.py, student_api.py, git</td>
+                        <td><span class="phase-badge badge-done">✅ Completada (30 Sep)</span></td>
+                    </tr>
+                    <tr>
+                        <td>21</td>
+                        <td><strong>Examen final: timeout y explicación múltiple (PR #133)</strong><br><small>Filtro de casi-duplicados 5-8x más rápido, Lambda 1024 MB; explicación de todas las correctas en "Escolha duas"</small></td>
+                        <td class="priority-high">Alta</td>
+                        <td>3 horas</td>
+                        <td>quiz_engine.py, explanations.js</td>
+                        <td><span class="phase-badge badge-done">✅ Completada (30 Sep)</span></td>
+                    </tr>
+                    <tr>
+                        <td>22</td>
+                        <td><strong>Protecciones gratuitas de AWS</strong><br><small>AWS Budgets, headers de seguridad en Amplify, CORS restringido, deletion protection en DynamoDB, concurrencia reservada, rol de CI acotado, protección de la rama main</small></td>
+                        <td class="priority-high">Alta</td>
+                        <td>4-6 horas</td>
+                        <td>Terraform, GitHub</td>
+                        <td><span class="phase-badge badge-future">Pendiente</span></td>
+                    </tr>
+                    <tr>
+                        <td>23</td>
+                        <td><strong>Deuda técnica: anti-casi-duplicados en la ingesta</strong><br><small>SimilarityGroup precomputado: generar el examen pasa a ser solo lectura (technical-log #6)</small></td>
+                        <td class="priority-medium">Media</td>
+                        <td>4-6 horas</td>
+                        <td>processor.py, quiz_engine.py</td>
+                        <td><span class="phase-badge badge-future">Pendiente</span></td>
+                    </tr>
+                    <tr>
+                        <td>24</td>
+                        <td><strong>Revisión ciega de claves para cada lote nuevo</strong><br><small>Pasar el script de revisión con Bedrock a scripts/ y correrlo al subir preguntas</small></td>
+                        <td class="priority-medium">Media</td>
+                        <td>2 horas</td>
+                        <td>Bedrock, MentoringQuestions</td>
+                        <td><span class="phase-badge badge-future">Pendiente</span></td>
                     </tr>
                 </tbody>
             </table>
@@ -772,8 +860,7 @@
                     </div>
                     <div class="infra-details">
                         <strong>Bucket:</strong> daniel-mentoring-exam-photos-edn-dev<br>
-                        <strong>Objetos:</strong> 109 fotos + INVENTORY.md + general.pdf<br>
-                        <strong>Tamaño:</strong> ~6.22 MB
+                        <strong>Objetos:</strong> 285 (fotos de examen procesadas)
                     </div>
                 </div>
 
@@ -801,9 +888,9 @@
                         </div>
                     </div>
                     <div class="infra-details">
-                        <strong>processor.py:</strong> OCR + Bedrock (256 MB, 30s)<br>
-                        <strong>quiz_engine.py:</strong> Simulados (256 MB, 30s)<br>
-                        <strong>student_api.py:</strong> CRUD alumnos (256 MB, 30s)
+                        <strong>processor.py:</strong> OCR + Bedrock (256 MB, 60s)<br>
+                        <strong>quiz_engine.py:</strong> Simulados (1024 MB, 25s — subido 30 Sep por timeout del examen final)<br>
+                        <strong>student_api.py:</strong> Alumnos, turmas y profesor (256 MB, 15s)
                     </div>
                 </div>
 
@@ -816,11 +903,11 @@
                         </div>
                     </div>
                     <div class="infra-details">
-                        <strong>MentoringQuestions:</strong> 203 preguntas (intactas tras migración 07 Sep)<br>
+                        <strong>MentoringQuestions:</strong> 231 preguntas EN/PT-BR, claves auditadas (29-30 Sep)<br>
                         <strong>Students:</strong> Perfiles + AccessExpiresAt + Role + CurrentPhase<br>
                         <strong>Quizzes:</strong> Simulados generados (initial/free/final_exam)<br>
                         <strong>QuizResults:</strong> Respuestas y métricas<br>
-                        <strong>Cohorts:</strong> Turmas con MaxStudents — turma-beta-01 activa
+                        <strong>Cohorts:</strong> BRSAO251-G3 y BRSAO254-G4 (MaxStudents 7)
                     </div>
                 </div>
 
@@ -850,7 +937,7 @@
                     <div class="infra-details">
                         <strong>User Pool:</strong> us-east-1_YolmrF9tp<br>
                         <strong>App Client:</strong> m5dcqn9lld9l5vhb8fhug4i80<br>
-                        <strong>Auth:</strong> SRP + JWT tokens
+                        <strong>Auth:</strong> USER_PASSWORD_AUTH + JWT (grupo Teachers)
                     </div>
                 </div>
             </div>
@@ -987,10 +1074,30 @@
                     <div class="timeline-title">Restructuración MVP + Migración de datos</div>
                     <div class="timeline-desc">Fases simplificadas (Diag → Práctica → Final por fecha), examen final con release/reset, frontend PT-BR, 54 tests, limpieza de tablas y seed turma-beta-01 (MentoringQuestions intacta, 203 preguntas).</div>
                 </div>
+                <div class="timeline-item done">
+                    <div class="timeline-date">8-10 septiembre 2026</div>
+                    <div class="timeline-title">Saneamiento post-E2E</div>
+                    <div class="timeline-desc">Permisos IAM faltantes, drift de Amplify, autorización owner-or-teacher (IDOR) y auditoría de correctitud de las 203 preguntas.</div>
+                </div>
+                <div class="timeline-item done">
+                    <div class="timeline-date">22-26 septiembre 2026</div>
+                    <div class="timeline-title">Beta con turma-beta-01 y calidad del banco</div>
+                    <div class="timeline-desc">Validación E2E del examen final, preguntas traducidas al PT-BR, interleaving por tema, filtro de casi-duplicados (fix autojunk) y lock contra exámenes finales duplicados.</div>
+                </div>
+                <div class="timeline-item done">
+                    <div class="timeline-date">29 septiembre 2026</div>
+                    <div class="timeline-title">Producción con turmas reales</div>
+                    <div class="timeline-desc">Turmas BRSAO251-G3 y BRSAO254-G4, profesor real, limpieza de cuentas de prueba. Fixes de la primera turma (PR #131) y auditoría de claves: 15 claves corregidas.</div>
+                </div>
+                <div class="timeline-item done">
+                    <div class="timeline-date">30 septiembre 2026</div>
+                    <div class="timeline-title">Seguridad y estabilidad</div>
+                    <div class="timeline-desc">Revisión ciega de claves con Claude en Bedrock (+6 correcciones). Auditoría de seguridad: la API ya no revela respuestas (PR #132), historial de git limpio. Examen final sin timeout (PR #133).</div>
+                </div>
                 <div class="timeline-item next">
-                    <div class="timeline-date">Desde 7 Sep 2026</div>
-                    <div class="timeline-title">Beta — Turma Real (7 alumnos)</div>
-                    <div class="timeline-desc">Turma-beta-01 activa (MaxStudents 7), Links externos, primer cohort real en producción.</div>
+                    <div class="timeline-date">Octubre 2026</div>
+                    <div class="timeline-title">Próximo: protecciones gratuitas y deuda técnica</div>
+                    <div class="timeline-desc">AWS Budgets, headers de seguridad, CORS, protección de tablas y de la rama main; anti-casi-duplicados en la ingesta; links externos y reportes.</div>
                 </div>
             </div>
         </section>
@@ -1001,26 +1108,26 @@
             
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-value">6-12h</div>
-                    <div class="stat-label">Tiempo total restante</div>
+                    <div class="stat-value">4-6h</div>
+                    <div class="stat-label">Protecciones gratuitas de AWS (#22)</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">✅ Hecho</div>
-                    <div class="stat-label">Rol de Profesor (7b)</div>
+                    <div class="stat-value">4-6h</div>
+                    <div class="stat-label">Anti-casi-duplicados en la ingesta (#23)</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">✅ Hecho</div>
-                    <div class="stat-label">Sistema de Fases (7e) + Migración (7f)</div>
+                    <div class="stat-value">2h</div>
+                    <div class="stat-label">Revisión de claves por lote (#24)</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">6-10h</div>
-                    <div class="stat-label">Links + Reportes</div>
+                    <div class="stat-value">6-9h</div>
+                    <div class="stat-label">Links externos + Reportes (#10, #11)</div>
                 </div>
             </div>
         </section>
 
         <footer style="text-align: center; padding: 40px 0; color: #64748b; font-size: 0.9rem;">
-            <p>AI Mentoring — Roadmap actualizado el 1 de septiembre de 2026</p>
+            <p>AI Mentoring — Roadmap actualizado el 1 de octubre de 2026</p>
             <p>Plataforma serverless para mentorías de certificación AWS</p>
         </footer>
     </div>
