@@ -303,6 +303,46 @@ class TestIsNearDuplicate(unittest.TestCase):
         self.assertTrue(quiz_engine.is_near_duplicate(a, b))
 
 
+class TestNearDuplicateIndex(unittest.TestCase):
+    """Bug 30-Sep: el filtro de casi-duplicados hacía que generar el examen final
+    superara el timeout de 15 s de la Lambda (500 + lock sin liberar -> 409).
+    NearDuplicateIndex es la versión rápida: debe dar EXACTAMENTE el mismo resultado
+    que any(is_near_duplicate(text, c) for c in chosen)."""
+
+    BASE = ("A company does not have a way to determine or predict the demand for usage that "
+            "its new internal application will generate. Which benefit of cloud computing is "
+            "the company looking for when it moves this application to the AWS Cloud?")
+
+    def _naive(self, text, chosen):
+        import quiz_engine
+        return any(quiz_engine.is_near_duplicate(text, c) for c in chosen)
+
+    def test_matches_naive_implementation(self):
+        import quiz_engine
+        rng = random.Random(42)
+        words = ("aws cloud company service data storage instance cost security network "
+                 "application users demand region availability backup lambda s3 ec2").split()
+        texts = [self.BASE,
+                 self.BASE.replace("does not have a way", "has no way"),       # casi-duplicado
+                 self.BASE.replace("internal application", "internal app"),    # casi-duplicado
+                 "", "   ", "Which AWS service runs containers?"]
+        texts += [" ".join(rng.choice(words) for _ in range(rng.randint(8, 45))) for _ in range(60)]
+        rng.shuffle(texts)
+
+        index, chosen = quiz_engine.NearDuplicateIndex(), []
+        for text in texts:
+            self.assertEqual(index.is_duplicate(text), self._naive(text, chosen), repr(text[:60]))
+            index.add(text)
+            chosen.append(text)
+
+    def test_detects_reworded_question(self):
+        import quiz_engine
+        index = quiz_engine.NearDuplicateIndex()
+        index.add(self.BASE)
+        self.assertTrue(index.is_duplicate(self.BASE.replace("does not have a way", "has no way")))
+        self.assertFalse(index.is_duplicate("Which AWS service provides a managed NoSQL database?"))
+
+
 class TestGenerateFinalExamConcurrencyLock(unittest.TestCase):
     """Bug reportado (26-Sep): 3 requests casi simultáneas (doble tap / reintento de
     red) generaron 3 exámenes finales distintos para el mismo alumno, porque cada

@@ -18,6 +18,11 @@ quizzes_table = dynamodb.Table(os.environ['QUIZZES_TABLE'])
 quiz_results_table = dynamodb.Table(os.environ['QUIZ_RESULTS_TABLE'])
 students_table = dynamodb.Table(os.environ['STUDENTS_TABLE'])
 
+# Un lock de generación más viejo que esto se considera abandonado (Lambda cortada por
+# timeout: el `finally` no corre). Debe ser MAYOR que el timeout de la Lambda (25 s en
+# lambda_quiz_engine.tf) para que una ejecución lenta pero viva no pierda su lock.
+GENERATION_LOCK_STALE_SECONDS = 30
+
 # Tope de preguntas en un quiz de práctica libre (el frontend ofrece 1-10)
 MAX_FREE_QUIZ_QUESTIONS = 20
 
@@ -305,7 +310,7 @@ def generate_quiz(student_id, body, lang='en'):
 
     question_ids = []
     cleaned_questions = []
-    chosen_texts = []
+    chosen = NearDuplicateIndex()
 
     selected = 0
     # Pase 1: sin preguntas ya respondidas ni casi-duplicadas de otra ya elegida
@@ -314,11 +319,10 @@ def generate_quiz(student_id, body, lang='en'):
         if selected >= count:
             break
         text = q.get('QuestionText', '')
-        if (q['QuestionID'] not in answered_ids
-                and not any(is_near_duplicate(text, other) for other in chosen_texts)):
+        if q['QuestionID'] not in answered_ids and not chosen.is_duplicate(text):
             question_ids.append(q['QuestionID'])
             cleaned_questions.append(clean_question(q, lang))
-            chosen_texts.append(text)
+            chosen.add(text)
             selected += 1
 
     # Pase 2 (fallback): completar la cantidad pedida igual si el tema no tiene
@@ -394,10 +398,7 @@ def _create_initial_quiz(student_id, lang='en'):
     """Selecciona 20 preguntas distribuidas por temas y crea el quiz. Se asume que
     ya se tiene el lock de generación (ver generate_initial_quiz)."""
     topic_buckets = []
-    chosen_texts = []
-
-    def is_dup_of_chosen(text):
-        return any(is_near_duplicate(text, other) for other in chosen_texts)
+    chosen = NearDuplicateIndex()
 
     for topic, count in INITIAL_TEST_DISTRIBUTION.items():
         if count == 0:
@@ -417,9 +418,9 @@ def _create_initial_quiz(student_id, lang='en'):
         for q in candidates:
             if len(bucket) >= count:
                 break
-            if not is_dup_of_chosen(q.get('QuestionText', '')):
+            if not chosen.is_duplicate(q.get('QuestionText', '')):
                 bucket.append((q['QuestionID'], clean_question(q, lang)))
-                chosen_texts.append(q.get('QuestionText', ''))
+                chosen.add(q.get('QuestionText', ''))
 
         # Pase 2 (fallback): completar la cuota igual si el tema no tiene
         # suficientes preguntas únicas — nunca dejar el quiz corto.
@@ -430,7 +431,7 @@ def _create_initial_quiz(student_id, lang='en'):
                     break
                 if q['QuestionID'] not in chosen_ids_here:
                     bucket.append((q['QuestionID'], clean_question(q, lang)))
-                    chosen_texts.append(q.get('QuestionText', ''))
+                    chosen.add(q.get('QuestionText', ''))
 
         topic_buckets.append(bucket)
 
@@ -535,6 +536,43 @@ def is_near_duplicate(text_a, text_b, threshold=SIMILARITY_THRESHOLD):
     if not a or not b:
         return False
     return difflib.SequenceMatcher(None, a, b, autojunk=False).ratio() >= threshold
+
+
+class NearDuplicateIndex:
+    """Mismo resultado que `any(is_near_duplicate(text, c) for c in chosen)`, pero
+    5-8x más rápido. Sin esto el examen final (65 preguntas, miles de comparaciones con
+    autojunk=False) superaba el timeout de 15 s de la Lambda: el alumno veía
+    "Internal Server Error" y, como el `finally` no llega a liberar el lock, los
+    reintentos devolvían 409 (bug 30-Sep).
+
+    - Un SequenceMatcher por texto elegido, con ese texto como seq2: difflib cachea el
+      análisis de seq2, y el orden (candidato=a, elegido=b) es el mismo de
+      is_near_duplicate (ratio() no es simétrico).
+    - real_quick_ratio() y quick_ratio() son cotas superiores de ratio(): descartan rápido
+      los pares claramente distintos sin cambiar el resultado.
+    - El texto normalizado se calcula una sola vez por enunciado."""
+
+    def __init__(self, threshold=SIMILARITY_THRESHOLD):
+        self.threshold = threshold
+        self._matchers = []
+
+    def is_duplicate(self, text):
+        a = _normalize_for_similarity(text)
+        if not a:
+            return False
+        th = self.threshold
+        for m in self._matchers:
+            m.set_seq1(a)
+            if m.real_quick_ratio() >= th and m.quick_ratio() >= th and m.ratio() >= th:
+                return True
+        return False
+
+    def add(self, text):
+        b = _normalize_for_similarity(text)
+        if b:
+            m = difflib.SequenceMatcher(None, autojunk=False)
+            m.set_seq2(b)
+            self._matchers.append(m)
 
 
 def can_generate_final_exam(completed_count):
@@ -651,11 +689,13 @@ def generate_final_exam(student_id, lang='en'):
         _release_generation_lock(student_id, 'FinalExamGenerationLock')
 
 
-def _acquire_generation_lock(student_id, lock_attr, stale_seconds=20):
+def _acquire_generation_lock(student_id, lock_attr, stale_seconds=None):
     """Lock atómico (ConditionExpression) en el item del alumno para serializar la
     generación de un quiz. Retorna False si otra request ya tiene el lock.
     Un lock más viejo que stale_seconds se considera abandonado (Lambda caída a
     mitad de la generación) y se puede tomar igual."""
+    if stale_seconds is None:
+        stale_seconds = GENERATION_LOCK_STALE_SECONDS
     now = datetime.now(timezone.utc)
     try:
         students_table.update_item(
@@ -690,10 +730,7 @@ def _create_final_exam_quiz(student_id, lang='en'):
 
     topic_buckets = []
     chosen_ids = set()
-    chosen_texts = []
-
-    def is_dup_of_chosen(text):
-        return any(is_near_duplicate(text, other) for other in chosen_texts)
+    chosen = NearDuplicateIndex()
 
     for topic, count in FINAL_EXAM_DISTRIBUTION.items():
         if count == 0:
@@ -719,10 +756,10 @@ def _create_final_exam_quiz(student_id, lang='en'):
             if selected >= count:
                 break
             if (q['QuestionID'] not in answered_ids and q['QuestionID'] not in chosen_ids
-                    and not is_dup_of_chosen(q.get('QuestionText', ''))):
+                    and not chosen.is_duplicate(q.get('QuestionText', ''))):
                 bucket.append((q['QuestionID'], clean_question(q, lang)))
                 chosen_ids.add(q['QuestionID'])
-                chosen_texts.append(q.get('QuestionText', ''))
+                chosen.add(q.get('QuestionText', ''))
                 selected += 1
 
         # Pase 2 (fallback): si el tema no tiene suficientes preguntas únicas, se
@@ -735,7 +772,7 @@ def _create_final_exam_quiz(student_id, lang='en'):
                 if q['QuestionID'] not in chosen_ids:
                     bucket.append((q['QuestionID'], clean_question(q, lang)))
                     chosen_ids.add(q['QuestionID'])
-                    chosen_texts.append(q.get('QuestionText', ''))
+                    chosen.add(q.get('QuestionText', ''))
                     selected += 1
 
         topic_buckets.append(bucket)

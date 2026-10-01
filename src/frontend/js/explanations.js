@@ -12,14 +12,18 @@ function renderExplanationBlock(options) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 
-    const correct = options.find(o => o.is_correct);
+    // filter, no find: en preguntas "Escolha duas" hay más de una correcta y antes la
+    // segunda no aparecía en ningún lado (ni como correcta ni en "outras opções").
+    const correct = options.filter(o => o.is_correct);
     const others = options.filter(o => !o.is_correct);
 
     let html = '<div class="explanation-block">';
-    if (correct) {
+    if (correct.length) {
         html += `<p><strong>${escLocal(t("explanation.general"))}</strong></p>`;
-        html += `<p><strong>${escLocal(correct.key)}) ${escLocal(correct.text)}</strong></p>`;
-        html += `<p>${escLocal(correct.explanation)}</p>`;
+        correct.forEach(c => {
+            html += `<p><strong>${escLocal(c.key)}) ${escLocal(c.text)}</strong></p>`;
+            html += `<p>${escLocal(c.explanation)}</p>`;
+        });
     }
     if (others.length) {
         html += `<p><strong>${escLocal(t("explanation.otherOptions"))}</strong></p><ul>`;

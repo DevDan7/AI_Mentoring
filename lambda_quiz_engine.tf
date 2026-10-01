@@ -11,8 +11,8 @@ resource "aws_lambda_function" "quiz_engine" {
   role          = aws_iam_role.quiz_engine_role.arn
   handler       = "quiz_engine.lambda_handler"
   runtime       = "python3.12"
-  timeout       = 15
-  memory_size   = 256
+  timeout       = 25   # < 30 s de API Gateway; ver GENERATION_LOCK_STALE_SECONDS en quiz_engine.py
+  memory_size   = 1024 # CPU escala con la memoria: con 256 MB el examen final superaba el timeout (30-Sep)
 
   source_code_hash = data.archive_file.quiz_engine_zip.output_base64sha256
 
