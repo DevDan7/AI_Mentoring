@@ -394,6 +394,25 @@ el porcentaje de cada dominio, sin volver a comparar textos.
 **Beneficio esperado**: generación en milisegundos, independiente del tamaño del banco y de la CPU; la
 Lambda podría volver a 256 MB.
 
+**Por qué es la solución correcta** (patrón "escribir una vez, leer muchas"):
+
+| | Ingesta (`processor.py`) | Generación de quiz (`quiz_engine.py`) |
+|---|---|---|
+| Frecuencia | 1 vez por pregunta, para siempre | Cada quiz de cada alumno (crece con las turmas) |
+| Quién espera | Nadie: asíncrono vía S3 → SQS (`batch_size = 1`, `maximum_concurrency = 3`) | El alumno, con el límite de 30 s de API Gateway |
+| Costo de comparar | 1 pregunta nueva × N del mismo tema | Hasta 65 × ~200 candidatas por examen |
+| Si falla o tarda | Reintento SQS + DLQ, sin impacto visible | `Internal Server Error` / `409` (30-Sep) |
+
+La ingesta **ya hace** esta comparación (`find_near_duplicate`), pero hoy solo alerta por SNS y descarta el
+resultado. La propuesta lo **guarda** en `SimilarityGroup` y el quiz lo **reutiliza**.
+
+Cuidados al implementar (no afectan la viabilidad):
+- Falsos positivos del umbral 0.85: hoy no bloquean el insert y deben seguir así. Agrupar no borra la
+  pregunta; solo evita que salgan dos del mismo grupo en un quiz.
+- Grupos encadenados (A≈B y B≈C, pero A≉C): asignar el grupo de la primera coincidencia; es aceptable.
+- Cargas que no pasan por el pipeline (p. ej. `scripts/subir_preguntas_aprobadas.py`) también deben asignar
+  el grupo.
+
 **Referencias**: `src/quiz_engine.py` (`NearDuplicateIndex`, `is_near_duplicate`), `src/processor.py`
 (`find_near_duplicate`), `doc/changelog.md` (26-Sep autojunk, 30-Sep noche timeout), roadmap ítem 15 en
 `doc/architecture.md`.
