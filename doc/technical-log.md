@@ -362,6 +362,42 @@ question_074, 077, 084, 087, 088, 090, 094, 098, 104
 
 **Solución pendiente**: Evaluar validación adicional por `EmailIndex` antes de crear perfil nuevo.
 
+### 6. Anti-casi-duplicados en tiempo de generación (deuda técnica, 2026-10-01)
+
+**Problema**: cada vez que se genera un quiz (inicial, práctica o examen final), `quiz_engine.py` compara
+cada pregunta candidata contra todas las ya elegidas con `difflib.SequenceMatcher(autojunk=False)` para no
+incluir dos variantes de la misma pregunta. Para el examen final (65 preguntas) son miles de comparaciones
+y el costo depende de la CPU de la Lambda: el 30-Sep superó el timeout de 15 s con 256 MB (alumnos con
+`Internal Server Error` y luego `409`, ver changelog 30-Sep noche).
+
+**Estado**: **mitigado, no resuelto**. `NearDuplicateIndex` (5-8x más rápido, mismo resultado) + Lambda a
+1024 MB / 25 s. El costo sigue creciendo con el tamaño del banco.
+
+**Idea de fondo (propuesta de Daniel)**: la deduplicación es responsabilidad de la **ingesta**, no del quiz.
+El banco ya se deduplica al cargarlo (`ContentHash` exacto, alerta de casi-duplicados en `processor.py`,
+scripts de limpieza), así que generar un examen debería ser **solo lectura**: tomar las 65 preguntas según
+el porcentaje de cada dominio, sin volver a comparar textos.
+
+**Diseño propuesto**:
+- Atributo `SimilarityGroup` en `MentoringQuestions`: las variantes de una misma pregunta comparten grupo;
+  una pregunta única tiene grupo propio (su `QuestionID`).
+- Se calcula **una sola vez**:
+  - Banco actual: script offline que reutiliza la lógica de `scripts/detectar_casi_duplicados_contenido.py`.
+  - Preguntas nuevas: `processor.py` ya llama a `find_near_duplicate()` al ingerir; en vez de solo alertar
+    por SNS, asigna el `SimilarityGroup` de la pregunta casi-duplicada encontrada.
+- `quiz_engine.py`: reemplazar `NearDuplicateIndex` por "no elegir dos preguntas con el mismo
+  `SimilarityGroup`" (un `set`, O(1) por candidata). La generación queda en una selección por porcentaje
+  de dominio.
+- Alternativa más simple: si la limpieza garantiza 0 casi-duplicados en el banco, eliminar el filtro del
+  quiz y dejar la validación solo en la ingesta (exige que toda carga pase por el pipeline).
+
+**Beneficio esperado**: generación en milisegundos, independiente del tamaño del banco y de la CPU; la
+Lambda podría volver a 256 MB.
+
+**Referencias**: `src/quiz_engine.py` (`NearDuplicateIndex`, `is_near_duplicate`), `src/processor.py`
+(`find_near_duplicate`), `doc/changelog.md` (26-Sep autojunk, 30-Sep noche timeout), roadmap ítem 15 en
+`doc/architecture.md`.
+
 ---
 
 ## Problemas Resueltos

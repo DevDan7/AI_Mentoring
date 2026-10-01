@@ -526,6 +526,7 @@ El objetivo del proyecto tiene 3 piezas:
 | 12 | Refactor: AWS Step Functions para orquestación asíncrona | ⏳ Pendiente |
 | 13 | Cleanup: avisos de depreciación (`key_schema` vs `hash_key`) | ⏳ Evaluado, mantenido (bug del proveedor AWS) |
 | 14 | Generación automatizada de relatorios | ⏳ Pendiente |
+| 15 | Deuda técnica: anti-casi-duplicados precomputado en la ingesta (`SimilarityGroup`), no en cada quiz — ver `technical-log.md` § Problemas Detectados #6 | ⏳ Pendiente |
 
 ---
 
