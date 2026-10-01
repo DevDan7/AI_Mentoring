@@ -6,6 +6,24 @@
 
 ## 2026-09
 
+### 30 Sep (noche) — Examen final daba "Internal Server Error"/409 y explicación incompleta en "Escolha duas"
+- **Problema 1 — examen final no se generaba**: al liberarlo, los alumnos recibían
+  `Internal Server Error` y, al reintentar, `409`. CloudWatch: 8 invocaciones de `quiz-engine` con
+  `Status: timeout` a los 15 s. **Causa raíz**: el filtro de casi-duplicados (`difflib.SequenceMatcher`
+  con `autojunk=False`, 26-Sep) hace miles de comparaciones para 65 preguntas; con 256 MB (≈1/7 vCPU)
+  superaba el timeout. El 409 era consecuencia: la Lambda cortada no ejecuta el `finally` que libera el
+  lock de generación, y los reintentos dentro de los 20 s chocaban con él.
+  **Solución**: `NearDuplicateIndex` — un `SequenceMatcher` por texto elegido (difflib cachea seq2),
+  cotas `real_quick_ratio()`/`quick_ratio()` antes de `ratio()` y normalización una sola vez: 5-8x más
+  rápido con resultado **idéntico** (verificado con el banco real en 5 sorteos y con un test de
+  equivalencia). Además `memory_size` 256 → 1024 MB (≈4x CPU, costo similar porque corre más rápido) y
+  `timeout` 15 → 25 s; el lock se considera abandonado a los 30 s (`GENERATION_LOCK_STALE_SECONDS`,
+  siempre mayor que el timeout).
+- **Problema 2 — explicación incompleta en preguntas de selección múltiple** (reportado por un alumno):
+  `explanations.js` usaba `options.find(o => o.is_correct)` y mostraba solo la primera correcta; la
+  segunda no aparecía ni como correcta ni en "outras opções". Ahora muestra todas las correctas.
+- Tests: 124 pasan (2 nuevos).
+
 ### 30 Sep — Auditoría de seguridad: fuga de respuestas por la API y clave del banco en el repo
 - **Origen**: un alumno comentó que el link de acceso "parecía sospechoso". Se revisó toda la
   aplicación e infraestructura (informe completo guardado localmente, fuera del repo).
