@@ -417,6 +417,32 @@ Cuidados al implementar (no afectan la viabilidad):
 (`find_near_duplicate`), `doc/changelog.md` (26-Sep autojunk, 30-Sep noche timeout), roadmap ítem 15 en
 `doc/architecture.md`.
 
+### 7. Reset del examen final: se pierde historial y puede repetir preguntas (mejora futura, 2026-10-01)
+
+**Comportamiento actual** (`reset_final_exam_attempt`, `src/student_api.py`): marca el último examen final
+con `Status = 'reset'`. No borra nada (`QuizResults` y `ScorePercentage` quedan), pero:
+- **Fecha perdida**: sobrescribe `CompletedAt` con la fecha del reset; no se sabe cuándo rindió el intento.
+- **Sin detalle para el alumno**: `dashboard.html` solo muestra "Ver detalhes" si `status === 'completed'`.
+  El profesor sí ve el link.
+- **Puede repetir preguntas**: `get_student_answered_question_ids` (`src/quiz_engine.py`) solo considera
+  quizzes `completed`; las 65 preguntas del intento reseteado no se excluyen del examen nuevo (el shuffle
+  reduce la coincidencia, no la evita).
+
+**Mejoras propuestas (idea de Daniel)**:
+1. **Historial completo tras el reset**: guardar `ResetAt` aparte y no tocar `CompletedAt`; mostrar el
+   intento anterior con fecha, nota y detalle pregunta-por-pregunta (alumno y profesor).
+2. **Examen final con varios intentos (p. ej. 3) en vez de reset manual**: `MaxFinalExamAttempts`
+   (por alumno o por turma); cada intento excluye las preguntas de los intentos anteriores (incluir
+   `reset` y finales previos en la anti-repetición).
+3. **Alternativa: simulados de 65 preguntas que el profesor libera**: además del final, liberar
+   simulados completos (mismo generador, misma distribución por dominio) sin repetir preguntas ya vistas.
+
+**Límite a validar antes de implementar**: capacidad del banco. 3 intentos × 65 = 195 preguntas únicas
+respetando la distribución por dominio (`FINAL_EXAM_DISTRIBUTION`), y sin casi-duplicados. Si un tema no
+alcanza, el pase 2 (fallback) repite preguntas; contar preguntas por tema antes de fijar el número de
+intentos. Relacionado con #6 (`SimilarityGroup`): con más intentos crece el costo del filtro en tiempo de
+generación.
+
 ---
 
 ## Problemas Resueltos
