@@ -607,6 +607,7 @@ def resume_quiz(quiz, lang='en'):
         'student_id': quiz['StudentID'],
         'quiz_type': quiz.get('QuizType', 'final_exam'),
         'topic': quiz.get('Topic', 'final_exam'),
+        'status': quiz.get('Status', 'in_progress'),
         'questions': cleaned_questions,
         'answered_question_ids': answered_ids
     })
@@ -840,14 +841,21 @@ def get_quiz(quiz_id, student_id, lang='en'):
         'student_id': quiz['StudentID'],
         'quiz_type': quiz.get('QuizType', 'free'),
         'topic': quiz.get('Topic', ''),
+        'status': quiz.get('Status', 'in_progress'),
         'questions': cleaned_questions,
         'answered_question_ids': answered_question_ids
     })
 
 
-def complete_quiz(quiz_id, student_id):
-    """Marca un quiz como completado, calcula score y aplica lógica de progresión de fases."""
-    quiz_response = quizzes_table.get_item(Key={'QuizID': quiz_id})
+def complete_quiz(quiz_id, student_id, pending_result=None):
+    """Marca un quiz como completado, calcula score y aplica lógica de progresión de fases.
+
+    pending_result: respuesta recién guardada por submit_answer. El GSI QuizIndex es
+    eventualmente consistente y puede no devolverla todavía; se suma a mano para que
+    el score no pierda la última respuesta."""
+    # Lectura consistente: el frontend llama a /complete justo después del último submit
+    # y una lectura eventual podía ver "in_progress" en un quiz ya completado.
+    quiz_response = quizzes_table.get_item(Key={'QuizID': quiz_id}, ConsistentRead=True)
     quiz = quiz_response.get('Item')
 
     if not quiz:
@@ -871,22 +879,34 @@ def complete_quiz(quiz_id, student_id):
     )
     quiz_questions = set(quiz.get('Questions', []))
     results = [r for r in results_response.get('Items', []) if r.get('QuestionID') in quiz_questions]
+    if pending_result and pending_result.get('QuestionID') in quiz_questions \
+            and pending_result.get('QuestionID') not in {r.get('QuestionID') for r in results}:
+        results.append(pending_result)
     total_questions = len(quiz.get('Questions', []))
     answered_questions = len(results)
     correct_answers = sum(1 for r in results if r.get('IsCorrect', False))
     score_percentage = Decimal(str(round((correct_answers / total_questions) * 100, 1))) if total_questions > 0 else Decimal('0')
 
-    # Guardar status, fecha y score en el quiz
-    quizzes_table.update_item(
-        Key={'QuizID': quiz_id},
-        UpdateExpression='SET #s = :status, CompletedAt = :completed_at, ScorePercentage = :score',
-        ExpressionAttributeNames={'#s': 'Status'},
-        ExpressionAttributeValues={
-            ':status': 'completed',
-            ':completed_at': completed_at,
-            ':score': score_percentage
-        }
-    )
+    # Guardar status, fecha y score en el quiz. Condicional: si dos llamadas compiten
+    # (auto-completado del submit y /complete del frontend), solo una gana; la otra no
+    # sobrescribe el score ni duplica el avance de fase.
+    try:
+        quizzes_table.update_item(
+            Key={'QuizID': quiz_id},
+            UpdateExpression='SET #s = :status, CompletedAt = :completed_at, ScorePercentage = :score',
+            ConditionExpression='#s = :in_progress',
+            ExpressionAttributeNames={'#s': 'Status'},
+            ExpressionAttributeValues={
+                ':status': 'completed',
+                ':completed_at': completed_at,
+                ':score': score_percentage,
+                ':in_progress': 'in_progress'
+            }
+        )
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+            return build_response(409, {'error': 'Quiz is not in progress'})
+        raise
 
     # Lógica de progresión de fases
     quiz_type = quiz.get('QuizType')
@@ -1000,12 +1020,16 @@ def submit_answer(student_id, body, lang='en'):
     existing = existing_response.get('Items', [])
     if existing:
         result = existing[0]
+        # Reenvío de una respuesta ya guardada: si el quiz quedó "in_progress" con todo
+        # respondido (auto-completado perdido), se cierra ahora.
+        quiz_completed = quiz.get('Status') == 'in_progress' and complete_if_all_answered(quiz, student_id)
         return build_response(201, {
             'result_id': result['ResultID'],
             'quiz_id': quiz_id,
             'is_correct': result.get('IsCorrect', False),
             'explanation': explanation,
-            'options': options_breakdown
+            'options': options_breakdown,
+            'quiz_completed': quiz_completed
         })
 
     # Respuestas nuevas solo mientras el quiz está en curso (antes se aceptaban después
@@ -1016,7 +1040,7 @@ def submit_answer(student_id, body, lang='en'):
     result_id = str(uuid.uuid4())
     timestamp = datetime.now(timezone.utc).isoformat()
 
-    quiz_results_table.put_item(Item={
+    new_result = {
         'ResultID': result_id,
         'QuizID': quiz_id,
         'StudentID': student_id,
@@ -1025,25 +1049,48 @@ def submit_answer(student_id, body, lang='en'):
         'CorrectAnswers': correct_options,
         'IsCorrect': is_correct,
         'Timestamp': timestamp
-    })
+    }
+    quiz_results_table.put_item(Item=new_result)
 
-    # Verificar si es la última pregunta → auto-completar
-    total_questions = len(quiz.get('Questions', []))
-    results_response = quiz_results_table.query(
-        IndexName='QuizIndex',
-        KeyConditionExpression=Key('QuizID').eq(quiz_id)
-    )
-    answered_count = len(results_response.get('Items', []))
-    if answered_count >= total_questions:
-        complete_quiz(quiz_id, student_id)
+    # Si es la última pregunta → auto-completar
+    quiz_completed = complete_if_all_answered(quiz, student_id, pending_result=new_result)
 
     return build_response(201, {
         'result_id': result_id,
         'quiz_id': quiz_id,
         'is_correct': is_correct,
         'explanation': explanation,
-        'options': options_breakdown
+        'options': options_breakdown,
+        'quiz_completed': quiz_completed
     })
+
+
+def complete_if_all_answered(quiz, student_id, pending_result=None):
+    """Completa el quiz si todas sus preguntas tienen respuesta. Devuelve True si lo completó.
+
+    Bug 02-Oct: se contaban los ítems del GSI QuizIndex, que es eventualmente consistente.
+    Justo después del put_item de la última respuesta la query devolvía N-1 y el quiz
+    quedaba "in_progress" para siempre con todo respondido (6 quizzes atascados, entre
+    ellos un diagnóstico inicial que no avanzó de fase). Ahora se cuentan QuestionIDs
+    únicos y se suma la respuesta recién guardada."""
+    quiz_id = quiz['QuizID']
+    quiz_questions = set(quiz.get('Questions', []))
+    if not quiz_questions:
+        return False
+
+    results_response = quiz_results_table.query(
+        IndexName='QuizIndex',
+        KeyConditionExpression=Key('QuizID').eq(quiz_id)
+    )
+    answered = {r.get('QuestionID') for r in results_response.get('Items', [])}
+    if pending_result:
+        answered.add(pending_result.get('QuestionID'))
+
+    if not quiz_questions <= answered:
+        return False
+
+    response = complete_quiz(quiz_id, student_id, pending_result=pending_result)
+    return response['statusCode'] == 200
 
 
 def get_results(quiz_id, student_id, claims=None, lang='en'):

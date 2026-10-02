@@ -4,6 +4,23 @@
 
 ---
 
+## 2026-10
+
+### 02 Oct — Quizzes quedaban "Em andamento" con todas las preguntas respondidas
+- **Problema**: un alumno de BRSAO254-G4 respondió las 20 preguntas del diagnóstico inicial y el quiz
+  quedó `in_progress`, sin score y sin avanzar a `free_practice`. En toda la base había 6 quizzes así
+  (~1 de cada 7 cierres). **Causa raíz**: el frontend nunca llama a `/complete`; el cierre dependía de
+  `submit_answer`, que contaba las respuestas con una query al GSI `QuizIndex`. Los GSI son siempre
+  eventualmente consistentes: justo después del `put_item` de la última respuesta la query devolvía
+  N-1 y el quiz no se cerraba nunca.
+  **Solución**: `complete_if_all_answered` cuenta `QuestionID` únicos y suma la respuesta recién
+  guardada (también al score de `complete_quiz`). Reenviar una respuesta ya guardada cierra un quiz
+  atascado. `complete_quiz` lee el quiz con `ConsistentRead` y actualiza con condición
+  `Status = in_progress` (dos cierres simultáneos ya no duplican el avance de fase). Como respaldo,
+  `quiz.html` llama a `/complete` si el submit no confirmó el cierre (`quiz_completed`) o si se
+  reabre un quiz con todo respondido. Datos: script manual `reparar_quizzes_atascados.py` (dry-run por
+  defecto, backup en `scripts/backup/`).
+
 ## 2026-09
 
 ### 30 Sep (noche) — Examen final daba "Internal Server Error"/409 y explicación incompleta en "Escolha duas"

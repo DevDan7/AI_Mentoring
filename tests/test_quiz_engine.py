@@ -1362,6 +1362,96 @@ class TestCompleteQuizHardening(unittest.TestCase):
         self.assertEqual(float(score), 50.0)
 
 
+class TestAutoCompleteWithGsiLag(unittest.TestCase):
+    """Bug 02-Oct: el auto-completado contaba ítems del GSI QuizIndex (eventualmente
+    consistente). Si la última respuesta todavía no aparecía, el quiz quedaba
+    "in_progress" con todo respondido y el diagnóstico inicial no avanzaba de fase."""
+
+    def _setup(self, ms, mqs, mq, quiz_type='initial', phase='initial', status='in_progress'):
+        ms.get_item.return_value = {'Item': make_student_item(phase=phase, release_delta_days=None)}
+        mqs.get_item.return_value = {'Item': make_question_item('q2')}
+        mq.get_item.return_value = {'Item': {
+            'QuizID': 'quiz-1', 'StudentID': 'student-123', 'QuizType': quiz_type,
+            'Questions': ['q1', 'q2'], 'Status': status,
+        }}
+
+    def _submit(self, question_id='q2'):
+        import quiz_engine
+        response = quiz_engine.submit_answer('student-123', {
+            'quiz_id': 'quiz-1', 'question_id': question_id, 'given_answers': ['A']
+        })
+        return response, json.loads(response['body'])
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.questions_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    def test_last_answer_missing_from_gsi_still_completes(self, mq, mr, mqs, ms):
+        self._setup(ms, mqs, mq)
+        lagging = {'Items': [make_result_item(quiz_id='quiz-1', question_id='q1')]}
+        # 1) chequeo de respuesta existente, 2) conteo del auto-completado, 3) score
+        mr.query.side_effect = [{'Items': []}, lagging, lagging]
+
+        response, body = self._submit()
+
+        self.assertEqual(response['statusCode'], 201)
+        self.assertTrue(body['quiz_completed'])
+        values = mq.update_item.call_args.kwargs['ExpressionAttributeValues']
+        self.assertEqual(values[':status'], 'completed')
+        self.assertEqual(float(values[':score']), 100.0)  # la respuesta pendiente suma
+        phase_values = ms.update_item.call_args_list[0].kwargs['ExpressionAttributeValues']
+        self.assertEqual(phase_values[':phase'], 'free_practice')
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.questions_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    def test_not_all_answered_does_not_complete(self, mq, mr, mqs, ms):
+        self._setup(ms, mqs, mq, quiz_type='free', phase='free_practice')
+        mr.query.side_effect = [{'Items': []}, {'Items': []}]
+
+        _, body = self._submit()
+
+        self.assertFalse(body['quiz_completed'])
+        mq.update_item.assert_not_called()
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.questions_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    def test_resubmit_on_stuck_quiz_completes_it(self, mq, mr, mqs, ms):
+        self._setup(ms, mqs, mq, quiz_type='free', phase='free_practice')
+        both = {'Items': [make_result_item(result_id='r1', quiz_id='quiz-1', question_id='q1'),
+                          make_result_item(result_id='r2', quiz_id='quiz-1', question_id='q2')]}
+        existing = {'Items': [both['Items'][1]]}
+        mr.query.side_effect = [existing, both, both]
+
+        _, body = self._submit()
+
+        self.assertTrue(body['quiz_completed'])
+        mr.put_item.assert_not_called()
+        self.assertEqual(mq.update_item.call_args.kwargs['ExpressionAttributeValues'][':status'], 'completed')
+
+    @mock.patch('quiz_engine.students_table')
+    @mock.patch('quiz_engine.quizzes_table')
+    @mock.patch('quiz_engine.quiz_results_table')
+    def test_concurrent_completion_returns_409_without_phase_change(self, mr, mq, ms):
+        import quiz_engine
+        from botocore.exceptions import ClientError
+        mq.get_item.return_value = {'Item': {
+            'QuizID': 'quiz-1', 'StudentID': 'student-123', 'QuizType': 'initial',
+            'Questions': ['q1'], 'Status': 'in_progress',
+        }}
+        mr.query.return_value = {'Items': [make_result_item(quiz_id='quiz-1', question_id='q1')]}
+        mq.update_item.side_effect = ClientError(
+            {'Error': {'Code': 'ConditionalCheckFailedException', 'Message': ''}}, 'UpdateItem')
+
+        response = quiz_engine.complete_quiz('quiz-1', 'student-123')
+
+        self.assertEqual(response['statusCode'], 409)
+        ms.update_item.assert_not_called()
+
+
 class TestGenerateQuizNumQuestionsValidation(unittest.TestCase):
 
     @mock.patch('quiz_engine.students_table')
