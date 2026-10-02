@@ -164,6 +164,45 @@ resource "aws_iam_policy" "terraform_cicd_policy" {
           "iam:GetOpenIDConnectProvider"
         ]
         Resource = "*"
+      },
+      {
+        # Paso 1a (2026-10-01): presupuestos de AWS Budgets creados por Terraform (budgets.tf).
+        # Mínimo privilegio: solo los budgets cuyo nombre empieza con "ai-mentoring-"; los
+        # presupuestos creados a mano en la cuenta (Alerta Free Tear, pdv-dev-*) quedan fuera.
+        # budgets:ModifyBudget cubre crear/actualizar/borrar; los *Tag* son para default_tags (paso 1b).
+        Sid    = "ManageProjectBudgets"
+        Effect = "Allow"
+        Action = [
+          "budgets:ModifyBudget",
+          "budgets:ViewBudget",
+          "budgets:TagResource",
+          "budgets:UntagResource",
+          "budgets:ListTagsForResource"
+        ]
+        Resource = "arn:aws:budgets::${data.aws_caller_identity.current.account_id}:budget/ai-mentoring-*"
+      },
+      {
+        # Paso 1a (2026-10-01): poner el tag Project=AI_Mentoring (default_tags, paso 1b) en los
+        # roles y políticas IAM del proyecto. Sin esto el apply del paso 1b falla en IAM.
+        # Acotado a los nombres que maneja este repo (iam.tf, iam_student_api.tf).
+        Sid    = "TagProjectIamResources"
+        Effect = "Allow"
+        Action = [
+          "iam:TagRole",
+          "iam:UntagRole",
+          "iam:ListRoleTags",
+          "iam:TagPolicy",
+          "iam:UntagPolicy",
+          "iam:ListPolicyTags"
+        ]
+        Resource = [
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/mentoring-*",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/quiz-engine-role",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/ai-mentoring-github-actions",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/mentoring-*",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/quiz-engine-policy",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/terraform-cicd-policy"
+        ]
       }
     ]
   })
