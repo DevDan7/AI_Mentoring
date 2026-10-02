@@ -96,6 +96,10 @@ async function submitAnswer(quizId, questionId, givenAnswers) {
     });
 }
 
+async function completeQuiz(quizId) {
+    return apiCall("POST", `/quizzes/${encodeURIComponent(quizId)}/complete`);
+}
+
 async function getQuizResults(quizId) {
     return apiCall("GET", `/quizzes/${encodeURIComponent(quizId)}/results?lang=${getLang()}`);
 }

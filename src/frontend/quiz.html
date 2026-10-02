@@ -112,6 +112,8 @@
 
             let selectedAnswers = [];
             let answered = false;
+            // true cuando el backend confirma en el submit que cerró el quiz
+            let quizCompletedByServer = false;
 
             const answeredIds = quizData.answered_question_ids || (quizData.answered_question_ids = []);
             const totalQuestions = quizData.questions.length;
@@ -120,6 +122,11 @@
             updateAnsweredProgress();
 
             if (currentIndex === -1) {
+                // Todo respondido pero el quiz sigue "in_progress": quedó atascado sin
+                // completarse (bug 02-Oct). Se cierra al reabrirlo.
+                if (quizData.status === "in_progress") {
+                    await ensureQuizCompleted(quizData.quiz_id);
+                }
                 document.getElementById("loadingState").style.display = "none";
                 document.getElementById("completedState").style.display = "";
                 document.getElementById("viewResultsBtn").href = `results.html?quizId=${quizData.quiz_id}`;
@@ -201,6 +208,7 @@
                 try {
                     const q = quizData.questions[currentIndex];
                     const result = await submitAnswer(quizData.quiz_id, q.question_id, selectedAnswers);
+                    if (result.quiz_completed) quizCompletedByServer = true;
 
                     const feedback = document.getElementById("feedbackMsg");
                     if (result.is_correct) {
@@ -268,10 +276,16 @@
                 }
             });
 
-            document.getElementById("nextBtn").addEventListener("click", () => {
+            document.getElementById("nextBtn").addEventListener("click", async () => {
                 currentIndex++;
                 if (currentIndex >= quizData.questions.length) {
                     localStorage.setItem("last_quiz_id", quizData.quiz_id);
+
+                    // Respaldo del auto-completado del backend: si el último submit no
+                    // confirmó el cierre, se pide explícitamente.
+                    if (!quizCompletedByServer) {
+                        await ensureQuizCompleted(quizData.quiz_id);
+                    }
 
                     // Se guarda la clave en data-i18n para que un cambio de idioma posterior la re-traduzca.
                     const completionMessage = quizData.quiz_type === "initial"
@@ -292,6 +306,17 @@
                 }
             });
         })();
+
+        // 409 = el quiz ya estaba completado: no es un error para el alumno.
+        async function ensureQuizCompleted(quizId) {
+            try {
+                await completeQuiz(quizId);
+            } catch (err) {
+                const errorEl = document.getElementById("errorMsg");
+                if (errorEl) errorEl.style.display = "none";
+                console.warn("No se pudo completar el quiz:", err);
+            }
+        }
 
         function esc(value) {
             return String(value === undefined || value === null ? '' : value)
