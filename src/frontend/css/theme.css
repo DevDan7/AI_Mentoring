@@ -216,7 +216,9 @@ label {
 }
 
 /* ========== Tablas ========== */
-article:has(> table) {
+article:has(> table),
+#historyContainer,
+#domainBreakdownSection {
     overflow-x: auto;
 }
 
