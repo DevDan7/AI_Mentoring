@@ -101,7 +101,17 @@
 
                 const stored = localStorage.getItem("active_quiz");
                 if (stored) {
-                    quizData = JSON.parse(stored);
+                    // La copia de localStorage es la respuesta de "generar" y nunca se
+                    // actualiza: tras recargar (Chrome móvil recarga pestañas solo) volvía
+                    // a mostrar preguntas ya respondidas (bug 04-Oct). Se pide el estado
+                    // real al backend y se fija el quizId en la URL para futuras recargas.
+                    const snapshot = JSON.parse(stored);
+                    try {
+                        quizData = await getQuiz(snapshot.quiz_id);
+                        history.replaceState(null, "", `quiz.html?quizId=${encodeURIComponent(snapshot.quiz_id)}`);
+                    } catch (err) {
+                        quizData = snapshot;
+                    }
                 }
             }
 
@@ -211,6 +221,13 @@
                     if (result.quiz_completed) quizCompletedByServer = true;
 
                     const feedback = document.getElementById("feedbackMsg");
+                    if (result.already_answered) {
+                        // La pregunta ya estaba respondida: se marca la opción que se calificó.
+                        const given = result.given_answers || [];
+                        document.querySelectorAll('#optionsContainer input[name="option"]').forEach(input => {
+                            input.checked = given.includes(input.value);
+                        });
+                    }
                     if (result.is_correct) {
                         feedback.style.background = "var(--pico-color-green-100)";
                         feedback.style.color = "var(--pico-color-green-700)";
@@ -219,6 +236,9 @@
                         feedback.style.background = "var(--pico-color-red-100)";
                         feedback.style.color = "var(--pico-color-red-700)";
                         feedback.innerHTML = `<strong>${esc(t("quiz.incorrect"))}</strong>`;
+                    }
+                    if (result.already_answered) {
+                        feedback.innerHTML += `<p>${esc(t("quiz.alreadyAnswered", { answers: (result.given_answers || []).join(", ") }))}</p>`;
                     }
                     feedback.innerHTML += renderExplanationBlock(result.options);
                     feedback.style.display = "block";

@@ -1023,10 +1023,17 @@ def submit_answer(student_id, body, lang='en'):
         # Reenvío de una respuesta ya guardada: si el quiz quedó "in_progress" con todo
         # respondido (auto-completado perdido), se cierra ahora.
         quiz_completed = quiz.get('Status') == 'in_progress' and complete_if_all_answered(quiz, student_id)
+        # already_answered + given_answers: la calificación es la de la respuesta guardada,
+        # no la que el alumno acaba de marcar. Sin esto, si el frontend volvía a mostrar una
+        # pregunta ya respondida (copia vieja del quiz en localStorage tras recargar), la
+        # alumna marcaba B (correcta), veía "Incorreto" (se había guardado C) y la explicación
+        # mostraba B como correcta (bug 04-Oct).
         return build_response(201, {
             'result_id': result['ResultID'],
             'quiz_id': quiz_id,
             'is_correct': result.get('IsCorrect', False),
+            'already_answered': True,
+            'given_answers': result.get('GivenAnswers', []),
             'explanation': explanation,
             'options': options_breakdown,
             'quiz_completed': quiz_completed
@@ -1059,6 +1066,8 @@ def submit_answer(student_id, body, lang='en'):
         'result_id': result_id,
         'quiz_id': quiz_id,
         'is_correct': is_correct,
+        'already_answered': False,
+        'given_answers': normalized_given,
         'explanation': explanation,
         'options': options_breakdown,
         'quiz_completed': quiz_completed
