@@ -1210,6 +1210,10 @@ class TestSubmitAnswer(unittest.TestCase):
         self.assertEqual(body['result_id'], 'r-original')
         # La respuesta original (incorrecta) se conserva, no se sobreescribe
         self.assertFalse(body['is_correct'])
+        # Y se informa cuál fue la respuesta calificada, para que el frontend no muestre
+        # "Incorreto" junto a la opción correcta recién marcada (bug 04-Oct).
+        self.assertTrue(body['already_answered'])
+        self.assertEqual(body['given_answers'], ['B'])
 
         mock_results.put_item.assert_not_called()
 
