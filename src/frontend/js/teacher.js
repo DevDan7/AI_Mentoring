@@ -254,14 +254,6 @@ function setupEvents() {
         });
     }
 
-    const logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            logout();
-        });
-    }
-
     const closeHistoryBtn = document.getElementById('closeHistoryBtn');
     if (closeHistoryBtn) {
         closeHistoryBtn.addEventListener('click', function() {

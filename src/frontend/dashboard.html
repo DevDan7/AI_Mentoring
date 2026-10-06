@@ -13,9 +13,8 @@
             <li><strong>☁️ AI Mentoring Cloud</strong></li>
         </ul>
         <ul>
-            <li><span id="userName" data-i18n="dash.loadingProfile">Carregando perfil...</span></li>
             <li id="langSwitcher"></li>
-            <li><a href="#" role="button" class="secondary" onclick="logout()" data-i18n="common.logout">Sair</a></li>
+            <li id="userMenu"></li>
         </ul>
     </nav>
 
@@ -111,6 +110,7 @@
     <script src="js/config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
     <script>
         (async function initDashboard() {
             try {
@@ -138,7 +138,7 @@
             try {
                 const data = await ensureStudentProfile();
 
-                document.getElementById("userName").innerText = data.Name || t("dash.defaultName");
+                renderUserMenu(data.Name, data.Email);
                 document.getElementById("userEmail").innerText = data.Email;
                 document.getElementById("userCohort").innerText = data.CohortID || t("dash.noCohort");
 
@@ -183,10 +183,15 @@
                 for (const q of quizzes) {
                     const type = tEnum('quizType', q.quiz_type);
                     const score = q.score_percentage !== null && q.score_percentage !== undefined ? `${q.score_percentage}%` : '-';
-                    const date = q.completed_at ? new Date(q.completed_at).toLocaleDateString(getLocale()) : '-';
-                    const details = q.status === 'completed'
-                        ? `<a href="results.html?quizId=${encodeURIComponent(q.quiz_id)}">${esc(t("teacher.viewDetails"))}</a>`
-                        : '-';
+                    // Em andamento ainda não tem completed_at: mostra a data de início.
+                    const dateIso = q.completed_at || q.created_at;
+                    const date = dateIso ? new Date(dateIso).toLocaleDateString(getLocale()) : '-';
+                    let details = '-';
+                    if (q.status === 'completed') {
+                        details = `<a href="results.html?quizId=${encodeURIComponent(q.quiz_id)}">${esc(t("teacher.viewDetails"))}</a>`;
+                    } else if (q.status === 'in_progress') {
+                        details = `<a href="quiz.html?quizId=${encodeURIComponent(q.quiz_id)}">${esc(t("dash.continue"))}</a>`;
+                    }
                     html += `<tr><td>${esc(type)}</td><td>${esc(q.topic || '')}</td><td>${esc(tEnum('status', q.status))}</td><td>${score}</td><td>${esc(date)}</td><td>${details}</td></tr>`;
                 }
                 html += "</tbody></table>";
