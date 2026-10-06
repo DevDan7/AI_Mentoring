@@ -438,6 +438,102 @@ nav #langSwitcher {
     align-items: center;
 }
 
+/* ========== Nav: volver, menú de usuario ========== */
+.nav-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    color: var(--text);
+    font-size: 1.25rem;
+    line-height: 1;
+    text-decoration: none;
+}
+
+.nav-back:hover {
+    background: var(--surface-2);
+    color: var(--accent);
+}
+
+.user-menu {
+    position: relative;
+}
+
+.user-menu > .user-avatar {
+    width: 2.25rem;
+    height: 2.25rem;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--bg);
+    font-size: 0.85rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.user-menu > .user-avatar:focus-visible {
+    outline: 2px solid var(--accent-hover);
+    outline-offset: 2px;
+}
+
+.user-menu-panel {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    z-index: 20;
+    min-width: 13rem;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.user-menu-info {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 0.75rem;
+    overflow-wrap: anywhere;
+}
+
+.user-menu-info small {
+    color: var(--text-muted);
+}
+
+.user-menu-panel > button {
+    width: 100%;
+    margin: 0;
+    padding: 0.4rem 0.75rem;
+}
+
+/* ========== Botón flotante "volver arriba" ========== */
+.back-to-top {
+    position: fixed;
+    right: 1rem;
+    bottom: 1.25rem;
+    z-index: 30;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--bg);
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.back-to-top[hidden] {
+    display: none;
+}
+
 /* Login: selector en la esquina de la card */
 article > header {
     position: relative;
