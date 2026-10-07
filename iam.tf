@@ -288,6 +288,13 @@ resource "aws_iam_policy" "quiz_engine_policy" {
         Resource = aws_dynamodb_table.students.arn
       },
       {
+        # Regla de acceso: leer el Status de la turma del alumno (turma cerrada = 403)
+        Sid      = "AllowReadCohortStatus"
+        Effect   = "Allow"
+        Action   = ["dynamodb:GetItem"]
+        Resource = aws_dynamodb_table.cohorts.arn
+      },
+      {
         Sid    = "AllowWriteLambdaLogs"
         Effect = "Allow"
         Action = [

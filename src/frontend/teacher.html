@@ -7,11 +7,16 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <link rel="stylesheet" href="css/theme.css">
     <style>
-        .btn-history, .btn-set-exam, .btn-reset-exam { display: inline-block; width: auto !important; margin-bottom: 0 !important; margin-right: 0.25rem; }
+        .btn-cohort-status { display: inline-block; width: auto !important; margin-bottom: 0 !important; margin-right: 0.25rem; }
         .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
         .kpi-card { text-align: center; padding: 1rem; }
         .kpi-number { font-size: 2rem; font-weight: bold; }
         .kpi-label { font-size: 0.85rem; opacity: 0.7; }
+        .access-badge { font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+        .access-badge[data-access="active"], .access-badge[data-access="open"] { color: var(--success); }
+        .access-badge[data-access="blocked"], .access-badge[data-access="cohort_closed"] { color: var(--danger); }
+        .student-actions { margin-bottom: 0; min-width: 11rem; padding-top: 0.4rem; padding-bottom: 0.4rem; }
+        .cycle-tag { font-size: 0.75rem; opacity: 0.7; margin-left: 0.35rem; white-space: nowrap; }
     </style>
 </head>
 <body>
@@ -84,6 +89,7 @@
                                     <th data-i18n="teacher.col.cohort">Turma</th>
                                     <th data-i18n="teacher.col.phase">Fase Atual</th>
                                     <th data-i18n="teacher.col.finalExam">Exame Final</th>
+                                    <th data-i18n="teacher.col.access">Acesso</th>
                                     <th data-i18n="teacher.col.actions">Ações</th>
                                 </tr>
                             </thead>
@@ -121,8 +127,8 @@
             </section>
         </section>
 
-        <!-- Sección de Turmas -->
-        <section class="section" style="display: none;">
+        <!-- Sección de Turmas: estado del ciclo y "Encerrar ciclo" (doc/ciclo-de-vida-turmas.md) -->
+        <section class="section">
             <article>
                 <header>
                     <h4 data-i18n="teacher.cohortsTitle">Turmas</h4>
@@ -135,7 +141,8 @@
                                 <th data-i18n="teacher.col.cohortName">Nome</th>
                                 <th data-i18n="teacher.col.students">Alunos</th>
                                 <th data-i18n="teacher.col.max">Máximo</th>
-                                <th>%</th>
+                                <th data-i18n="teacher.col.cycleStatus">Ciclo</th>
+                                <th data-i18n="teacher.col.actions">Ações</th>
                             </tr>
                         </thead>
                         <tbody id="cohortsTable">

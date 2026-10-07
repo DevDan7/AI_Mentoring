@@ -3,7 +3,7 @@ import os
 import re
 import boto3
 from decimal import Decimal
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key, Attr
 
@@ -51,6 +51,57 @@ def parse_iso_datetime_utc(value):
     return dt
 
 
+COHORT_TYPE_GUESTS = 'convidados'
+
+
+def evaluate_access(student, cohort, now=None):
+    """Decide si el alumno tiene acceso. Retorna (bool, motivo).
+
+    Precedencia (ver doc/ciclo-de-vida-turmas.md):
+      1. AccessStatus == 'blocked'                       -> sin acceso
+      2. AccessStatus == 'open' y AccessUntil vigente/ausente -> con acceso
+      3. Turma con Status == 'closed'                    -> sin acceso
+      4. Caso contrario                                  -> con acceso
+    No hay vencimiento automático: el ciclo lo cierra el profesor.
+
+    NOTA: función DUPLICADA IDÉNTICA en student_api.py y quiz_engine.py — cada
+    Lambda se empaqueta como un único .py (archive_file source_file), no hay
+    módulo compartido. Si se cambia una copia, cambiar la otra.
+    """
+    now = now or datetime.now(timezone.utc)
+    status = (student or {}).get('AccessStatus')
+    if status == 'blocked':
+        return False, 'blocked'
+    if status == 'open':
+        until = student.get('AccessUntil')
+        if not until:
+            return True, 'open'
+        try:
+            if parse_iso_datetime_utc(until) > now:
+                return True, 'open'
+        except ValueError:
+            pass
+    if (cohort or {}).get('Status') == 'closed':
+        return False, 'cohort_closed'
+    return True, 'active'
+
+
+def student_cycle(student):
+    """Ciclo actual del alumno (1 si nunca se reinició)."""
+    return int((student or {}).get('Cycle', 1))
+
+
+def quiz_cycle(quiz):
+    """Ciclo al que pertenece un quiz (los anteriores a los ciclos no tienen el campo)."""
+    return int((quiz or {}).get('Cycle', 1))
+
+
+def get_cohort_item(cohort_id):
+    if not cohort_id:
+        return None
+    return cohorts_table.get_item(Key={'CohortID': cohort_id}).get('Item')
+
+
 def lambda_handler(event, context):
     route_key = event.get('routeKey')
     path_params = event.get('pathParameters', {})
@@ -94,6 +145,15 @@ def lambda_handler(event, context):
     elif route_key == 'DELETE /students/{studentId}/final-exam-attempt':
         student_id = path_params.get('studentId')
         return reset_final_exam_attempt(claims, student_id)
+    elif route_key == 'PUT /students/{studentId}/access':
+        student_id = path_params.get('studentId')
+        return set_student_access(event, claims, student_id)
+    elif route_key == 'POST /students/{studentId}/restart':
+        student_id = path_params.get('studentId')
+        return restart_student_cycle(claims, student_id)
+    elif route_key == 'PUT /cohorts/{cohortId}/status':
+        cohort_id = path_params.get('cohortId')
+        return set_cohort_status(event, claims, cohort_id)
     else:
         return build_response(404, {'message': f'Route not found: {route_key}'})
 
@@ -117,6 +177,10 @@ def get_cohort_capacity(cohort_id):
         return build_response(404, {'message': f'Cohort not found: {cohort_id}'})
 
     cohort = cohort_item['Item']
+    if cohort.get('Type') == COHORT_TYPE_GUESTS:
+        return build_response(200, {
+            'cohort_id': cohort_id, 'current_count': 0, 'max_students': 0, 'is_full': False
+        })
     max_students = int(cohort.get('MaxStudents', 0))
 
     count_response = students_table.query(
@@ -155,10 +219,10 @@ def create_student(event, claims):
         if 'Item' not in cohort_item:
             return build_response(400, {'message': f'Cohort not found: {cohort_id}'})
         
-        # Validar cupo máximo de la turma
+        # Validar cupo máximo de la turma (la turma de convidados no tiene tope)
         cohort = cohort_item['Item']
         max_students = cohort.get('MaxStudents')
-        if max_students is not None:
+        if max_students is not None and cohort.get('Type') != COHORT_TYPE_GUESTS:
             # Contar alumnos actuales en la turma
             count_response = students_table.query(
                 IndexName='CohortIndex',
@@ -170,16 +234,15 @@ def create_student(event, claims):
                 return build_response(403, {'message': 'Turma está cheia'})
 
     try:
-        # AccessExpiresAt = CreatedAt + 30 días por defecto
-        access_expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
-        
+        # Sin vencimiento automático: el acceso lo controla el profesor
+        # (cierre del ciclo de la turma, bloqueo o extensión por alumno).
         item = {
             'StudentID': student_id,
             'Email': email,
             'Name': name,
             'CreatedAt': created_at,
             'UpdatedAt': created_at,
-            'AccessExpiresAt': access_expires_at,
+            'Cycle': 1,
             'CurrentPhase': 'initial',
             'PhaseHistory': [],
             'FailedAttempts': {
@@ -225,12 +288,12 @@ def get_student(student_id, claims):
     if not student:
         return build_response(404, {'message': f'Student not found: {student_id}'})
 
-    # Verificar si el acceso expiró
-    access_expires_at = student.get('AccessExpiresAt')
-    if access_expires_at:
-        expires_dt = datetime.fromisoformat(access_expires_at.replace('Z', '+00:00'))
-        if datetime.now(timezone.utc) > expires_dt:
-            return build_response(403, {'message': 'Acesso expirado. Entre em contato com seu instrutor.'})
+    # El profesor siempre puede ver el perfil; el alumno solo con acceso vigente
+    if not is_teacher(claims):
+        allowed, _ = evaluate_access(student, get_cohort_item(student.get('CohortID')))
+        if not allowed:
+            return build_response(403, {'message': 'Acesso encerrado. Entre em contato com seu instrutor.',
+                                        'code': 'access_closed'})
 
     return build_response(200, student)
 
@@ -287,7 +350,9 @@ def get_quiz_history(claims):
         IndexName='StudentIndex',
         KeyConditionExpression=Key('StudentID').eq(student_id)
     )
-    quizzes = response.get('Items', [])
+    # El alumno solo ve su ciclo actual; los ciclos anteriores quedan para el profesor
+    cycle = student_cycle(student)
+    quizzes = [q for q in response.get('Items', []) if quiz_cycle(q) == cycle]
     quizzes.sort(key=lambda q: q.get('CreatedAt', ''), reverse=True)
 
     history = []
@@ -411,7 +476,9 @@ def list_all_students(claims):
             'current_phase': s.get('CurrentPhase', 'initial'),
             'failed_attempts': s.get('FailedAttempts', {}),
             'created_at': s.get('CreatedAt', ''),
-            'access_expires_at': s.get('AccessExpiresAt', ''),
+            'access_status': s.get('AccessStatus', ''),
+            'access_until': s.get('AccessUntil', ''),
+            'cycle': student_cycle(s),
             'final_exam_release_date': s.get('FinalExamReleaseDate', ''),
             'has_taken_initial_test': s.get('HasTakenInitialTest', False)
         })
@@ -440,7 +507,8 @@ def get_student_quizzes(student_id, claims):
             'status': q.get('Status', ''),
             'created_at': q.get('CreatedAt', ''),
             'completed_at': q.get('CompletedAt', ''),
-            'score_percentage': float(q['ScorePercentage']) if q.get('ScorePercentage') is not None else None
+            'score_percentage': float(q['ScorePercentage']) if q.get('ScorePercentage') is not None else None,
+            'cycle': quiz_cycle(q)
         })
 
     return build_response(200, {'quizzes': history})
@@ -491,7 +559,9 @@ def reset_final_exam_attempt(claims, target_student_id):
         KeyConditionExpression=Key('StudentID').eq(target_student_id),
         FilterExpression=Attr('QuizType').eq('final_exam')
     )
-    quizzes = response.get('Items', [])
+    student = students_table.get_item(Key={'StudentID': target_student_id}).get('Item', {})
+    cycle = student_cycle(student)
+    quizzes = [q for q in response.get('Items', []) if quiz_cycle(q) == cycle]
     quizzes.sort(key=lambda q: q.get('CreatedAt', ''), reverse=True)
 
     active_quiz = next((q for q in quizzes if q.get('Status') != 'reset'), None)
@@ -547,7 +617,176 @@ def list_cohorts(claims):
             'cohort_id': cohort_id,
             'name': c.get('Name', ''),
             'max_students': int(c.get('MaxStudents', 0)),
-            'current_count': count_by_cohort.get(cohort_id, 0)
+            'current_count': count_by_cohort.get(cohort_id, 0),
+            'type': c.get('Type', 'regular'),
+            'status': c.get('Status', 'active'),
+            'closed_at': c.get('ClosedAt', '')
         })
 
     return build_response(200, {'cohorts': result})
+
+
+# ========== CICLO DE VIDA: ACCESO, REINTENTO Y CIERRE DE TURMA ==========
+# Diseño: doc/ciclo-de-vida-turmas.md
+
+def set_student_access(event, claims, target_student_id):
+    """Profesor: bloquear, desbloquear o abrir (extender) el acceso de un alumno.
+
+    body: {"action": "block"} | {"action": "unblock"} | {"action": "open", "until": <ISO opcional>}
+      - block:   AccessStatus = blocked (gana sobre todo lo demás)
+      - unblock: vuelve a heredar el estado de la turma
+      - open:    acceso aunque la turma esté cerrada, hasta `until` o sin límite
+    """
+    if not is_teacher(claims):
+        return build_response(403, {'message': 'Only teachers can change student access'})
+
+    try:
+        data = json.loads(event.get('body') or '{}')
+    except ValueError:
+        return build_response(400, {'message': 'Invalid JSON body'})
+    action = data.get('action') if isinstance(data, dict) else None
+    now = datetime.now(timezone.utc)
+
+    values = {':updated_at': now.isoformat()}
+    if action == 'block':
+        update = 'SET AccessStatus = :status, UpdatedAt = :updated_at REMOVE AccessUntil'
+        values[':status'] = 'blocked'
+    elif action == 'unblock':
+        update = 'SET UpdatedAt = :updated_at REMOVE AccessStatus, AccessUntil'
+    elif action == 'open':
+        until = data.get('until')
+        if until:
+            try:
+                until_dt = parse_iso_datetime_utc(until)
+            except ValueError:
+                return build_response(400, {'message': f'until inválida: {until!r}'})
+            if until_dt <= now:
+                return build_response(400, {'message': 'until debe ser una fecha futura'})
+            update = 'SET AccessStatus = :status, AccessUntil = :until, UpdatedAt = :updated_at'
+            values[':until'] = until_dt.isoformat()
+        else:
+            update = 'SET AccessStatus = :status, UpdatedAt = :updated_at REMOVE AccessUntil'
+        values[':status'] = 'open'
+    else:
+        return build_response(400, {'message': 'action must be one of: block, unblock, open'})
+
+    try:
+        result = students_table.update_item(
+            Key={'StudentID': target_student_id},
+            UpdateExpression=update,
+            ConditionExpression='attribute_exists(StudentID)',
+            ExpressionAttributeValues=values,
+            ReturnValues='ALL_NEW'
+        )
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+            return build_response(404, {'message': 'Student not found'})
+        raise
+
+    student = result['Attributes']
+    return build_response(200, {
+        'student_id': target_student_id,
+        'access_status': student.get('AccessStatus', ''),
+        'access_until': student.get('AccessUntil', '')
+    })
+
+
+def restart_student_cycle(claims, target_student_id):
+    """Profesor: "Recomeçar do zero". Abre un ciclo nuevo para el alumno.
+
+    No borra nada: los quizzes del ciclo anterior quedan con su Cycle y siguen visibles
+    para el profesor; el alumno ve el dashboard limpio. El acceso queda abierto
+    (AccessStatus = open) aunque su turma esté cerrada, hasta que el profesor decida.
+    """
+    if not is_teacher(claims):
+        return build_response(403, {'message': 'Only teachers can restart a student cycle'})
+
+    student = students_table.get_item(Key={'StudentID': target_student_id}).get('Item')
+    if not student:
+        return build_response(404, {'message': 'Student not found'})
+
+    previous_cycle = student_cycle(student)
+    new_cycle = previous_cycle + 1
+    now = datetime.now(timezone.utc).isoformat()
+
+    try:
+        students_table.update_item(
+            Key={'StudentID': target_student_id},
+            UpdateExpression=(
+                'SET #c = :new_cycle, CurrentPhase = :phase, HasTakenInitialTest = :false, '
+                'AccessStatus = :open, UpdatedAt = :now, '
+                'PhaseHistory = list_append(if_not_exists(PhaseHistory, :empty_list), :entry) '
+                'REMOVE FinalExamReleaseDate, InitialTestQuizID, AccessUntil'
+            ),
+            # Condición: evita doble reinicio si el profesor hace doble click
+            ConditionExpression='attribute_not_exists(#c) OR #c = :prev_cycle',
+            ExpressionAttributeNames={'#c': 'Cycle'},
+            ExpressionAttributeValues={
+                ':new_cycle': new_cycle,
+                ':prev_cycle': previous_cycle,
+                ':phase': 'initial',
+                ':false': False,
+                ':open': 'open',
+                ':now': now,
+                ':empty_list': [],
+                ':entry': [{'Phase': 'initial', 'Cycle': new_cycle, 'UnlockedAt': now,
+                            'UnlockedBy': claims.get('sub'), 'Reason': 'restart'}],
+            }
+        )
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+            return build_response(409, {'message': 'O ciclo do aluno mudou; recarregue a página.'})
+        raise
+
+    return build_response(200, {
+        'student_id': target_student_id,
+        'previous_cycle': previous_cycle,
+        'cycle': new_cycle
+    })
+
+
+def set_cohort_status(event, claims, cohort_id):
+    """Profesor: encerrar (closed) o reabrir (active) el ciclo de una turma.
+
+    Encerrar corta el acceso de todos sus alumnos, salvo los que tengan AccessStatus
+    = open. ClosedAt delimita el ciclo para las métricas. La turma de convidados no
+    se cierra: su acceso se maneja alumno por alumno.
+    """
+    if not is_teacher(claims):
+        return build_response(403, {'message': 'Only teachers can change cohort status'})
+
+    try:
+        data = json.loads(event.get('body') or '{}')
+    except ValueError:
+        return build_response(400, {'message': 'Invalid JSON body'})
+    status = data.get('status') if isinstance(data, dict) else None
+    if status not in ('closed', 'active'):
+        return build_response(400, {'message': 'status must be "closed" or "active"'})
+
+    cohort = get_cohort_item(cohort_id)
+    if not cohort:
+        return build_response(404, {'message': f'Cohort not found: {cohort_id}'})
+    if cohort.get('Type') == COHORT_TYPE_GUESTS:
+        return build_response(400, {'message': 'A turma de convidados não tem ciclo; bloqueie alunos individualmente.'})
+
+    now = datetime.now(timezone.utc).isoformat()
+    if status == 'closed':
+        update = 'SET #s = :status, ClosedAt = :now, ClosedBy = :by'
+        values = {':status': 'closed', ':now': now, ':by': claims.get('sub')}
+    else:
+        update = 'SET #s = :status, ReopenedAt = :now REMOVE ClosedAt, ClosedBy'
+        values = {':status': 'active', ':now': now}
+
+    result = cohorts_table.update_item(
+        Key={'CohortID': cohort_id},
+        UpdateExpression=update,
+        ExpressionAttributeNames={'#s': 'Status'},
+        ExpressionAttributeValues=values,
+        ReturnValues='ALL_NEW'
+    )
+    attrs = result['Attributes']
+    return build_response(200, {
+        'cohort_id': cohort_id,
+        'status': attrs.get('Status'),
+        'closed_at': attrs.get('ClosedAt', '')
+    })

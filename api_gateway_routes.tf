@@ -95,6 +95,22 @@ resource "aws_apigatewayv2_route" "students_final_exam_attempt_delete" {
   authorization_type = "JWT"
 }
 
+resource "aws_apigatewayv2_route" "students_access_put" {
+  api_id             = aws_apigatewayv2_api.mentoring_api.id
+  route_key          = "PUT /students/{studentId}/access"
+  target             = "integrations/${aws_apigatewayv2_integration.student.id}"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+  authorization_type = "JWT"
+}
+
+resource "aws_apigatewayv2_route" "students_restart_post" {
+  api_id             = aws_apigatewayv2_api.mentoring_api.id
+  route_key          = "POST /students/{studentId}/restart"
+  target             = "integrations/${aws_apigatewayv2_integration.student.id}"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+  authorization_type = "JWT"
+}
+
 resource "aws_apigatewayv2_route" "students_list" {
   api_id             = aws_apigatewayv2_api.mentoring_api.id
   route_key          = "GET /students"
@@ -126,6 +142,14 @@ resource "aws_apigatewayv2_route" "cohorts_list" {
 resource "aws_apigatewayv2_route" "cohorts_capacity_get" {
   api_id             = aws_apigatewayv2_api.mentoring_api.id
   route_key          = "GET /cohorts/{cohortId}/capacity"
+  target             = "integrations/${aws_apigatewayv2_integration.student.id}"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+  authorization_type = "JWT"
+}
+
+resource "aws_apigatewayv2_route" "cohorts_status_put" {
+  api_id             = aws_apigatewayv2_api.mentoring_api.id
+  route_key          = "PUT /cohorts/{cohortId}/status"
   target             = "integrations/${aws_apigatewayv2_integration.student.id}"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
   authorization_type = "JWT"
