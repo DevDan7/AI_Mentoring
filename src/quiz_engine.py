@@ -17,6 +17,7 @@ questions_table = dynamodb.Table(os.environ['QUESTIONS_TABLE'])
 quizzes_table = dynamodb.Table(os.environ['QUIZZES_TABLE'])
 quiz_results_table = dynamodb.Table(os.environ['QUIZ_RESULTS_TABLE'])
 students_table = dynamodb.Table(os.environ['STUDENTS_TABLE'])
+cohorts_table = dynamodb.Table(os.environ['COHORTS_TABLE'])
 
 # Un lock de generación más viejo que esto se considera abandonado (Lambda cortada por
 # timeout: el `finally` no corre). Debe ser MAYOR que el timeout de la Lambda (25 s en
@@ -183,20 +184,63 @@ def parse_iso_datetime_utc(value):
     return dt
 
 
+def evaluate_access(student, cohort, now=None):
+    """Decide si el alumno tiene acceso. Retorna (bool, motivo).
+
+    Precedencia (ver doc/ciclo-de-vida-turmas.md):
+      1. AccessStatus == 'blocked'                       -> sin acceso
+      2. AccessStatus == 'open' y AccessUntil vigente/ausente -> con acceso
+      3. Turma con Status == 'closed'                    -> sin acceso
+      4. Caso contrario                                  -> con acceso
+    No hay vencimiento automático: el ciclo lo cierra el profesor.
+
+    NOTA: función DUPLICADA IDÉNTICA en student_api.py y quiz_engine.py — cada
+    Lambda se empaqueta como un único .py (archive_file source_file), no hay
+    módulo compartido. Si se cambia una copia, cambiar la otra.
+    """
+    now = now or datetime.now(timezone.utc)
+    status = (student or {}).get('AccessStatus')
+    if status == 'blocked':
+        return False, 'blocked'
+    if status == 'open':
+        until = student.get('AccessUntil')
+        if not until:
+            return True, 'open'
+        try:
+            if parse_iso_datetime_utc(until) > now:
+                return True, 'open'
+        except ValueError:
+            pass
+    if (cohort or {}).get('Status') == 'closed':
+        return False, 'cohort_closed'
+    return True, 'active'
+
+
+def student_cycle(student):
+    """Ciclo actual del alumno (1 si nunca se reinició)."""
+    return int((student or {}).get('Cycle', 1))
+
+
+def quiz_cycle(quiz):
+    """Ciclo al que pertenece un quiz (los anteriores a los ciclos no tienen el campo)."""
+    return int((quiz or {}).get('Cycle', 1))
+
+
 def check_student_access(student_id):
-    """Verifica si el estudiante tiene acceso vigente. Retorna error 403 si expiró."""
+    """Verifica si el estudiante tiene acceso vigente. Retorna el error (para 403) o None."""
     student_response = students_table.get_item(Key={'StudentID': student_id})
     student = student_response.get('Item')
-    
+
     if not student:
         return {'error': 'Student not found'}
-    
-    access_expires_at = student.get('AccessExpiresAt')
-    if access_expires_at:
-        expires_dt = datetime.fromisoformat(access_expires_at.replace('Z', '+00:00'))
-        if datetime.now(timezone.utc) > expires_dt:
-            return {'error': 'Access expired. Contact your instructor to renew access.'}
-    
+
+    cohort = None
+    if student.get('CohortID'):
+        cohort = cohorts_table.get_item(Key={'CohortID': student['CohortID']}).get('Item')
+    allowed, _ = evaluate_access(student, cohort)
+    if not allowed:
+        return {'error': 'Acesso encerrado. Entre em contato com seu instrutor.', 'code': 'access_closed'}
+
     return None
 
 
@@ -275,8 +319,9 @@ def generate_quiz(student_id, body, lang='en'):
             'allowed_types': allowed
         })
 
+    cycle = student_cycle(student)
     if quiz_type == 'initial':
-        return generate_initial_quiz(student_id, lang)
+        return generate_initial_quiz(student_id, lang, cycle)
     elif quiz_type == 'final_exam':
         return generate_final_exam(student_id, lang)
 
@@ -346,7 +391,8 @@ def generate_quiz(student_id, body, lang='en'):
         'Topic': topic,
         'Questions': question_ids,
         'Status': 'in_progress',
-        'CreatedAt': created_at
+        'CreatedAt': created_at,
+        'Cycle': cycle
     })
 
     return build_response(201, {
@@ -358,23 +404,24 @@ def generate_quiz(student_id, body, lang='en'):
     })
 
 
-def _find_in_progress_initial(student_id):
+def _find_in_progress_initial(student_id, cycle=1):
     response = quizzes_table.query(
         IndexName='StudentIndex',
         KeyConditionExpression=Key('StudentID').eq(student_id),
         FilterExpression=Attr('QuizType').eq('initial')
     )
-    return next((q for q in response.get('Items', []) if q.get('Status') == 'in_progress'), None)
+    return next((q for q in response.get('Items', [])
+                 if q.get('Status') == 'in_progress' and quiz_cycle(q) == cycle), None)
 
 
-def generate_initial_quiz(student_id, lang='en'):
+def generate_initial_quiz(student_id, lang='en', cycle=1):
     """Genera el diagnóstico inicial, o reanuda el que ya esté en curso.
 
     Mismo patrón que generate_final_exam: sin el lock, dos requests casi simultáneas
     (doble tap en "Iniciar teste") creaban dos diagnósticos para el mismo alumno
     (bug 29-Sep: alumna con un inicial completado y otro "in_progress" 0/20,
     creados con 2 s de diferencia)."""
-    in_progress = _find_in_progress_initial(student_id)
+    in_progress = _find_in_progress_initial(student_id, cycle)
     if in_progress:
         return resume_quiz(in_progress, lang)
 
@@ -386,15 +433,15 @@ def generate_initial_quiz(student_id, lang='en'):
 
     try:
         # Double-check con datos frescos: otra request pudo crearlo mientras esperábamos el lock.
-        in_progress = _find_in_progress_initial(student_id)
+        in_progress = _find_in_progress_initial(student_id, cycle)
         if in_progress:
             return resume_quiz(in_progress, lang)
-        return _create_initial_quiz(student_id, lang)
+        return _create_initial_quiz(student_id, lang, cycle)
     finally:
         _release_generation_lock(student_id, 'InitialTestGenerationLock')
 
 
-def _create_initial_quiz(student_id, lang='en'):
+def _create_initial_quiz(student_id, lang='en', cycle=1):
     """Selecciona 20 preguntas distribuidas por temas y crea el quiz. Se asume que
     ya se tiene el lock de generación (ver generate_initial_quiz)."""
     topic_buckets = []
@@ -454,7 +501,8 @@ def _create_initial_quiz(student_id, lang='en'):
         'Topic': 'initial',
         'Questions': question_ids,
         'Status': 'in_progress',
-        'CreatedAt': created_at
+        'CreatedAt': created_at,
+        'Cycle': cycle
     })
 
     # Guardar referencia del quiz en el student para poder retomarlo
@@ -620,13 +668,15 @@ def generate_final_exam(student_id, lang='en'):
     if not student:
         return build_response(404, {'error': 'Student not found'})
 
-    # Revisar exámenes finales existentes del alumno
+    # Revisar exámenes finales del alumno en su ciclo actual (un reintento
+    # "Recomeçar do zero" abre un ciclo nuevo con derecho a otro examen final)
+    cycle = student_cycle(student)
     quizzes_response = quizzes_table.query(
         IndexName='StudentIndex',
         KeyConditionExpression=Key('StudentID').eq(student_id),
         FilterExpression=Attr('QuizType').eq('final_exam')
     )
-    exams = quizzes_response.get('Items', [])
+    exams = [q for q in quizzes_response.get('Items', []) if quiz_cycle(q) == cycle]
     completed_count = sum(1 for q in exams if q.get('Status') == 'completed')
     if not can_generate_final_exam(completed_count):
         return build_response(403, {
@@ -676,7 +726,7 @@ def generate_final_exam(student_id, lang='en'):
             KeyConditionExpression=Key('StudentID').eq(student_id),
             FilterExpression=Attr('QuizType').eq('final_exam')
         )
-        recheck_exams = recheck_response.get('Items', [])
+        recheck_exams = [q for q in recheck_response.get('Items', []) if quiz_cycle(q) == cycle]
         existing_in_progress = next((q for q in recheck_exams if q.get('Status') == 'in_progress'), None)
         if existing_in_progress:
             return resume_quiz(existing_in_progress, lang)
@@ -685,7 +735,7 @@ def generate_final_exam(student_id, lang='en'):
                 'error': 'Você já realizou o exame final. Contate seu instrutor para um novo intento.'
             })
 
-        return _create_final_exam_quiz(student_id, lang)
+        return _create_final_exam_quiz(student_id, lang, cycle)
     finally:
         _release_generation_lock(student_id, 'FinalExamGenerationLock')
 
@@ -723,7 +773,7 @@ def _release_generation_lock(student_id, lock_attr):
     )
 
 
-def _create_final_exam_quiz(student_id, lang='en'):
+def _create_final_exam_quiz(student_id, lang='en', cycle=1):
     """Selecciona las 65 preguntas y crea el quiz. Se asume que ya se tiene el
     lock de generación (ver generate_final_exam) y que no hay otro examen final
     en curso o completado para este alumno."""
@@ -797,7 +847,8 @@ def _create_final_exam_quiz(student_id, lang='en'):
         'Topic': 'final_exam',
         'Questions': question_ids,
         'Status': 'in_progress',
-        'CreatedAt': created_at
+        'CreatedAt': created_at,
+        'Cycle': cycle
     })
 
     return build_response(201, {

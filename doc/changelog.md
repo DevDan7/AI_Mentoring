@@ -6,6 +6,20 @@
 
 ## 2026-10
 
+### 06 Oct — Ciclo de vida de turmas: acceso manual, encerrar ciclo, convidados y reintento
+- **Problema**: el acceso vencía a los 30 días de creado el perfil (`AccessExpiresAt`), sin relación con
+  la turma: G3 seguía activa después del examen final y G4 se iba a cortar el 31/10 en plena mentoría.
+  No había forma de cerrar una turma, separar a los amigos que prueban la app ni dar un reintento a un
+  alumno reprobado sin perder su historial.
+- **Solución** (diseño en `doc/ciclo-de-vida-turmas.md`): sin vencimiento automático. El profesor
+  encierra/reabre el ciclo por turma (`PUT /cohorts/{id}/status`) y bloquea/libera por alumno
+  (`PUT /students/{id}/access`). Turma `convidados` sin cupo ni ciclo. "Recomeçar do zero"
+  (`POST /students/{id}/restart`) abre `Cycle + 1`: el alumno ve el dashboard limpio y puede rendir otro
+  examen final; los quizzes del ciclo anterior quedan para el profesor y las métricas. La regla de
+  acceso (`evaluate_access`) se valida en `student_api` y `quiz_engine`. Infra: 3 rutas, `UpdateItem`
+  en Cohorts para `student_api`, `GetItem` en Cohorts + `COHORTS_TABLE` para `quiz_engine`. Datos:
+  script manual `migrar_ciclo_vida.py` (dry-run por defecto).
+
 ### 02 Oct — Quizzes quedaban "Em andamento" con todas las preguntas respondidas
 - **Problema**: un alumno de BRSAO254-G4 respondió las 20 preguntas del diagnóstico inicial y el quiz
   quedó `in_progress`, sin score y sin avanzar a `free_practice`. En toda la base había 6 quizzes así

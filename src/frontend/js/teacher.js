@@ -22,8 +22,8 @@ async function initTeacherDashboard() {
         return;
     }
     
-    await loadStudents();
     await loadCohorts();
+    await loadStudents();
     loadKPIs();
     setupEvents();
 }
@@ -70,21 +70,55 @@ function renderStudentTable(students) {
         const finalExamStatus = failedFinalExam > 0
             ? `${releaseDate} · ${t("teacher.attempts", { count: failedFinalExam })}`
             : releaseDate;
+        const access = studentAccess(student);
+        const blocked = student.access_status === 'blocked';
+        const cycleTag = student.cycle > 1
+            ? `<span class="cycle-tag">${esc(t("teacher.cycleN", { n: student.cycle }))}</span>`
+            : '';
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td>${esc(student.name)}</td>
             <td>${esc(student.email)}</td>
             <td>${esc(student.cohort_id)}</td>
-            <td><span class="phase-badge" data-phase="${esc(student.current_phase || 'initial')}">${esc(tEnum('phase', student.current_phase || 'initial'))}</span></td>
+            <td><span class="phase-badge" data-phase="${esc(student.current_phase || 'initial')}">${esc(tEnum('phase', student.current_phase || 'initial'))}</span>${cycleTag}</td>
             <td>${esc(finalExamStatus)}</td>
+            <td><span class="access-badge" data-access="${esc(access.state)}">${esc(access.label)}</span></td>
             <td>
-                <button class="btn-history" data-student="${esc(student.student_id)}">${esc(t("teacher.btn.history"))}</button>
-                <button class="btn-set-exam" data-student="${esc(student.student_id)}">${esc(t("teacher.btn.setExam"))}</button>
-                <button class="btn-reset-exam" data-student="${esc(student.student_id)}">${esc(t("teacher.btn.resetExam"))}</button>
+                <select class="student-actions" data-student="${esc(student.student_id)}" data-name="${esc(student.name)}" aria-label="${esc(t("teacher.col.actions"))}">
+                    <option value="">${esc(t("teacher.actionsPlaceholder"))}</option>
+                    <option value="history">${esc(t("teacher.btn.history"))}</option>
+                    <option value="set-exam">${esc(t("teacher.btn.setExam"))}</option>
+                    <option value="reset-exam">${esc(t("teacher.btn.resetExam"))}</option>
+                    <option value="${blocked ? 'unblock' : 'block'}">${esc(t(blocked ? "teacher.btn.unblock" : "teacher.btn.block"))}</option>
+                    <option value="extend">${esc(t("teacher.btn.extend"))}</option>
+                    <option value="restart">${esc(t("teacher.btn.restart"))}</option>
+                </select>
             </td>
         `;
         tbody.appendChild(tr);
     });
+}
+
+// Estado de acceso efectivo, con la misma precedencia que evaluate_access() del backend:
+// bloqueo individual > extensión individual > turma encerrada > ativo.
+function studentAccess(student) {
+    const fmt = (iso) => new Date(iso).toLocaleDateString(getLocale());
+    if (student.access_status === 'blocked') {
+        return { state: 'blocked', label: t("teacher.access.blocked") };
+    }
+    if (student.access_status === 'open') {
+        if (!student.access_until) {
+            return { state: 'open', label: t("teacher.access.open") };
+        }
+        if (new Date(student.access_until) > new Date()) {
+            return { state: 'open', label: t("teacher.access.openUntil", { date: fmt(student.access_until) }) };
+        }
+    }
+    const cohort = allCohorts.find(c => c.cohort_id === student.cohort_id);
+    if (cohort && cohort.status === 'closed') {
+        return { state: 'cohort_closed', label: t("teacher.access.cohortClosed") };
+    }
+    return { state: 'active', label: t("teacher.access.active") };
 }
 
 // ========== CARGA DE KPIS ==========
@@ -130,9 +164,23 @@ async function loadCohorts() {
         if (!tbody) return;
         tbody.innerHTML = "";
         response.cohorts.forEach(cohort => {
-            const percentage = cohort.max_students > 0 ? Math.round((cohort.current_count / cohort.max_students) * 100) : 0;
+            const isGuests = cohort.type === 'convidados';
+            const closed = cohort.status === 'closed';
+            let statusLabel;
+            let action = '';
+            if (isGuests) {
+                // Convidados no tienen ciclo: el acceso se maneja alumno por alumno
+                statusLabel = t("teacher.cohort.guests");
+            } else if (closed) {
+                const date = cohort.closed_at ? new Date(cohort.closed_at).toLocaleDateString(getLocale()) : '';
+                statusLabel = t("teacher.cohort.closedOn", { date });
+                action = `<button class="btn-cohort-status secondary outline" data-cohort="${esc(cohort.cohort_id)}" data-status="active">${esc(t("teacher.btn.reopenCycle"))}</button>`;
+            } else {
+                statusLabel = t("teacher.cohort.open");
+                action = `<button class="btn-cohort-status" data-cohort="${esc(cohort.cohort_id)}" data-status="closed">${esc(t("teacher.btn.closeCycle"))}</button>`;
+            }
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${esc(cohort.cohort_id)}</td><td>${esc(cohort.name || '')}</td><td>${cohort.current_count}</td><td>${cohort.max_students}</td><td>${percentage}%</td>`;
+            tr.innerHTML = `<td>${esc(cohort.cohort_id)}</td><td>${esc(cohort.name || '')}</td><td>${cohort.current_count}</td><td>${isGuests ? '-' : cohort.max_students}</td><td>${esc(statusLabel)}</td><td>${action}</td>`;
             tbody.appendChild(tr);
         });
     } catch (err) {
@@ -186,7 +234,7 @@ async function loadStudentQuizzes(studentId) {
             const score = q.score_percentage !== null && q.score_percentage !== undefined ? q.score_percentage + '%' : '0%';
             const tr = document.createElement('tr');
             tr.innerHTML = `<td>${index + 1}</td>
-                <td>${esc(tEnum('quizType', q.quiz_type))} - ${esc(q.topic || '-')}</td>
+                <td>${esc(tEnum('quizType', q.quiz_type))} - ${esc(q.topic || '-')}${q.cycle > 1 ? `<span class="cycle-tag">${esc(t("teacher.cycleN", { n: q.cycle }))}</span>` : ''}</td>
                 <td><span class="${status}">${esc(tEnum('status', q.status || 'completed'))}</span></td>
                 <td>${esc(score)}</td>
                 <td>${esc(q.created_at ? new Date(q.created_at).toLocaleDateString(getLocale()) : '-')}</td>
@@ -218,6 +266,77 @@ async function resetFinalExamAttempt(studentId) {
     }
 }
 
+// ========== CICLO DE VIDA: ACCESO, REINTENTO Y TURMAS ==========
+
+async function setStudentAccess(studentId, body) {
+    try {
+        await apiCall("PUT", "/students/" + studentId + "/access", body);
+        await loadStudents();
+    } catch (err) {
+        showError(t("teacher.err.access") + err.message);
+    }
+}
+
+async function restartStudentCycle(studentId) {
+    try {
+        await apiCall("POST", "/students/" + studentId + "/restart");
+        await loadStudents();
+    } catch (err) {
+        showError(t("teacher.err.restart") + err.message);
+    }
+}
+
+async function setCohortStatus(cohortId, status) {
+    try {
+        await apiCall("PUT", "/cohorts/" + encodeURIComponent(cohortId) + "/status", { status });
+        await loadCohorts();
+        renderStudentTable(allStudents);
+    } catch (err) {
+        showError(t("teacher.err.cohortStatus") + err.message);
+    }
+}
+
+function runStudentAction(action, studentId, name) {
+    if (action === 'history') {
+        selectStudent(studentId);
+    } else if (action === 'set-exam') {
+        const raw = prompt(t("teacher.promptDate"));
+        if (raw !== null) {
+            const iso = normalizeReleaseDate(raw.trim());
+            if (iso) {
+                setFinalExamRelease(studentId, iso);
+            } else {
+                showError(t("teacher.err.invalidDate"));
+            }
+        }
+    } else if (action === 'reset-exam') {
+        if (confirm(t("teacher.confirmReset"))) {
+            resetFinalExamAttempt(studentId);
+        }
+    } else if (action === 'block' || action === 'unblock') {
+        setStudentAccess(studentId, { action });
+    } else if (action === 'extend') {
+        // Vacío = acceso liberado sin fecha límite
+        const raw = prompt(t("teacher.promptExtend"));
+        if (raw === null) return;
+        const value = raw.trim();
+        if (!value) {
+            setStudentAccess(studentId, { action: 'open' });
+            return;
+        }
+        const iso = normalizeReleaseDate(value);
+        if (iso) {
+            setStudentAccess(studentId, { action: 'open', until: iso });
+        } else {
+            showError(t("teacher.err.invalidDate"));
+        }
+    } else if (action === 'restart') {
+        if (confirm(t("teacher.confirmRestart", { name }))) {
+            restartStudentCycle(studentId);
+        }
+    }
+}
+
 // ========== EVENTOS ==========
 
 function setupEvents() {
@@ -229,27 +348,25 @@ function setupEvents() {
 
     const studentTableBody = document.getElementById('studentTable');
     if (studentTableBody) {
-        studentTableBody.addEventListener('click', function(e) {
-            if (e.target.classList.contains('btn-history')) {
-                selectStudent(e.target.dataset.student);
-            }
-            if (e.target.classList.contains('btn-set-exam')) {
-                const studentId = e.target.dataset.student;
-                const raw = prompt(t("teacher.promptDate"));
-                if (raw !== null) {
-                    const iso = normalizeReleaseDate(raw.trim());
-                    if (iso) {
-                        setFinalExamRelease(studentId, iso);
-                    } else {
-                        showError(t("teacher.err.invalidDate"));
-                    }
-                }
-            }
-            if (e.target.classList.contains('btn-reset-exam')) {
-                const studentId = e.target.dataset.student;
-                if (confirm(t("teacher.confirmReset"))) {
-                    resetFinalExamAttempt(studentId);
-                }
+        studentTableBody.addEventListener('change', function(e) {
+            const select = e.target;
+            if (!select.classList.contains('student-actions') || !select.value) return;
+            const action = select.value;
+            const studentId = select.dataset.student;
+            select.value = "";   // el selector vuelve a "Ações…" tras cada acción
+            runStudentAction(action, studentId, select.dataset.name);
+        });
+    }
+
+    const cohortsTableBody = document.getElementById('cohortsTable');
+    if (cohortsTableBody) {
+        cohortsTableBody.addEventListener('click', function(e) {
+            if (!e.target.classList.contains('btn-cohort-status')) return;
+            const cohortId = e.target.dataset.cohort;
+            const status = e.target.dataset.status;
+            const key = status === 'closed' ? "teacher.confirmCloseCycle" : "teacher.confirmReopenCycle";
+            if (confirm(t(key, { cohort: cohortId }))) {
+                setCohortStatus(cohortId, status);
             }
         });
     }

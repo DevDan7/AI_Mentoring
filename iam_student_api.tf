@@ -55,6 +55,13 @@ resource "aws_iam_policy" "student_api_policy" {
         Resource = aws_dynamodb_table.cohorts.arn
       },
       {
+        # Encerrar / reabrir el ciclo de una turma (PUT /cohorts/{cohortId}/status)
+        Sid      = "AllowUpdateCohortStatus"
+        Effect   = "Allow"
+        Action   = ["dynamodb:UpdateItem"]
+        Resource = aws_dynamodb_table.cohorts.arn
+      },
+      {
         Sid    = "AllowReadQuizzes"
         Effect = "Allow"
         Action = [
